@@ -8,8 +8,8 @@ defmodule GraphOS.MCP.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: GraphOS.MCP.Worker.start_link(arg)
-      # {GraphOS.MCP.Worker, arg}
+      # MCP protocol service
+      {GraphOS.MCP.Service.Supervisor, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

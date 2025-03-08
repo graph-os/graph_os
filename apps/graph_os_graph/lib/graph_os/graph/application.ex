@@ -8,8 +8,8 @@ defmodule GraphOS.Graph.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: GraphOS.Graph.Worker.start_link(arg)
-      # {GraphOS.Graph.Worker, arg}
+      # Supervisor for managing graph storage
+      {GraphOS.Graph.Storage.Supervisor, []}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

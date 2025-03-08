@@ -31,13 +31,15 @@ def deps do
 end
 ```
 
-## Development
+## Running the Project
 
-To work on GraphOS:
+### Starting the Entire Umbrella Application
+
+To start all components together:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/graph_os.git
+git clone https://github.com/graph-os/graph_os.git
 cd graph_os
 
 # Get dependencies
@@ -46,15 +48,51 @@ mix deps.get
 # Compile
 mix compile
 
-# Run tests
-mix test
+# Start the application
+iex -S mix
 ```
 
-## Documentation
+### Starting Individual Components
 
-Generate documentation with:
+Each component can be started independently:
+
+#### GraphOS.Graph
 
 ```bash
+cd graph_os/apps/graph_os_graph
+iex -S mix
+```
+
+This will start the graph library with ETS storage.
+
+#### GraphOS.Core
+
+```bash
+cd graph_os/apps/graph_os_core
+iex -S mix
+```
+
+This will start the core OS services like access control.
+
+#### GraphOS.MCP
+
+```bash
+cd graph_os/apps/graph_os_mcp
+iex -S mix
+```
+
+This will start the MCP protocol server for AI/LLM integration.
+
+## Development
+
+```bash
+# Run tests
+mix test
+
+# Run linting
+mix lint
+
+# Generate documentation
 mix docs
 ```
 
