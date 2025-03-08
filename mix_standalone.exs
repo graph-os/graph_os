@@ -30,7 +30,6 @@ defmodule GraphOS.Standalone.MixProject do
       {:graph_os_graph, github: "graph-os/graph_os_graph", tag: "v0.1.0"},
       {:graph_os_core, github: "graph-os/graph_os_core", tag: "v0.1.0"},
       {:graph_os_mcp, github: "graph-os/graph_os_mcp", tag: "v0.1.0"},
-      {:graph_os_distributed, github: "graph-os/graph_os_distributed", tag: "v0.1.0"},
 
       # Development tools
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
@@ -46,8 +45,7 @@ defmodule GraphOS.Standalone.MixProject do
       groups_for_modules: [
         "Graph": ~r/GraphOS\.Graph\..*/,
         "Core": ~r/GraphOS\.Core\..*/,
-        "MCP": ~r/GraphOS\.MCP\..*/,
-        "Distributed": ~r/GraphOS\.Distributed\..*/
+        "MCP": ~r/GraphOS\.MCP\..*/
       ]
     ]
   end

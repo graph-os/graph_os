@@ -31,6 +31,5 @@ extract_app() {
 extract_app "graph_os_graph"
 extract_app "graph_os_core"
 extract_app "graph_os_mcp"
-extract_app "graph_os_distributed"
 
 echo "All apps have been extracted and pushed to their repositories." 
