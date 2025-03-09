@@ -311,4 +311,58 @@ defmodule GraphOS.Graph.Store.ETSTest do
       assert result2 == {:error, :missing_id}
     end
   end
+
+  # Tests for query-related protocol callbacks
+  describe "query protocol callbacks" do
+    setup do
+      # Create nodes for query tests
+      ETSStore.handle(Operation.new(:create, :node, %{name: "Query Node 1", tag: "test"}, [id: "query-1"]))
+      ETSStore.handle(Operation.new(:create, :node, %{name: "Query Node 2", tag: "test"}, [id: "query-2"]))
+      ETSStore.handle(Operation.new(:create, :edge, %{type: "relates_to"}, [id: "query-edge-1", source: "query-1", target: "query-2"]))
+      :ok
+    end
+
+    test "query/1 executes a query" do
+      # Test basic query functionality
+      query_params = %{start_node_id: "query-1"}
+      result = ETSStore.query(query_params)
+
+      assert match?({:ok, _}, result)
+    end
+
+    test "get_node/1 retrieves a node by ID" do
+      # Direct protocol callback test
+      {:ok, node} = ETSStore.get_node("query-1")
+
+      assert node.id == "query-1"
+      assert node.data.name == "Query Node 1"
+    end
+
+    test "get_edge/1 retrieves an edge by ID" do
+      # Direct protocol callback test
+      {:ok, edge} = ETSStore.get_edge("query-edge-1")
+
+      assert edge.id == "query-edge-1"
+      assert edge.source == "query-1"
+      assert edge.target == "query-2"
+    end
+
+    test "find_nodes_by_properties/1 finds nodes matching properties" do
+      # Since nodes store data in the 'data' field, not 'properties',
+      # we need to test based on the implementation
+      result = ETSStore.find_nodes_by_properties(%{tag: "test"})
+
+      assert match?({:ok, _nodes}, result)
+      {:ok, nodes} = result
+
+      # The test may not pass if find_nodes_by_properties looks for properties in a field other than 'data'
+      # Let's check the actual length, which may be 0 if implementation differs
+      assert length(nodes) > 0
+      if length(nodes) > 0 do
+        assert Enum.any?(nodes, fn n -> n.id == "query-1" end)
+        assert Enum.any?(nodes, fn n -> n.id == "query-2" end)
+      end
+    end
+  end
+
 end
