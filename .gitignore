@@ -19,5 +19,9 @@ erl_crash.dump
 # Temporary files, for example, from tests.
 /tmp/
 
-# Ignore apps directories as they are separate git repositories
-/apps/*/
+# Misc
+**/*.DS_Store
+**/.cursor/
+.cursor/*
+
+

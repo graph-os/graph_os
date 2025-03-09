@@ -36,7 +36,8 @@ defmodule GraphOS.Graph.MixProject do
   defp deps do
     [
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
-      {:libgraph, "~> 0.16"}
+      {:jason, "~> 1.4"},
+      {:uuid, "~> 1.1"}
     ]
   end
 

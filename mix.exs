@@ -2,7 +2,7 @@ defmodule GraphOS.MixProject do
   use Mix.Project
 
   @version "0.1.0"
-  @source_url "https://github.com/yourusername/graph_os"
+  @source_url "https://github.com/graph-os/graph_os_umbrella"
 
   def project do
     [
