@@ -6,6 +6,9 @@ defmodule GraphOS.MCP.Service.Server do
   """
 
   use GenServer
+  require Logger
+
+  alias GraphOS.MCP.Service.SessionStore
 
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -16,7 +19,6 @@ defmodule GraphOS.MCP.Service.Server do
     # Initialize server state
     state = %{
       tools: %{},
-      sessions: %{},
       protocol_version: "2024-03-01"
     }
 
@@ -28,11 +30,9 @@ defmodule GraphOS.MCP.Service.Server do
 
   @impl true
   def handle_call({:initialize, session_id, capabilities}, _from, state) do
-    # Add session
-    sessions = Map.put(state.sessions, session_id, %{
-      id: session_id,
-      capabilities: capabilities,
-      created_at: DateTime.utc_now()
+    # Add session to the session store
+    SessionStore.create_session(session_id, %{
+      capabilities: capabilities
     })
 
     # Return protocol info
@@ -47,17 +47,17 @@ defmodule GraphOS.MCP.Service.Server do
       }
     }
 
-    {:reply, {:ok, response}, %{state | sessions: sessions}}
+    {:reply, {:ok, response}, state}
   end
 
   @impl true
   def handle_call({:list_tools, session_id}, _from, state) do
     # Check if session exists
-    case Map.get(state.sessions, session_id) do
-      nil ->
+    case SessionStore.get_session(session_id) do
+      {:error, :session_not_found} ->
         {:reply, {:error, :session_not_found}, state}
 
-      _session ->
+      {:ok, _session} ->
         # Return list of available tools
         tools = Map.values(state.tools)
         |> Enum.map(fn %{name: name, description: description, parameters: params} ->
@@ -71,19 +71,29 @@ defmodule GraphOS.MCP.Service.Server do
   @impl true
   def handle_call({:execute_tool, session_id, tool_name, params}, _from, state) do
     # Check if session exists
-    with %{} <- Map.get(state.sessions, session_id) || :session_not_found,
+    with {:ok, _session} <- SessionStore.get_session(session_id),
          %{handler: handler} <- Map.get(state.tools, tool_name) || :tool_not_found do
 
       # Execute the tool handler
       try do
         result = handler.(params)
+        # Record tool execution in session history
+        _ = SessionStore.update_session(session_id, %{
+          last_tool: %{
+            name: tool_name,
+            params: params,
+            result: result,
+            executed_at: DateTime.utc_now()
+          }
+        })
         {:reply, {:ok, result}, state}
       rescue
         e ->
+          Logger.error("Tool execution failed: #{inspect(e)}")
           {:reply, {:error, "Tool execution failed: #{inspect(e)}"}, state}
       end
     else
-      :session_not_found ->
+      {:error, :session_not_found} ->
         {:reply, {:error, :session_not_found}, state}
 
       :tool_not_found ->
@@ -101,6 +111,24 @@ defmodule GraphOS.MCP.Service.Server do
     tools = Map.put(state.tools, name, tool_spec)
 
     {:reply, :ok, %{state | tools: tools}}
+  end
+
+  @impl true
+  def handle_call(:get_sessions, _from, state) do
+    sessions = SessionStore.list_sessions()
+    {:reply, sessions, state}
+  end
+
+  @impl true
+  def handle_call({:get_session, session_id}, _from, state) do
+    result = SessionStore.get_session(session_id)
+    {:reply, result, state}
+  end
+
+  @impl true
+  def handle_call({:delete_session, session_id}, _from, state) do
+    :ok = SessionStore.delete_session(session_id)
+    {:reply, :ok, state}
   end
 
   # Private functions
@@ -219,5 +247,49 @@ defmodule GraphOS.MCP.Service.Server do
   """
   def register_tool(tool_spec) do
     GenServer.call(__MODULE__, {:register_tool, tool_spec})
+  end
+
+  @doc """
+  Get all active sessions.
+
+  ## Examples
+
+      iex> GraphOS.MCP.Service.Server.get_sessions()
+      [%{id: "session1", created_at: ~U[2023-01-01 00:00:00Z], ...}, ...]
+  """
+  def get_sessions do
+    GenServer.call(__MODULE__, :get_sessions)
+  end
+
+  @doc """
+  Get a session by ID.
+
+  ## Parameters
+
+    * `session_id` - The session identifier
+
+  ## Examples
+
+      iex> GraphOS.MCP.Service.Server.get_session("session1")
+      {:ok, %{id: "session1", created_at: ~U[2023-01-01 00:00:00Z], ...}}
+  """
+  def get_session(session_id) do
+    GenServer.call(__MODULE__, {:get_session, session_id})
+  end
+
+  @doc """
+  Delete a session.
+
+  ## Parameters
+
+    * `session_id` - The session identifier
+
+  ## Examples
+
+      iex> GraphOS.MCP.Service.Server.delete_session("session1")
+      :ok
+  """
+  def delete_session(session_id) do
+    GenServer.call(__MODULE__, {:delete_session, session_id})
   end
 end

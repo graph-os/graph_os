@@ -294,7 +294,8 @@ defmodule GraphOS.Graph.Store.ETS do
     results =
       :ets.match_object(@table_name, pattern)
       |> Enum.filter(fn {{:node, _}, node} ->
-        properties_match?(node.data, properties)
+        # If properties is empty, return all nodes
+        map_size(properties) == 0 || properties_match?(node.data, properties)
       end)
       |> Enum.map(fn {_, node} -> node end)
 

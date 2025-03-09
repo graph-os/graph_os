@@ -1,0 +1,104 @@
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold mb-8">MCP Dashboard</h1>
+
+  <div class="mb-8">
+    <.link navigate={~p"/"} class="text-blue-500 hover:underline">
+      &larr; Back to Development Dashboard
+    </.link>
+  </div>
+
+  <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+    <h2 class="text-xl font-semibold mb-4">MCP Status</h2>
+    <div class="mb-4">
+      <div class="flex items-center">
+        <div class="mr-2">Status:</div>
+        <%= if @mcp_status.running do %>
+          <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Running</span>
+        <% else %>
+          <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Stopped</span>
+        <% end %>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <h3 class="text-lg font-medium mb-2">Configuration</h3>
+        <ul class="space-y-2">
+          <li><strong>HTTP Endpoint:</strong> <%= @mcp_status.endpoint_url %></li>
+          <li><strong>Auto-start HTTP:</strong> <%= @mcp_status.auto_start_http %></li>
+          <li><strong>HTTP Port:</strong> <%= @mcp_status.http_port %></li>
+          <li><strong>HTTP Base Path:</strong> <%= @mcp_status.http_base_path %></li>
+          <li><strong>Dev Mode:</strong> <%= @mcp_status.dev_mode %></li>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-lg font-medium mb-2">Quick Links</h3>
+        <ul class="space-y-3">
+          <li>
+            <a href="/mcp/health" target="_blank" class="text-blue-500 hover:underline">
+              Health Check
+            </a>
+            <p class="text-sm text-gray-500">Check the health of the MCP service</p>
+          </li>
+          <li>
+            <a href="/mcp/sse" target="_blank" class="text-blue-500 hover:underline">
+              SSE Endpoint
+            </a>
+            <p class="text-sm text-gray-500">Connect to the Server-Sent Events endpoint</p>
+          </li>
+          <li>
+            <.link navigate={~p"/mcp/servers"} class="text-blue-500 hover:underline">
+              MCP Servers
+            </.link>
+            <p class="text-sm text-gray-500">View all MCP server instances (Dev and Prod)</p>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+    <h2 class="text-xl font-semibold mb-4">About MCP</h2>
+    <p class="mb-4">
+      The Machine Control Protocol (MCP) is a core component of GraphOS that provides
+      a standardized way for clients to interact with the graph operations and tools.
+    </p>
+    <p class="mb-4">
+      The MCP protocol supports:
+    </p>
+    <ul class="list-disc pl-8 mb-4">
+      <li>Server-Sent Events (SSE) for real-time updates</li>
+      <li>JSON-RPC for command execution</li>
+      <li>Tool discovery and execution</li>
+      <li>Session management</li>
+    </ul>
+  </div>
+
+  <div class="bg-white p-6 rounded-lg shadow-md">
+    <h2 class="text-xl font-semibold mb-4">MCP Client Development</h2>
+    <p class="mb-4">
+      To interact with the MCP endpoint, clients should:
+    </p>
+    <ol class="list-decimal pl-8 mb-4">
+      <li class="mb-2">Connect to the SSE endpoint at <code>/mcp/sse</code> to receive events</li>
+      <li class="mb-2">Send JSON-RPC requests to <code>/mcp/message</code> to execute commands</li>
+      <li class="mb-2">Initialize the session with the <code>initialize</code> method first</li>
+      <li class="mb-2">Use <code>listTools</code> to discover available tools</li>
+      <li class="mb-2">Execute tools with the <code>executeTool</code> method</li>
+    </ol>
+    <div class="bg-gray-100 p-4 rounded mb-4">
+      <h3 class="font-semibold mb-2">Example JSON-RPC Request:</h3>
+      <pre class="text-sm overflow-auto"><code>&#123;
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;method&quot;: &quot;executeTool&quot;,
+  &quot;id&quot;: &quot;request-id-1&quot;,
+  &quot;params&quot;: &#123;
+    &quot;name&quot;: &quot;tool_name&quot;,
+    &quot;parameters&quot;: &#123;
+      &quot;param1&quot;: &quot;value1&quot;,
+      &quot;param2&quot;: &quot;value2&quot;
+    &#125;
+  &#125;
+&#125;</code></pre>
+    </div>
+  </div>
+</div> 

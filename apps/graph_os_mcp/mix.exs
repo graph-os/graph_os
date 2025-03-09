@@ -39,7 +39,10 @@ defmodule GraphOS.MCP.MixProject do
       {:graph_os_core, in_umbrella: true},
       {:jason, "~> 1.4"},
       {:plug, "~> 1.14"},
-      {:ex_doc, "~> 0.29", only: :dev, runtime: false}
+      {:bandit, "~> 1.2"},
+      {:file_system, "~> 1.1"},
+      {:ex_doc, "~> 0.29", only: :dev, runtime: false},
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 

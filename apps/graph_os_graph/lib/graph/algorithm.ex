@@ -14,8 +14,7 @@ defmodule GraphOS.Graph.Algorithm do
   - Minimum Spanning Tree (MST)
   """
 
-  alias GraphOS.Graph.{Node, Edge, Store}
-  alias GraphOS.Graph.Algorithm.Weights
+  alias GraphOS.Graph.{Node, Edge}
 
   @type algorithm_opts :: keyword()
   @type traversal_result :: {:ok, list()} | {:error, term()}

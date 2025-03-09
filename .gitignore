@@ -23,5 +23,7 @@ erl_crash.dump
 **/*.DS_Store
 **/.cursor/
 .cursor/*
+.mcp
+reference
 
 

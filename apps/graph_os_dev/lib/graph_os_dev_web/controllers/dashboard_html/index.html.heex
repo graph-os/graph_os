@@ -1,0 +1,128 @@
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold mb-8">GraphOS Dashboard</h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-xl font-semibold mb-4">Umbrella Apps Status</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full bg-white">
+          <thead>
+            <tr>
+              <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">App</th>
+              <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
+              <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Version</th>
+              <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for app <- @umbrella_apps do %>
+              <tr>
+                <td class="py-2 px-4 border-b border-gray-200"><%= app.name %></td>
+                <td class="py-2 px-4 border-b border-gray-200"><%= app.description %></td>
+                <td class="py-2 px-4 border-b border-gray-200"><%= app.version %></td>
+                <td class="py-2 px-4 border-b border-gray-200">
+                  <%= if app.running do %>
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Running</span>
+                  <% else %>
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Stopped</span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-xl font-semibold mb-4">MCP Status</h2>
+      <div class="mb-4">
+        <div class="flex items-center">
+          <div class="mr-2">Status:</div>
+          <%= if @mcp_status.running do %>
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Running</span>
+          <% else %>
+            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Stopped</span>
+          <% end %>
+        </div>
+      </div>
+      <ul class="space-y-2">
+        <li><strong>HTTP Endpoint:</strong> <%= @mcp_status.endpoint_url %></li>
+        <li><strong>Auto-start HTTP:</strong> <%= @mcp_status.auto_start_http %></li>
+        <li><strong>HTTP Port:</strong> <%= @mcp_status.http_port %></li>
+        <li><strong>HTTP Base Path:</strong> <%= @mcp_status.http_base_path %></li>
+        <li><strong>Dev Mode:</strong> <%= @mcp_status.dev_mode %></li>
+      </ul>
+      <div class="mt-4">
+        <.link navigate={~p"/dashboard/mcp"} class="text-blue-500 hover:underline">
+          View MCP Dashboard &rarr;
+        </.link>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Development Tools -->
+    <div class="bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-xl font-semibold mb-4">Development Tools</h2>
+      <ul class="space-y-3">
+        <li>
+          <.link navigate={~p"/code-graph"} class="text-blue-500 hover:underline">
+            Graph Visualization
+          </.link>
+          <p class="text-sm text-gray-500">Visualize and explore the GraphOS codebase as a graph</p>
+        </li>
+        <li>
+          <.link navigate={~p"/dashboard"} class="text-blue-500 hover:underline">
+            Phoenix LiveDashboard
+          </.link>
+          <p class="text-sm text-gray-500">Monitor and debug your Elixir application in real time</p>
+        </li>
+      </ul>
+    </div>
+    
+    <!-- MCP Tools -->
+    <div class="bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-xl font-semibold mb-4">MCP Tools</h2>
+      <ul class="space-y-3">
+        <li>
+          <a href="/mcp/health" target="_blank" class="text-blue-500 hover:underline">
+            MCP Health Check
+          </a>
+          <p class="text-sm text-gray-500">Check the health of the MCP service</p>
+        </li>
+        <li>
+          <a href="/mcp/sse" target="_blank" class="text-blue-500 hover:underline">
+            MCP SSE Endpoint
+          </a>
+          <p class="text-sm text-gray-500">Connect to the Server-Sent Events endpoint</p>
+        </li>
+        <li>
+          <.link navigate={~p"/mcp/servers"} class="text-blue-500 hover:underline">
+            MCP Servers
+          </.link>
+          <p class="text-sm text-gray-500">View all MCP server instances (Dev and Prod)</p>
+        </li>
+      </ul>
+    </div>
+    
+    <!-- Documentation -->
+    <div class="bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-xl font-semibold mb-4">Documentation</h2>
+      <ul class="space-y-3">
+        <li>
+          <a href="https://github.com/yourusername/graph_os" target="_blank" class="text-blue-500 hover:underline">
+            GitHub Repository
+          </a>
+          <p class="text-sm text-gray-500">View the source code on GitHub</p>
+        </li>
+        <li>
+          <a href="https://hexdocs.pm/phoenix/overview.html" target="_blank" class="text-blue-500 hover:underline">
+            Phoenix Framework
+          </a>
+          <p class="text-sm text-gray-500">Documentation for Phoenix</p>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div> 

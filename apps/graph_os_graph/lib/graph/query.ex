@@ -5,6 +5,9 @@ defmodule GraphOS.Graph.Query do
   Provides functionality to traverse and filter graph data based on various criteria.
   """
 
+  # Implement the behaviour
+  @behaviour GraphOS.Graph.QueryBehaviour
+
   alias GraphOS.Graph.{Node, Edge, Store}
 
   @type query_params :: keyword() | map()
@@ -34,6 +37,7 @@ defmodule GraphOS.Graph.Query do
       iex> Query.execute(%{start_node_id: "person1", depth: 2, properties: %{age: 30}})
       {:ok, [%Node{id: "person3", ...}, ...]}
   """
+  @impl GraphOS.Graph.QueryBehaviour
   @spec execute(query_params()) :: query_result()
   def execute(params) when is_list(params) or is_map(params) do
     # Convert keyword list to map if needed
@@ -65,6 +69,7 @@ defmodule GraphOS.Graph.Query do
       iex> Query.get_node("person1")
       {:ok, %Node{id: "person1", ...}}
   """
+  @impl GraphOS.Graph.QueryBehaviour
   @spec get_node(Node.id()) :: {:ok, Node.t()} | {:error, term()}
   def get_node(node_id) do
     with {:ok, store} <- get_store() do
@@ -80,6 +85,7 @@ defmodule GraphOS.Graph.Query do
       iex> Query.get_edge("edge1")
       {:ok, %Edge{id: "edge1", ...}}
   """
+  @impl GraphOS.Graph.QueryBehaviour
   @spec get_edge(Edge.id()) :: {:ok, Edge.t()} | {:error, term()}
   def get_edge(edge_id) do
     with {:ok, store} <- get_store() do
@@ -95,6 +101,7 @@ defmodule GraphOS.Graph.Query do
       iex> Query.find_nodes_by_properties(%{name: "John", age: 30})
       {:ok, [%Node{id: "person1", properties: %{name: "John", age: 30, ...}}, ...]}
   """
+  @impl GraphOS.Graph.QueryBehaviour
   @spec find_nodes_by_properties(map()) :: {:ok, list(Node.t())} | {:error, term()}
   def find_nodes_by_properties(properties) when is_map(properties) do
     with {:ok, store} <- get_store() do
@@ -106,13 +113,12 @@ defmodule GraphOS.Graph.Query do
 
   defp validate_params(params) do
     cond do
-      !Map.has_key?(params, :start_node_id) ->
-        {:error, "Missing required parameter: start_node_id"}
-
-      # Add more validations as needed
-
-      true ->
+      Map.has_key?(params, :start_node_id) ->
         {:ok, params}
+      Map.has_key?(params, :properties) and is_map(params.properties) ->
+        {:ok, params}
+      true ->
+        {:error, "Missing required parameter: either start_node_id or properties must be provided"}
     end
   end
 

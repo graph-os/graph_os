@@ -83,16 +83,23 @@ This will start the MCP protocol server for AI/LLM integration.
 
 ## Development
 
+### Development Mode
+
+GraphOS includes a development mode that provides a more interactive development experience:
+
+- **Live Code Reloading**: Changes to Elixir files are automatically recompiled
+- **MCP Endpoint**: Provides access to the CodeGraph functionality 
+- **Graph Viewer**: Visualize graph content of files and modules
+
+To start the development server:
+
 ```bash
-# Run tests
-mix test
-
-# Run linting
-mix lint
-
-# Generate documentation
-mix docs
+mix mcp.dev
 ```
+
+This will start the server on http://127.0.0.1:4000 by default.
+
+For more details, see the [Development Mode Documentation](apps/graph_os_mcp/docs/developer_mode.md).
 
 ## License
 
