@@ -10,6 +10,11 @@ config :graph_os_dev, GraphOS.DevWeb.Endpoint,
   pubsub_server: GraphOS.Dev.PubSub,
   live_view: [signing_salt: "RMRKcvFz"]
 
+# Configure MIME types for SSE
+config :mime, :types, %{
+  "text/event-stream" => ["sse"]
+}
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.17.11",

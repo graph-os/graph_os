@@ -1,0 +1,16 @@
+{
+  "elixirLS.projectDir": ".",
+  "elixir.credo.configurationFile": ".credo.exs",
+  "elixir.credo.enableDebug": true,
+  "elixir.credo.strictMode": false,
+  "elixirLS.dialyzerEnabled": true,
+  "elixirLS.fetchDeps": true,
+  "elixirLS.mixEnv": "dev",
+  "elixirLS.suggestSpecs": true,
+  "elixirLS.signatureAfterComplete": true,
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit",
+    "source.organizeImports": "explicit"
+  }
+}

@@ -1,4 +1,5 @@
 defmodule GraphOS.DevWeb.ErrorHTMLTest do
+  @moduledoc false
   use GraphOS.DevWeb.ConnCase, async: true
 
   # Bring render_to_string/4 for testing custom views

@@ -20,7 +20,7 @@ defmodule GraphOS.Core.Access.Service do
   end
 
   @impl true
-  def handle_call({:check_permission, user_id, resource, action}, _from, state) do
+  def handle_call({:check_permission, _user_id, _resource, _action}, _from, state) do
     # Simple permission check (can be expanded later)
     # For now, allow all operations
     permitted = true

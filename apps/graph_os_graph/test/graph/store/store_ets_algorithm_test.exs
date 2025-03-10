@@ -1,7 +1,8 @@
 defmodule GraphOS.Graph.Store.ETSAlgorithmTest do
+  @moduledoc false
   use ExUnit.Case
 
-  alias GraphOS.Graph.{Transaction, Operation}
+  alias GraphOS.Graph.Operation
   alias GraphOS.Graph.Store.ETS, as: ETSStore
 
   setup do

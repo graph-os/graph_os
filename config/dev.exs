@@ -67,29 +67,16 @@ config :phoenix_live_view,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
 
-# MCP Configuration for Development
-# We have two options for development:
-# 1. Run standalone MCP server (auto_start_http: true) - Uses port 4000
-# 2. Run MCP through Phoenix dev server (auto_start_http: false) - Uses Phoenix's router to forward
-#
-# Choose ONE option by setting auto_start_http to true or false:
-
-# Option 1: Run standalone MCP server (good for direct MCP development/testing)
-config :graph_os_mcp,
-  http_port: String.to_integer(System.get_env("MCP_HTTP_PORT", "4000")),
-  http_host: {127, 0, 0, 1},
-  http_base_path: "/mcp",
-  dev_mode: true,
-  # Set to false to use option 2 instead
-  auto_start_http: false
-
 # Enable CodeGraph service for development
 config :graph_os_core,
   enable_code_graph: true,
-  watch_directories: ["apps/graph_os_core/lib", "apps/graph_os_dev/lib", "apps/graph_os_graph/lib", "apps/graph_os_mcp/lib"],
+  watch_directories: ["apps/graph_os_core/lib", "apps/graph_os_dev/lib", "apps/graph_os_graph/lib"],
   file_pattern: "**/*.ex",
-  auto_reload: true
+  exclude_pattern: nil,
+  auto_reload: true,
+  poll_interval: 1000,
+  distributed: true
 
 # Configure query module for the GraphController
-config :graph_os_mcp,
+config :graph_os_dev,
   query_module: GraphOS.Graph.Query

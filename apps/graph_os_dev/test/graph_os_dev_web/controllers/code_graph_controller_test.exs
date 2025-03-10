@@ -1,4 +1,5 @@
 defmodule GraphOS.DevWeb.CodeGraphControllerTest do
+  @moduledoc false
   use GraphOS.DevWeb.ConnCase
 
   alias GraphOS.Core.CodeGraph
@@ -8,14 +9,14 @@ defmodule GraphOS.DevWeb.CodeGraphControllerTest do
     # Get the path to the current file and use it to determine the app path
     test_file_path = __ENV__.file
     app_dir = Path.join(Path.dirname(test_file_path), "../../../")
-    dev_file_path = Path.join(app_dir, "lib/graph_os_dev.ex")
+    dev_file_path = Path.join(app_dir, "lib/graph_os/dev.ex")
 
     # Normalize paths
     app_dir = Path.expand(app_dir)
     dev_file_path = Path.expand(dev_file_path)
 
     # Create file relative path that will work with the controllers
-    file_rel_path = "lib/graph_os_dev.ex"
+    file_rel_path = "lib/graph_os/dev.ex"
 
     # Confirm the file exists
     if !File.exists?(dev_file_path) do

@@ -27,3 +27,5 @@ erl_crash.dump
 reference
 
 
+.elixir_ls
+**/node_modules

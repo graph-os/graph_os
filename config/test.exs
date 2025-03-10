@@ -17,9 +17,6 @@ config :phoenix, :plug_init_mode, :runtime
 config :phoenix_live_view,
   enable_expensive_runtime_checks: true
 
-# Use different ports for MCP tests
-config :graph_os_mcp,
-  http_port: String.to_integer(System.get_env("MCP_HTTP_PORT", "4001")),
-  http_host: {127, 0, 0, 1},
-  # Disable the HTTP server during tests by default
-  http_enabled: false
+# Configure query module for the GraphController
+config :graph_os_dev,
+  query_module: GraphOS.Graph.Query

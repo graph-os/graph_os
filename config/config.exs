@@ -57,16 +57,13 @@ config :tailwind,
 # Configures Elixir's Logger
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
-  metadata: [:request_id]
+  metadata: [
+    :request_id, :session_id, :params, :prompt_id, :resource_id, :tool_name, :arguments,
+    :cursor, :limit, :protocol_version, :client_capabilities, :method, :errors, :error
+  ]
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
-
-# Configure MCP HTTP server
-config :graph_os_mcp,
-  http_port: String.to_integer(System.get_env("MCP_HTTP_PORT", "4000")),
-  http_host: {0, 0, 0, 0},
-  http_base_path: "/mcp"
 
 # Configure mime types for SSE
 config :mime, :types, %{

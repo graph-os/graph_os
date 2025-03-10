@@ -1,4 +1,5 @@
 defmodule GraphOS.DevWeb.GraphRoutesTest do
+  @moduledoc false
   use GraphOS.DevWeb.ConnCase, async: true
   import Phoenix.LiveViewTest
 
@@ -6,18 +7,6 @@ defmodule GraphOS.DevWeb.GraphRoutesTest do
     test "GET / - dashboard page loads", %{conn: conn} do
       conn = get(conn, "/")
       assert html_response(conn, 200) =~ "GraphOS Dashboard"
-    end
-
-    @tag :pending
-    test "GET /mcp - MCP dashboard page loads", %{conn: conn} do
-      conn = get(conn, "/mcp")
-      assert html_response(conn, 200) =~ "MCP Dashboard"
-    end
-
-    @tag :pending
-    test "GET /mcp/servers - MCP servers page loads", %{conn: conn} do
-      conn = get(conn, "/mcp/servers")
-      assert html_response(conn, 200) =~ "MCP Servers"
     end
 
     test "GET /code-graph - LiveView graph page loads", %{conn: conn} do
@@ -31,9 +20,9 @@ defmodule GraphOS.DevWeb.GraphRoutesTest do
     end
 
     test "GET /code-graph/file with path parameter - file graph with path loads", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/code-graph/file?path=apps/graph_os_mcp/lib/graph_os/mcp/application.ex")
+      {:ok, _view, html} = live(conn, "/code-graph/file?path=apps/graph_os_graph/lib/graph/application.ex")
       assert html =~ "File Graph Visualization"
-      assert html =~ "apps/graph_os_mcp/lib/graph_os/mcp/application.ex"
+      assert html =~ "apps/graph_os_graph/lib/graph/application.ex"
     end
 
     test "GET /code-graph/module - module graph page loads", %{conn: conn} do
@@ -42,14 +31,14 @@ defmodule GraphOS.DevWeb.GraphRoutesTest do
     end
 
     test "GET /code-graph/module with name parameter - module graph with name loads", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/code-graph/module?name=GraphOS.MCP.Application")
+      {:ok, _view, html} = live(conn, "/code-graph/module?name=GraphOS.Graph.Application")
       assert html =~ "Module Graph Visualization"
-      assert html =~ "GraphOS.MCP.Application"
+      assert html =~ "GraphOS.Graph.Application"
     end
 
     @tag :skip
     test "GET /api/code-graph/file - file graph API endpoint responds with success", %{conn: conn} do
-      conn = get(conn, "/api/code-graph/file?path=apps/graph_os_mcp/lib/graph_os/mcp/application.ex")
+      conn = get(conn, "/api/code-graph/file?path=apps/graph_os_graph/lib/graph/application.ex")
       # This test will fail with the current mock implementation (returns 400)
       # But documents the expected behavior for a real implementation
       assert json_response(conn, 200)
@@ -57,7 +46,7 @@ defmodule GraphOS.DevWeb.GraphRoutesTest do
 
     @tag :skip
     test "GET /api/code-graph/module - module graph API endpoint responds with success", %{conn: conn} do
-      conn = get(conn, "/api/code-graph/module?name=GraphOS.MCP.Application")
+      conn = get(conn, "/api/code-graph/module?name=GraphOS.Graph.Application")
       # This test will fail with the current mock implementation (returns 400)
       # But documents the expected behavior for a real implementation
       assert json_response(conn, 200)

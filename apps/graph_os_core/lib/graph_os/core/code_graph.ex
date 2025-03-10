@@ -15,7 +15,7 @@ defmodule GraphOS.Core.CodeGraph do
   """
 
   alias GraphOS.Graph
-  alias GraphOS.Graph.{Node, Edge, Transaction, Query}
+  alias GraphOS.Graph.{Node, Transaction, Query}
   alias GraphOS.Core.CodeParser
 
   @doc """
@@ -31,10 +31,7 @@ defmodule GraphOS.Core.CodeGraph do
   """
   @spec init() :: :ok | {:error, term()}
   def init do
-    with :ok <- Graph.init() do
-      # TODO: Add schema for code graph nodes and edges if needed
-      :ok
-    end
+    Graph.init()
   end
 
   @doc """
@@ -151,7 +148,7 @@ defmodule GraphOS.Core.CodeGraph do
           functions: related_functions,
           dependencies: dependencies
         }}
-      {:error, :node_not_found} ->
+      {:error, _reason} ->
         # Try looking up with a case-insensitive approach (module name might have different casing)
         case find_module_by_name(module_name) do
           {:ok, actual_module_name} ->
@@ -159,8 +156,6 @@ defmodule GraphOS.Core.CodeGraph do
           _ ->
             {:error, :not_found}
         end
-      error ->
-        error
     end
   end
 
@@ -203,8 +198,8 @@ defmodule GraphOS.Core.CodeGraph do
     ) do
       {:ok, nodes} ->
         {:ok, Enum.map(nodes, & &1.id)}
-      error ->
-        error
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -231,8 +226,8 @@ defmodule GraphOS.Core.CodeGraph do
     ) do
       {:ok, nodes} ->
         {:ok, Enum.map(nodes, & &1.id)}
-      error ->
-        error
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -251,7 +246,7 @@ defmodule GraphOS.Core.CodeGraph do
 
   """
   @spec update_file(Path.t(), keyword()) :: {:ok, map()} | {:error, term()}
-  def update_file(file_path, opts \\ []) do
+  def update_file(file_path, _opts \\ []) do
     # First clear existing nodes and edges for this file
     with :ok <- remove_file_from_graph(file_path) do
       # Then process the file as new
@@ -274,9 +269,7 @@ defmodule GraphOS.Core.CodeGraph do
     case CodeParser.parse_file(file_path) do
       {:ok, parsed_data} ->
         # Add nodes and edges for the parsed content
-        with {:ok, updated_stats} <- add_to_graph(parsed_data, file_path, stats) do
-          {:ok, updated_stats}
-        end
+        add_to_graph(parsed_data, file_path, stats)
 
       {:error, reason} ->
         {:error, "Failed to parse #{file_path}: #{inspect(reason)}"}
@@ -394,8 +387,8 @@ defmodule GraphOS.Core.CodeGraph do
           error -> error
         end
 
-      error ->
-        error
+      {:error, error} ->
+        {:error, error}
     end
   end
 end

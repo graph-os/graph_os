@@ -1,0 +1,77 @@
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold mb-8">GraphOS Dashboard</h1>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+    <div class="bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-xl font-semibold mb-4">Umbrella Apps Status</h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full bg-white">
+          <thead>
+            <tr>
+              <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">App</th>
+              <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Description</th>
+              <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Version</th>
+              <th class="py-2 px-4 border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for app <- @umbrella_apps do %>
+              <tr>
+                <td class="py-2 px-4 border-b border-gray-200"><%= app.name %></td>
+                <td class="py-2 px-4 border-b border-gray-200"><%= app.description %></td>
+                <td class="py-2 px-4 border-b border-gray-200"><%= app.version %></td>
+                <td class="py-2 px-4 border-b border-gray-200">
+                  <%= if app.running do %>
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Running</span>
+                  <% else %>
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Stopped</span>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Development Tools -->
+    <div class="bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-xl font-semibold mb-4">Development Tools</h2>
+      <ul class="space-y-3">
+        <li>
+          <.link navigate={~p"/code-graph"} class="text-blue-500 hover:underline">
+            Graph Visualization
+          </.link>
+          <p class="text-sm text-gray-500">Visualize and explore the GraphOS codebase as a graph</p>
+        </li>
+        <li>
+          <.link navigate={~p"/dashboard"} class="text-blue-500 hover:underline">
+            Phoenix LiveDashboard
+          </.link>
+          <p class="text-sm text-gray-500">Monitor and debug your Elixir application in real time</p>
+        </li>
+      </ul>
+    </div>
+    
+    <!-- Documentation -->
+    <div class="bg-white p-6 rounded-lg shadow-md">
+      <h2 class="text-xl font-semibold mb-4">Documentation</h2>
+      <ul class="space-y-3">
+        <li>
+          <a href="https://github.com/yourusername/graph_os" target="_blank" class="text-blue-500 hover:underline">
+            GitHub Repository
+          </a>
+          <p class="text-sm text-gray-500">View the source code on GitHub</p>
+        </li>
+        <li>
+          <a href="https://hexdocs.pm/phoenix/overview.html" target="_blank" class="text-blue-500 hover:underline">
+            Phoenix Framework
+          </a>
+          <p class="text-sm text-gray-500">Documentation for Phoenix</p>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div> 

@@ -1,7 +1,8 @@
 defmodule GraphOS.Graph.AlgorithmTest do
+  @moduledoc false
   use ExUnit.Case
 
-  alias GraphOS.Graph.{Node, Edge, Operation, Store, Algorithm, Meta}
+  alias GraphOS.Graph.{Node, Edge, Operation, Algorithm, Meta}
   alias GraphOS.Graph.Store.ETS, as: ETSStore
 
   setup do
@@ -62,22 +63,14 @@ defmodule GraphOS.Graph.AlgorithmTest do
     # Inspect all objects in the table
     all_objects = :ets.match_object(:graph_os_ets_store, :_)
 
-    # Try different patterns
-    edge_pattern1 = {:_, {:edge, :_, :_, :_, :_, :_}}
-    edge_pattern2 = {{:edge, :_}, :_}
 
-    edges1 = :ets.match_object(:graph_os_ets_store, edge_pattern1)
-    edges2 = :ets.match_object(:graph_os_ets_store, edge_pattern2)
+    edges = :ets.match_object(:graph_os_ets_store, {{:edge, :_}, :_})
 
 
-    # Print first few edges if any
-    if length(edges2) > 0 do
-      [{key, edge}] = Enum.take(edges2, 1)
-    end
 
     # Manually look for outgoing edges from node_id
     connected_ids =
-      edges2
+      edges
       |> Enum.flat_map(fn {{:edge, _}, edge} ->
         if edge.source == node_id do
           [edge.target]
@@ -156,7 +149,7 @@ defmodule GraphOS.Graph.AlgorithmTest do
     do_custom_bfs(queue, visited, results, max_depth)
   end
 
-  defp do_custom_bfs([], visited, results, _) do
+  defp do_custom_bfs([], _visited, results, _) do
     # No more nodes to process
     results
   end

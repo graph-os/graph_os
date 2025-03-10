@@ -52,8 +52,6 @@ defmodule GraphOS.MixProject do
       format: ["format", "cmd mix format --check-formatted"],
       # Run tests for all apps
       test: ["cmd mix test"],
-      # Run code analysis
-      lint: ["cmd mix credo --strict"],
       # Run dialyzer
       dialyzer: ["cmd mix dialyzer"],
       # Clean umbrella

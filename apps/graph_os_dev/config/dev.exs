@@ -47,14 +47,6 @@ config :phoenix_live_view,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
 
-# Option 2: Phoenix-based MCP access (integrated UI experience)
-# This configuration makes Phoenix forward MCP requests to the core MCP service.
-# NOTE: Make sure auto_start_http in the root config/dev.exs is set correctly:
-#   - If auto_start_http: true, this app will proxy to the standalone MCP server
-#   - If auto_start_http: false, the MCP will not start its own HTTP server and
-#     this app's MCPController will call the MCP endpoint directly
-config :graph_os_mcp,
-  http_port: 4000,  # Define but not used when auto_start_http is false
-  http_host: {127, 0, 0, 1},
-  http_base_path: "/mcp",  # Base path when accessed through Phoenix
-  dev_mode: true  # Enable development features
+# GraphOS query module configuration
+config :graph_os_dev,
+  query_module: GraphOS.Graph.Query

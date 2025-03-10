@@ -1,4 +1,5 @@
 defmodule GraphOS.DevWeb.ErrorJSONTest do
+  @moduledoc false
   use GraphOS.DevWeb.ConnCase, async: true
 
   test "renders 404" do

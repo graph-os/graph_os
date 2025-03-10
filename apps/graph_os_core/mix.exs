@@ -15,7 +15,6 @@ defmodule GraphOS.Core.MixProject do
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
-
       # Hex package info
       description: "Core OS functions for GraphOS",
       package: package(),

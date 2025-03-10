@@ -55,10 +55,10 @@ defmodule GraphOS.Dev.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
-      {:bandit, "~> 1.5"},
       {:plug_cowboy, "~> 2.6"},
-      {:graph_os_mcp, in_umbrella: true},
-      {:httpoison, "~> 2.0"}
+      # Other GraphOS dependencies
+      {:graph_os_graph, in_umbrella: true},
+      {:graph_os_core, in_umbrella: true}
     ]
   end
 

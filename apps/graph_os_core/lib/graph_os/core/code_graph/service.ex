@@ -107,7 +107,7 @@ defmodule GraphOS.Core.CodeGraph.Service do
       iex> GraphOS.Core.CodeGraph.Service.status()
       {:ok, %{watched_dirs: ["lib"], indexed_modules: 42, ...}}
   """
-  @spec status() :: {:ok, map()}
+  @spec status() :: {:ok, map()} | {:error, term()}
   def status do
     GenServer.call(__MODULE__, :status)
   end

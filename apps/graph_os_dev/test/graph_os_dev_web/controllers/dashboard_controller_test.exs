@@ -1,4 +1,5 @@
 defmodule GraphOS.DevWeb.DashboardControllerTest do
+  @moduledoc false
   use GraphOS.DevWeb.ConnCase
 
   describe "Dashboard routes" do

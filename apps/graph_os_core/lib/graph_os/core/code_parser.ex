@@ -91,7 +91,7 @@ defmodule GraphOS.Core.CodeParser do
 
   """
   @spec process_ast(term(), String.t()) :: map()
-  def process_ast(ast, file_path) do
+  def process_ast(ast, _file_path) do
     # Initialize empty result
     result = %{
       modules: [],
@@ -134,7 +134,7 @@ defmodule GraphOS.Core.CodeParser do
   end
 
   # Handle function definitions
-  defp pre_traverse({:def, meta, [{function_name, func_meta, args} | _rest]} = node, acc) do
+  defp pre_traverse({:def, meta, [{function_name, _func_meta, args} | _rest]} = node, acc) do
     # Get the current module context (should be set during module traversal)
     module = Map.get(acc, :current_module, "Unknown")
 
@@ -162,7 +162,7 @@ defmodule GraphOS.Core.CodeParser do
   end
 
   # Handle private function definitions
-  defp pre_traverse({:defp, meta, [{function_name, func_meta, args} | _rest]} = node, acc) do
+  defp pre_traverse({:defp, meta, [{function_name, _func_meta, args} | _rest]} = node, acc) do
     # Get the current module context (should be set during module traversal)
     module = Map.get(acc, :current_module, "Unknown")
 
@@ -299,7 +299,10 @@ defmodule GraphOS.Core.CodeParser do
         type: "calls"
       }
 
-      acc = update_in(acc[:dependencies], &[dependency | &1])
+      updated_acc = update_in(acc[:dependencies], &[dependency | &1])
+      updated_acc
+    else
+      acc
     end
 
     # Continue traversal
@@ -312,7 +315,7 @@ defmodule GraphOS.Core.CodeParser do
   end
 
   # Post-traversal processing (to handle scope exit)
-  defp post_traverse({:defmodule, _, [module_name | _rest]} = node, acc) do
+  defp post_traverse({:defmodule, _, [_module_name | _rest]} = node, acc) do
     # When we exit a module scope, clear the current_module tracking
     {node, Map.delete(acc, :current_module)}
   end

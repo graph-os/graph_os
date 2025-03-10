@@ -101,6 +101,67 @@ This will start the server on http://127.0.0.1:4000 by default.
 
 For more details, see the [Development Mode Documentation](apps/graph_os_mcp/docs/developer_mode.md).
 
+## VS Code Extension
+
+This repository includes a custom VS Code extension to enhance development with GraphOS. The extension provides a dedicated UI for managing server tasks, running mix tasks, and accessing various tools directly from the VS Code interface.
+
+### Features
+
+- Server management (start, stop, restart, join tmux sessions)
+- Mix task discovery and execution
+- MCP tools integration (Inspector, Debug, SSE)
+- Browser integration
+- Status bar buttons for quick access
+
+### Note on Configuration Files
+
+The VS Code extension **replaces the need** for custom configuration in:
+- `.vscode/settings.json` (with the "actionButtons" configuration)
+- `.vscode/tasks.json` (with task definitions)
+
+Once the extension is installed, you can safely remove these configurations as the extension provides the same functionality through its UI.
+
+### Installation
+
+To build and install the extension:
+
+1. Navigate to the extension directory:
+   ```
+   cd vscode-graphos
+   ```
+
+2. Install dependencies:
+   ```
+   npm install
+   ```
+
+3. Build the extension:
+   ```
+   npm run compile
+   ```
+
+4. Package the extension:
+   ```
+   npm run package
+   ```
+
+5. Install the extension in VS Code:
+   - Open VS Code
+   - Press Ctrl+Shift+P (or Cmd+Shift+P on macOS)
+   - Select "Extensions: Install from VSIX..."
+   - Choose the file `vscode-graphos/vscode-graphos-0.1.0.vsix`
+
+### Usage
+
+The extension provides several ways to interact with GraphOS:
+
+1. **Status Bar Buttons**: Clickable buttons at the bottom of VS Code for common actions
+2. **GraphOS Explorer**: An Activity Bar icon that opens a sidebar with server controls
+3. **Mix Tasks Browser**: A treeview for discovering and running mix tasks
+4. **Command Palette**: All functionality is available via commands (Ctrl/Cmd+Shift+P)
+
+See the [extension README](./vscode-graphos/README.md) for more details.
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
