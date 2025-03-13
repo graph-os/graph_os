@@ -19,9 +19,9 @@ defmodule GraphOS.Graph.Store do
       iex> GraphOS.Graph.Store.init(GraphOS.Graph.Store.ETS)
       :ok
   """
-  @spec init(module()) :: :ok | {:error, term()}
-  def init(module \\ GraphOS.Graph.Store.ETS) do
-    module.init()
+  @spec init(module(), keyword()) :: :ok | {:error, term()}
+  def init(module \\ GraphOS.Graph.Store.ETS, opts \\ []) do
+    module.init(opts)
   end
 
   @doc """
@@ -111,5 +111,19 @@ defmodule GraphOS.Graph.Store do
   @spec find_nodes_by_properties(map(), module()) :: {:ok, list(Node.t())} | {:error, term()}
   def find_nodes_by_properties(properties, module \\ GraphOS.Graph.Store.ETS) do
     module.find_nodes_by_properties(properties)
+  end
+  
+  @doc """
+  Get the current store module.
+  
+  ## Returns
+  
+  - `module()` - The current store module
+  """
+  @spec get_store_module() :: module()
+  def get_store_module do
+    # In a real implementation, this would be configurable or determined from context
+    # For now, we'll just use ETS as the default store
+    GraphOS.Graph.Store.ETS
   end
 end
