@@ -6,8 +6,8 @@ defmodule GraphOS.Core.ExecutableTest do
   alias GraphOS.Core.Executable
 
   setup do
-    # Initialize a fresh graph for each test
-    Graph.init(access_control: false)
+    # Initialize the ETS store directly to avoid dependency on GraphOS.Graph.init
+    GraphOS.Graph.Store.ETS.init([])
     :ok
   end
 
