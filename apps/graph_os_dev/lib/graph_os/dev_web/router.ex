@@ -14,6 +14,10 @@ defmodule GraphOS.DevWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # Forward all MCP-related requests to the MCP router
+  # This integrates MCP functionality on the same Phoenix port
+  forward "/mcp", MCP.Router
+
   scope "/", GraphOS.DevWeb do
     pipe_through :browser
 

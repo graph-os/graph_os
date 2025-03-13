@@ -35,6 +35,7 @@ defmodule GraphOS.Core.MixProject do
   defp deps do
     [
       {:graph_os_graph, in_umbrella: true},
+      {:mcp, in_umbrella: true},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false}
     ]
   end

@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { ServerProvider } from './serverProvider';
+import type { MixTask } from './taskProvider';
 import { TaskProvider } from './taskProvider';
 import { executeCommand } from './utils';
-import type { MixTask } from './taskProvider';
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log('GraphOS extension is now active');
@@ -16,7 +16,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Create two main status bar items with dropdown functionality
   let serverRunning = false;
-  
+
   // MIX button
   const mixButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   mixButton.text = "$(beaker) mix";
@@ -25,7 +25,7 @@ export async function activate(context: vscode.ExtensionContext) {
   mixButton.color = new vscode.ThemeColor('statusBarItem.prominentForeground');
   mixButton.backgroundColor = new vscode.ThemeColor('statusBarItem.prominentBackground');
   mixButton.show();
-  
+
   // MCP button with status indicator
   const mcpButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
   mcpButton.text = "$(broadcast) mcp"; // Will update with status indicator
@@ -34,27 +34,27 @@ export async function activate(context: vscode.ExtensionContext) {
   mcpButton.color = new vscode.ThemeColor('statusBarItem.prominentForeground');
   mcpButton.backgroundColor = new vscode.ThemeColor('statusBarItem.prominentBackground');
   mcpButton.show();
-  
+
   // Add status bar items to context subscriptions
   context.subscriptions.push(mixButton, mcpButton);
 
   // Function to update MCP button with server status
   const updateMcpButton = async () => {
     serverRunning = await checkServerRunning();
-    mcpButton.text = serverRunning 
-      ? "$(broadcast) mcp $(debug-start)" 
+    mcpButton.text = serverRunning
+      ? "$(broadcast) mcp $(debug-start)"
       : "$(broadcast) mcp $(debug-stop)";
     mcpButton.tooltip = `Model Context Protocol (Server ${serverRunning ? 'Running' : 'Stopped'})`;
   };
 
   // Initial update of MCP button
   await updateMcpButton();
-  
+
   // Schedule regular updates (every 5 seconds)
   const statusInterval = setInterval(async () => {
     await updateMcpButton();
   }, 5000);
-  
+
   // Ensure interval is cleared on deactivation
   context.subscriptions.push({ dispose: () => clearInterval(statusInterval) });
 
@@ -64,7 +64,7 @@ export async function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('graphos.showMixMenu', async () => {
       const tasks = await taskProvider.getTasks();
       const namespaces = new Map<string, MixTask[]>();
-      
+
       // Group tasks by namespace
       for (const task of tasks) {
         const namespaceName = task.label.includes('.') ? task.label.split('.')[0] : 'other';
@@ -73,18 +73,18 @@ export async function activate(context: vscode.ExtensionContext) {
         }
         namespaces.get(namespaceName)?.push(task);
       }
-      
+
       // Create menu items
       const items: vscode.QuickPickItem[] = [];
-      
+
       // First add common actions
       items.push({
         label: "$(list-unordered) Task Menu",
         description: "Open the task menu with all mix tasks"
       });
-      
+
       items.push({ label: '$(dash) Namespaces', kind: vscode.QuickPickItemKind.Separator });
-      
+
       // Add namespace items
       for (const [namespace, namespaceTasks] of namespaces.entries()) {
         items.push({
@@ -92,44 +92,44 @@ export async function activate(context: vscode.ExtensionContext) {
           description: `${namespaceTasks.length} tasks`
         });
       }
-      
+
       // Show quick pick
       const selected = await vscode.window.showQuickPick(items, {
         placeHolder: 'Select a Mix task or namespace'
       });
-      
+
       if (!selected) return;
-      
+
       if (selected.label === "$(list-unordered) Task Menu") {
         vscode.commands.executeCommand('graphos.showTaskMenu');
       } else if (selected.label.startsWith('$(symbol-namespace)')) {
         // Selected a namespace, show tasks in that namespace
         const namespace = selected.label.replace('$(symbol-namespace) ', '');
         const namespaceTasks = namespaces.get(namespace) || [];
-        
+
         const taskItems = namespaceTasks.map(task => ({
           label: `$(terminal-bash) ${task.label}`,
           description: task.description
         }));
-        
+
         const selectedTask = await vscode.window.showQuickPick(taskItems, {
           placeHolder: `Select a task from ${namespace}`
         });
-        
+
         if (selectedTask) {
           const taskName = selectedTask.label.replace('$(terminal-bash) ', '');
           vscode.commands.executeCommand('graphos.runTask', taskName);
         }
       }
     }),
-    
+
     // MCP menu command
     vscode.commands.registerCommand('graphos.showMcpMenu', async () => {
       const items: vscode.QuickPickItem[] = [];
-      
+
       // Server control section
       items.push({ label: '$(vm) Server Control', kind: vscode.QuickPickItemKind.Separator });
-      
+
       if (serverRunning) {
         items.push({
           label: "$(debug-stop) Stop Server",
@@ -149,9 +149,9 @@ export async function activate(context: vscode.ExtensionContext) {
           description: "Start the GraphOS server"
         });
       }
-      
+
       items.push({ label: '$(browser) Server Tools', kind: vscode.QuickPickItemKind.Separator });
-      
+
       // MCP tools
       items.push({
         label: "$(inspect) Inspector",
@@ -165,10 +165,10 @@ export async function activate(context: vscode.ExtensionContext) {
         label: "$(broadcast) SSE",
         description: "Open the SSE endpoint"
       });
-      
+
       // Test tools
       items.push({ label: '$(beaker) Test Tools', kind: vscode.QuickPickItemKind.Separator });
-      
+
       items.push({
         label: "$(beaker) Test Client",
         description: "Run the MCP test client"
@@ -185,14 +185,14 @@ export async function activate(context: vscode.ExtensionContext) {
         label: "$(globe) Test Endpoint",
         description: "Run MCP test endpoint"
       });
-      
+
       // Show quick pick
       const selected = await vscode.window.showQuickPick(items, {
         placeHolder: 'Select MCP action'
       });
-      
+
       if (!selected) return;
-      
+
       // Handle selection
       switch (selected.label) {
         case "$(debug-stop) Stop Server":
@@ -230,18 +230,18 @@ export async function activate(context: vscode.ExtensionContext) {
           break;
       }
     }),
-    
+
     // Server management commands
     vscode.commands.registerCommand('graphos.startServer', async () => {
       const terminal = vscode.window.createTerminal('GraphOS Server');
       terminal.sendText('mix dev.server start');
       terminal.show();
-      
+
       // Open browser after a delay to ensure server has started
       setTimeout(() => {
         executeCommand('open http://localhost:4000');
       }, 3000);
-      
+
       serverProvider.refresh();
       await updateMcpButton();
     }),
@@ -258,12 +258,12 @@ export async function activate(context: vscode.ExtensionContext) {
       const terminal = vscode.window.createTerminal('GraphOS Server');
       terminal.sendText('mix dev.server restart');
       terminal.show();
-      
+
       // Open browser after a delay to ensure server has restarted
       setTimeout(() => {
         executeCommand('open http://localhost:4000');
       }, 3000);
-      
+
       serverProvider.refresh();
       await updateMcpButton();
     }),
@@ -289,7 +289,7 @@ export async function activate(context: vscode.ExtensionContext) {
     // MCP tool commands
     vscode.commands.registerCommand('graphos.openInspector', async () => {
       const isRunning = await checkServerRunning();
-      
+
       if (isRunning) {
         vscode.window.showInformationMessage('Using existing server session...');
         executeCommand('open http://localhost:4000/inspector');
@@ -297,20 +297,20 @@ export async function activate(context: vscode.ExtensionContext) {
         const terminal = vscode.window.createTerminal('GraphOS Inspector');
         terminal.sendText('mix mcp.inspect');
         terminal.show();
-        
+
         // Open browser after a delay to ensure inspector has started
         setTimeout(() => {
           executeCommand('open http://localhost:4000/inspector');
         }, 3000);
       }
-      
+
       serverProvider.refresh();
       await updateMcpButton();
     }),
 
     vscode.commands.registerCommand('graphos.openDebug', async () => {
       const isRunning = await checkServerRunning();
-      
+
       if (isRunning) {
         vscode.window.showInformationMessage('Using existing server session...');
         executeCommand('open http://localhost:4000/debug/api');
@@ -318,20 +318,20 @@ export async function activate(context: vscode.ExtensionContext) {
         const terminal = vscode.window.createTerminal('GraphOS Debug');
         terminal.sendText('mix mcp.debug');
         terminal.show();
-        
+
         // Open browser after a delay to ensure debug has started
         setTimeout(() => {
           executeCommand('open http://localhost:4000/debug/api');
         }, 3000);
       }
-      
+
       serverProvider.refresh();
       await updateMcpButton();
     }),
 
     vscode.commands.registerCommand('graphos.openSSE', async () => {
       const isRunning = await checkServerRunning();
-      
+
       if (isRunning) {
         vscode.window.showInformationMessage('Using existing server session...');
         executeCommand('open http://localhost:4000/sse');
@@ -339,13 +339,13 @@ export async function activate(context: vscode.ExtensionContext) {
         const terminal = vscode.window.createTerminal('GraphOS SSE');
         terminal.sendText('mix mcp.sse');
         terminal.show();
-        
+
         // Open browser after a delay to ensure SSE has started
         setTimeout(() => {
           executeCommand('open http://localhost:4000/sse');
         }, 3000);
       }
-      
+
       serverProvider.refresh();
       await updateMcpButton();
     }),
@@ -405,13 +405,13 @@ export async function activate(context: vscode.ExtensionContext) {
       if (!taskName) {
         // If no task is provided, show a quick pick to select a task
         const tasks = await taskProvider.getTasks();
-        
+
         // Define the interface for the quick pick items
         interface QuickPickItem {
           label: string;
           description: string;
         }
-        
+
         const selectedTask = await vscode.window.showQuickPick<QuickPickItem>(
           tasks.map((task: MixTask) => ({ label: task.label, description: task.description })),
           { placeHolder: 'Select a mix task to run' }

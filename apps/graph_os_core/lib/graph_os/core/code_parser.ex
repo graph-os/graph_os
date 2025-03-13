@@ -291,7 +291,7 @@ defmodule GraphOS.Core.CodeParser do
     called_module = extract_module_name(module_name)
 
     # Skip Elixir built-ins and same-module calls
-    if called_module != current_module and not is_elixir_builtin(called_module) do
+    if called_module != current_module and not elixir_builtin?(called_module) do
       # Add to dependencies
       dependency = %{
         source: current_module,
@@ -327,9 +327,7 @@ defmodule GraphOS.Core.CodeParser do
 
   # Extract a module name from its AST representation
   defp extract_module_name({:__aliases__, _, parts}) when is_list(parts) do
-    parts
-    |> Enum.map(&to_string/1)
-    |> Enum.join(".")
+    Enum.map_join(parts, ".", &to_string/1)
   end
 
   defp extract_module_name(module) when is_atom(module) do
@@ -339,7 +337,7 @@ defmodule GraphOS.Core.CodeParser do
   defp extract_module_name(_), do: "Unknown"
 
   # Check if a module is an Elixir built-in
-  defp is_elixir_builtin(module_name) do
+  defp elixir_builtin?(module_name) do
     String.starts_with?(module_name, "Elixir.") or
     module_name in ~w(Kernel Enum Map String List Process Application)
   end

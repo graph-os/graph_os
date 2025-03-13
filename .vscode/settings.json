@@ -1,6 +1,6 @@
 {
   "elixirLS.projectDir": ".",
-  "elixir.credo.configurationFile": ".credo.exs",
+  "elixir.credo.configurationFile": "/Users/vegard/Developer/GraphOS/graph_os/config/.credo.exs",
   "elixir.credo.enableDebug": true,
   "elixir.credo.strictMode": false,
   "elixirLS.dialyzerEnabled": true,

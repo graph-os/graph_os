@@ -27,8 +27,6 @@ defmodule MCP.MixProject do
   defp deps do
     [
       # Internal dependencies
-      {:graph_os_core, in_umbrella: true},
-      {:graph_os_dev, in_umbrella: true},
       {:tmux, in_umbrella: true},
       # UUID generation
       {:uuid, "~> 1.1"},

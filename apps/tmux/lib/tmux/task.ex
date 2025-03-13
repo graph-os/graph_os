@@ -38,6 +38,7 @@ defmodule TMUX.Task do
   * `:on_run` - List of actions to take when run with no args (e.g., [:restart, :join])
   * `:env` - Environment variables to set in the tmux session
   * `:tmux_required` - Whether to error if tmux is not available (default: false)
+  * `:auto_join` - Whether to automatically join the session (default: true)
   """
 
   @doc false
@@ -50,6 +51,7 @@ defmodule TMUX.Task do
       @on_run unquote(Keyword.get(opts, :on_run, []))
       @env unquote(Keyword.get(opts, :env, %{}))
       @tmux_required unquote(Keyword.get(opts, :tmux_required, false))
+      @auto_join unquote(Keyword.get(opts, :auto_join, true))
 
       # Generate default session name from the module name if none provided
       @session_name @session_key ||
@@ -179,13 +181,137 @@ defmodule TMUX.Task do
             System.cmd("tmux", ["send-keys", "-t", @session_name, run_cmd, "Enter"])
 
             print_success("Started session #{@session_name}.")
-            print_info("Join with: mix #{@task_name} join")
+            if @auto_join do
+              # Wait a moment for the session to be fully started
+              :timer.sleep(500)
+              handle_auto_join()
+            else
+              print_info("Join with: mix #{@task_name} join")
+            end
             :ok
           end
         else
           print_success("Session #{@session_name} already exists.")
-          print_info("Join with: mix #{@task_name} join")
+          if @auto_join do
+            handle_auto_join()
+          else
+            print_info("Join with: mix #{@task_name} join")
+          end
           :ok
+        end
+      end
+
+      # Handle automatic joining of tmux sessions
+      defp handle_auto_join do
+        shell_command = "tmux attach-session -t #{@session_name}"
+        print_info("Attempting to join the session...")
+
+        # Check if we're in a truly interactive terminal
+        is_interactive = System.get_env("TERM") != nil && IO.ANSI.enabled?() && tty_available?()
+
+        # For debug purposes, print more detailed information
+        term_env = System.get_env("TERM")
+        ansi_enabled = IO.ANSI.enabled?()
+        tty_check = tty_available?()
+
+        if is_interactive do
+          print_info("To detach from the session once attached, press Ctrl+B then D")
+          print_info("Joining now...")
+
+          # Try both joining methods, starting with the more reliable one
+          try_join_with_exec = fn ->
+            # Try to use posix exec to replace the current process with tmux
+            # This is the most reliable method on most systems
+            System.cmd("exec", ["tmux", "attach-session", "-t", @session_name], into: IO.stream(:stdio, :line))
+          end
+
+          try_join_with_sh = fn ->
+            # Fallback to sh -c approach
+            System.cmd("sh", ["-c", shell_command], into: IO.stream(:stdio, :line))
+          end
+
+          try do
+            # Try the exec method first
+            try_join_with_exec.()
+          rescue
+            _ ->
+              # If that fails, try the sh method
+              try do
+                try_join_with_sh.()
+              rescue
+                _ ->
+                  # Last resort - try using OS.cmd directly if this is likely an IDE terminal
+                  # This works better in some IDE environments like VS Code or Cursor
+                  ide_terminal = System.get_env("TERM_PROGRAM") != nil ||
+                                 (System.get_env("TERM") || "") =~ "xterm" ||
+                                 (System.get_env("EDITOR") || "") =~ "code"
+
+                  if ide_terminal do
+                    print_info("Trying IDE-compatible join method...")
+                    try do
+                      if :os.type() == {:unix, :darwin} do
+                        # Use open terminal command on macOS
+                        System.cmd("open", ["-a", "Terminal", shell_command])
+                      else
+                        # Use gnome-terminal on Linux if available
+                        System.cmd("gnome-terminal", ["--", "bash", "-c", "#{shell_command}; exec bash"], stderr_to_stdout: true)
+                      end
+                    rescue
+                      _ ->
+                        print_warning("Failed to join session automatically.")
+                        print_manual_join_instructions(shell_command)
+                    end
+                  else
+                    print_warning("Failed to join session automatically.")
+                    print_manual_join_instructions(shell_command)
+                  end
+              end
+          end
+        else
+          # Provide more detailed diagnostic info
+          diagnostic_info = """
+          Can't auto-join (not in an interactive terminal).
+          Terminal detection details:
+            - TERM environment: #{if term_env, do: term_env, else: "not set"}
+            - ANSI enabled: #{ansi_enabled}
+            - TTY available: #{tty_check}
+          """
+          print_info(diagnostic_info)
+          print_manual_join_instructions(shell_command)
+        end
+      end
+
+      # Show instructions for manually joining the session
+      defp print_manual_join_instructions(shell_command) do
+        print_info("To manually join the session, run this command in your terminal:")
+        print_info(IO.ANSI.format([:cyan, "  #{shell_command}"]))
+        print_info("To detach from the session once attached, press Ctrl+B then D")
+
+        # Try to show pane contents as a preview
+        try do
+          {output, 0} = System.cmd("tmux", ["capture-pane", "-pt", @session_name, "-S", "-5"], stderr_to_stdout: true)
+          if output && output != "" do
+            print_info("\nSession preview (last few lines):")
+            output
+            |> String.split("\n")
+            |> Enum.filter(fn line -> String.trim(line) != "" end)
+            |> Enum.take(-5)
+            |> Enum.each(fn line -> print_info("  " <> line) end)
+          end
+        rescue
+          _ -> :ok
+        end
+      end
+
+      # Helper to check if we're in a true TTY
+      defp tty_available? do
+        try do
+          case System.cmd("test", ["-t", "0"], stderr_to_stdout: true) do
+            {_, 0} -> true
+            _ -> false
+          end
+        rescue
+          _ -> false
         end
       end
 

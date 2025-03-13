@@ -71,7 +71,7 @@ defmodule Mix.Tasks.Mcp.TypeParity do
   defp check_protocol_versions do
     Mix.shell().info("Checking protocol version parity...")
 
-    elixir_version = MCP.Types.latest_protocol_version()
+    elixir_version = MCP.Message.latest_version()
 
     # Read TS file to extract version
     ts_file = Path.join([File.cwd!(), "assets", "types", "mcp-types.ts"])

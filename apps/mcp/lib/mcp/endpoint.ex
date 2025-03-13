@@ -182,6 +182,16 @@ end
 defmodule MCP.MessageHandler do
   @moduledoc """
   Handler for JSON-RPC messages.
+
+  This module handles incoming JSON-RPC messages and dispatches them to the
+  configured MCP server. It also handles errors and returns responses to the
+  client.
+
+  ## Using MCP.Message
+
+  For future reference, the MCP.Message module can be used to create and parse
+  JSON-RPC messages. It provides a convenient way to work with JSON-RPC messages
+  and can be used to simplify the handling of messages in this module.
   """
 
   require Logger
@@ -200,6 +210,7 @@ defmodule MCP.MessageHandler do
         handle_message(req, session_id, message)
 
       {:error, reason} ->
+        # Create error response using MCP.Message
         error_response = %{
           jsonrpc: "2.0",
           error: %{

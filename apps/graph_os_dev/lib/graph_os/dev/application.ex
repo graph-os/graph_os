@@ -8,6 +8,9 @@ defmodule GraphOS.Dev.Application do
 
   @impl true
   def start(_type, _args) do
+    # Log that we're starting the GraphOS.Dev application with integrated MCP support
+    Logger.info("Starting GraphOS.Dev with integrated MCP support")
+
     children = [
       GraphOS.DevWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:graph_os_dev, :dns_cluster_query) || :ignore},
@@ -15,7 +18,9 @@ defmodule GraphOS.Dev.Application do
       # Start a worker by calling: GraphOS.Dev.Worker.start_link(arg)
       # {GraphOS.Dev.Worker, arg},
       # Ensure the CodeGraph service is started if enabled
-      {Task, fn -> ensure_code_graph_started() end},
+      Supervisor.child_spec({Task, fn -> ensure_code_graph_started() end}, id: :code_graph_task),
+      # Ensure MCP application is started with CodeGraph integration
+      Supervisor.child_spec({Task, fn -> ensure_mcp_started() end}, id: :mcp_task),
       # Start to serve requests, typically the last entry
       GraphOS.DevWeb.Endpoint
     ]
@@ -32,6 +37,28 @@ defmodule GraphOS.Dev.Application do
   def config_change(changed, _new, removed) do
     GraphOS.DevWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  # Ensure MCP application is properly started
+  defp ensure_mcp_started do
+    Logger.info("Ensuring MCP application is started")
+    case Application.ensure_all_started(:mcp) do
+      {:ok, started_apps} ->
+        Logger.info("MCP started successfully, loaded applications: #{inspect(started_apps)}")
+        
+        # Register our GraphOS.Core.MCP.CodeGraphServer as the server implementation
+        # This ensures all MCP connections are handled by our custom server
+        # with CodeGraph functionality
+        if Code.ensure_loaded?(GraphOS.Core.MCP.CodeGraphServer) do
+          Logger.info("Registering GraphOS.Core.MCP.CodeGraphServer as the MCP server implementation")
+          Application.put_env(:mcp, :server_module, GraphOS.Core.MCP.CodeGraphServer)
+        else
+          Logger.warning("CodeGraph MCP server module not available")
+        end
+
+      {:error, {app, reason}} ->
+        Logger.error("Failed to start MCP. Failed application: #{app}, reason: #{inspect(reason)}")
+    end
   end
 
   # Ensure CodeGraph service is started

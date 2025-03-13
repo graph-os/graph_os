@@ -25,7 +25,6 @@ defmodule MCP.Client do
   """
 
   require Logger
-  alias MCP.Types
 
   @type client :: pid()
   @type request_id :: integer()
@@ -48,7 +47,7 @@ defmodule MCP.Client do
   * `:headers` - Additional HTTP headers to include in the request
   * `:message_endpoint` - The endpoint for sending messages (if known)
   * `:session_id` - The session ID to use (if not provided, one will be generated)
-  * `:protocol_version` - The protocol version to use (default: MCP.Types.latest_protocol_version())
+  * `:protocol_version` - The protocol version to use (default: MCP.Message.latest_version())
   * `:auto_initialize` - Whether to automatically initialize the connection (default: true)
   * `:connect_timeout` - Connection timeout in milliseconds (default: 30000)
 
@@ -63,7 +62,10 @@ defmodule MCP.Client do
     headers = Keyword.get(opts, :headers, @default_headers)
     message_endpoint = Keyword.get(opts, :message_endpoint)
     session_id = Keyword.get(opts, :session_id) || generate_session_id()
-    protocol_version = Keyword.get(opts, :protocol_version, Types.latest_protocol_version())
+
+    protocol_version =
+      Keyword.get(opts, :protocol_version, MCP.Message.latest_version())
+
     auto_initialize = Keyword.get(opts, :auto_initialize, true)
     connect_timeout = Keyword.get(opts, :connect_timeout, @default_timeout)
 
@@ -106,7 +108,9 @@ defmodule MCP.Client do
   # Helper to handle initialization based on auto_initialize flag
   defp maybe_initialize(client, true) do
     case initialize_internal(client) do
-      {:ok, _} -> {:ok, client}
+      {:ok, _} ->
+        {:ok, client}
+
       error ->
         Logger.error("Failed to initialize MCP client: #{inspect(error)}")
         Agent.stop(client)
@@ -191,7 +195,8 @@ defmodule MCP.Client do
         Agent.update(client, fn state -> %{state | tools: tools} end)
         {:ok, tools}
 
-      error -> error
+      error ->
+        error
     end
   end
 
@@ -239,21 +244,51 @@ defmodule MCP.Client do
   * `{:ok, map()}` - The tool was registered successfully
   * `{:error, term()}` - The request failed
   """
-  @spec register_tool(client(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec register_tool(client(), map(), keyword()) :: {:ok, any()} | {:error, term()}
   def register_tool(client, tool, opts \\ []) do
-    case Types.validate_tool(tool) do
+    # Basic validation of tool structure
+    # TODO: Replace with proper schema validation once tool schemas are defined
+    case validate_tool(tool) do
       {:ok, _} ->
-        params = %{
-          tool: tool
+        _tool_schema = %{
+          "type" => "object",
+          "required" => ["name", "description"],
+          "properties" => %{
+            "name" => %{"type" => "string"},
+            "description" => %{"type" => "string"},
+            "inputSchema" => %{"type" => "object"},
+            "outputSchema" => %{"type" => "object"}
+          }
         }
 
-        case send_request(client, "tools/register", params, opts) do
-          {:ok, _response} -> {:ok, tool}
-          error -> error
-        end
+        # Send the register tool request
+        send_request(
+          client,
+          "tools/register",
+          %{tool: tool},
+          opts
+        )
 
-      {:error, errors} ->
-        {:error, {:invalid_tool, errors}}
+      {:error, reason} = error ->
+        Logger.error("Invalid tool definition: #{inspect(reason)}")
+        error
+    end
+  end
+
+  # Simple tool validation function until we have proper schemas
+  defp validate_tool(tool) do
+    cond do
+      not is_map(tool) ->
+        {:error, "Tool must be a map"}
+
+      not Map.has_key?(tool, "name") ->
+        {:error, "Tool must have a name"}
+
+      not Map.has_key?(tool, "description") ->
+        {:error, "Tool must have a description"}
+
+      true ->
+        {:ok, tool}
     end
   end
 
@@ -287,7 +322,8 @@ defmodule MCP.Client do
         Agent.update(client, fn state -> %{state | resources: resources} end)
         {:ok, resources}
 
-      error -> error
+      error ->
+        error
     end
   end
 
@@ -348,7 +384,8 @@ defmodule MCP.Client do
         Agent.update(client, fn state -> %{state | prompts: prompts} end)
         {:ok, prompts}
 
-      error -> error
+      error ->
+        error
     end
   end
 
@@ -443,6 +480,7 @@ defmodule MCP.Client do
       handlers = Map.get(state.event_handlers, event_type, [])
       %{state | event_handlers: Map.put(state.event_handlers, event_type, [handler | handlers])}
     end)
+
     :ok
   end
 
@@ -464,11 +502,17 @@ defmodule MCP.Client do
     Agent.update(client, fn state ->
       if handler do
         handlers = Map.get(state.event_handlers, event_type, [])
-        %{state | event_handlers: Map.put(state.event_handlers, event_type, Enum.reject(handlers, &(&1 == handler)))}
+
+        %{
+          state
+          | event_handlers:
+              Map.put(state.event_handlers, event_type, Enum.reject(handlers, &(&1 == handler)))
+        }
       else
         %{state | event_handlers: Map.delete(state.event_handlers, event_type)}
       end
     end)
+
     :ok
   end
 
@@ -504,8 +548,9 @@ defmodule MCP.Client do
 
   @spec initialize_internal(client(), keyword()) :: {:ok, map()} | {:error, term()}
   defp initialize_internal(client, opts \\ []) do
-    protocol_version = Keyword.get(opts, :protocol_version) ||
-      Agent.get(client, fn state -> state.protocol_version end)
+    protocol_version =
+      Keyword.get(opts, :protocol_version) ||
+        Agent.get(client, fn state -> state.protocol_version end)
 
     capabilities = Keyword.get(opts, :capabilities, %{})
 
@@ -518,14 +563,17 @@ defmodule MCP.Client do
       {:ok, response} ->
         # Update the client state with the initialized flag and server info
         Agent.update(client, fn state ->
-          %{state |
-            initialized: true,
-            protocol_version: response["protocolVersion"] || protocol_version
+          %{
+            state
+            | initialized: true,
+              protocol_version: response["protocolVersion"] || protocol_version
           }
         end)
+
         {:ok, response}
 
-      error -> error
+      error ->
+        error
     end
   end
 
@@ -539,9 +587,11 @@ defmodule MCP.Client do
 
     # Start a process to handle the SSE connection
     parent = self()
-    connection_pid = spawn_link(fn ->
-      handle_sse_connection(parent, client, url, headers, timeout)
-    end)
+
+    connection_pid =
+      spawn_link(fn ->
+        handle_sse_connection(parent, client, url, headers, timeout)
+      end)
 
     # Update the client state with the connection PID
     Agent.update(client, fn state ->
@@ -552,7 +602,8 @@ defmodule MCP.Client do
     wait_for_message_endpoint(client, timeout)
   end
 
-  @spec handle_sse_connection(pid(), client(), String.t(), list(), non_neg_integer()) :: no_return()
+  @spec handle_sse_connection(pid(), client(), String.t(), list(), non_neg_integer()) ::
+          no_return()
   defp handle_sse_connection(_parent, client, url, headers, timeout) do
     # Build the request using Finch.build
     req = Finch.build(:get, url, headers)
@@ -634,6 +685,7 @@ defmodule MCP.Client do
         if Agent.get(client, & &1.initialized) do
           initialize_internal(client)
         end
+
         :ok
 
       {:error, _reason} ->
@@ -666,18 +718,19 @@ defmodule MCP.Client do
     # Parse the event type and data from the event text
     event_lines = String.split(event_text, "\n")
 
-    {event_type, data} = Enum.reduce(event_lines, {"message", nil}, fn line, {current_event, current_data} ->
-      cond do
-        String.starts_with?(line, "event:") ->
-          {String.trim(String.replace(line, "event:", "")), current_data}
+    {event_type, data} =
+      Enum.reduce(event_lines, {"message", nil}, fn line, {current_event, current_data} ->
+        cond do
+          String.starts_with?(line, "event:") ->
+            {String.trim(String.replace(line, "event:", "")), current_data}
 
-        String.starts_with?(line, "data:") ->
-          {current_event, String.trim(String.replace(line, "data:", ""))}
+          String.starts_with?(line, "data:") ->
+            {current_event, String.trim(String.replace(line, "data:", ""))}
 
-        true ->
-          {current_event, current_data}
-      end
-    end)
+          true ->
+            {current_event, current_data}
+        end
+      end)
 
     if data do
       {:ok, event_type, data}
@@ -723,11 +776,11 @@ defmodule MCP.Client do
   defp handle_message(client, %{"id" => id} = message) do
     # Handle responses to requests
     case Agent.get_and_update(client, fn state ->
-      case Map.pop(state.requests, id) do
-        {nil, state} -> {{:error, :unknown_request}, state}
-        {request, new_requests} -> {request, %{state | requests: new_requests}}
-      end
-    end) do
+           case Map.pop(state.requests, id) do
+             {nil, state} -> {{:error, :unknown_request}, state}
+             {request, new_requests} -> {request, %{state | requests: new_requests}}
+           end
+         end) do
       {:error, :unknown_request} ->
         Logger.warning("Received response for unknown request ID: #{id}")
 
@@ -750,9 +803,10 @@ defmodule MCP.Client do
   @spec notify_event_handlers(client(), String.t(), map() | binary()) :: :ok
   defp notify_event_handlers(client, event_type, data) do
     # Get any registered handlers for this event type
-    handlers = Agent.get(client, fn state ->
-      Map.get(state.event_handlers, event_type, [])
-    end)
+    handlers =
+      Agent.get(client, fn state ->
+        Map.get(state.event_handlers, event_type, [])
+      end)
 
     # Call each handler with the event data
     Enum.each(handlers, fn handler ->
@@ -770,11 +824,13 @@ defmodule MCP.Client do
     timeout = Keyword.get(opts, :timeout, @default_timeout)
 
     # Get the client state
-    {request_id, message_endpoint, session_id} = Agent.get_and_update(client, fn state ->
-      request_id = state.request_id_counter
-      {{request_id, state.message_endpoint, state.session_id},
-       %{state | request_id_counter: request_id + 1}}
-    end)
+    {request_id, message_endpoint, session_id} =
+      Agent.get_and_update(client, fn state ->
+        request_id = state.request_id_counter
+
+        {{request_id, state.message_endpoint, state.session_id},
+         %{state | request_id_counter: request_id + 1}}
+      end)
 
     # Ensure we have a message endpoint
     unless message_endpoint do
@@ -783,7 +839,7 @@ defmodule MCP.Client do
 
     # Build the request
     request = %{
-      jsonrpc: Types.jsonrpc_version(),
+      jsonrpc: "2.0",
       id: request_id,
       method: method,
       params: params
@@ -791,13 +847,18 @@ defmodule MCP.Client do
 
     # Register the request in the state
     Agent.update(client, fn state ->
-      %{state | requests: Map.put(state.requests, request_id, {self(), %{method: method, params: params}})}
+      %{
+        state
+        | requests:
+            Map.put(state.requests, request_id, {self(), %{method: method, params: params}})
+      }
     end)
 
     # Build the URL with session ID
-    url = if String.contains?(message_endpoint, "?"),
-      do: "#{message_endpoint}&sessionId=#{session_id}",
-      else: "#{message_endpoint}?sessionId=#{session_id}"
+    url =
+      if String.contains?(message_endpoint, "?"),
+        do: "#{message_endpoint}&sessionId=#{session_id}",
+        else: "#{message_endpoint}?sessionId=#{session_id}"
 
     # Send the request using Finch
     headers = [{"content-type", "application/json"}]
@@ -830,14 +891,16 @@ defmodule MCP.Client do
     end
   end
 
-  @spec wait_for_message_endpoint(client(), non_neg_integer()) :: {:ok, map()} | {:error, :timeout}
+  @spec wait_for_message_endpoint(client(), non_neg_integer()) ::
+          {:ok, map()} | {:error, :timeout}
   defp wait_for_message_endpoint(client, timeout) do
     if Agent.get(client, fn state -> state.message_endpoint end) do
       {:ok, Agent.get(client, & &1)}
     else
       # Wait for a short time to see if the message endpoint gets set
       # This is done in chunks to allow for termination
-      endpoint_check_interval = 100  # milliseconds
+      # milliseconds
+      endpoint_check_interval = 100
       wait_time = 0
 
       wait_for_endpoint_loop(client, wait_time, timeout, endpoint_check_interval)
@@ -865,11 +928,12 @@ defmodule MCP.Client do
     uri = URI.parse(url)
     query = uri.query || ""
 
-    new_query = if query == "" do
-      "sessionId=#{session_id}"
-    else
-      "#{query}&sessionId=#{session_id}"
-    end
+    new_query =
+      if query == "" do
+        "sessionId=#{session_id}"
+      else
+        "#{query}&sessionId=#{session_id}"
+      end
 
     %{uri | query: new_query} |> URI.to_string()
   end

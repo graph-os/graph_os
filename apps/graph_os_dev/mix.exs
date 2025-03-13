@@ -58,7 +58,10 @@ defmodule GraphOS.Dev.MixProject do
       {:plug_cowboy, "~> 2.6"},
       # Other GraphOS dependencies
       {:graph_os_graph, in_umbrella: true},
-      {:graph_os_core, in_umbrella: true}
+      {:graph_os_core, in_umbrella: true},
+      {:tmux, in_umbrella: true},
+      # Add MCP as a dependency
+      {:mcp, in_umbrella: true}
     ]
   end
 

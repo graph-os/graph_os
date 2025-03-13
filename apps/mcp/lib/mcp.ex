@@ -12,12 +12,12 @@ defmodule MCP do
   ## Options
 
   * `:log_level` - The log level for the MCP server (`:debug`, `:info`, `:warn`, `:error`). Default: `:info`
-  * `:supported_versions` - List of supported protocol versions. Default: [MCP.Types.latest_protocol_version()]
+  * `:supported_versions` - List of supported protocol versions. Default: [MCP.Message.latest_version()]
   """
   def config do
     Application.get_env(:mcp, MCP, [])
     |> Keyword.put_new(:log_level, :info)
-    |> Keyword.put_new(:supported_versions, [MCP.Types.latest_protocol_version()])
+    |> Keyword.put_new(:supported_versions, [MCP.Message.latest_version()])
   end
 
   @doc """
@@ -40,5 +40,4 @@ defmodule MCP do
   def supports_version?(version) do
     version in supported_versions()
   end
-
 end

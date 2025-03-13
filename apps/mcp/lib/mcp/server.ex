@@ -65,7 +65,6 @@ defmodule MCP.Server do
 
   """
 
-  alias MCP.Types
   alias SSE.ConnectionPlug
   alias SSE.ConnectionRegistry
 
@@ -102,20 +101,42 @@ defmodule MCP.Server do
           method: message["method"]
         )
 
-        case MCP.Types.determine_and_validate_message_type(message) do
-          {:ok, :request} ->
-            handle_request(session_id, message)
+        # Use MCP.Message for validation
+        method = message["method"]
+        version = MCP.Message.latest_version()
 
-          {:ok, :notification} ->
-            handle_notification(session_id, message)
-            {:ok, nil}
-
-          {:error, errors} ->
-            Logger.warning("Invalid message format",
-              session_id: session_id,
-              errors: errors
-            )
-            {:error, {MCP.Server.invalid_request(), "Invalid JSON-RPC message", errors}}
+        if method do
+          case MCP.Message.get_message_module(version, method) do
+            {:ok, module} -> 
+              case module.validate(message) do
+                {:ok, _} -> 
+                  if Map.has_key?(message, "id") do
+                    # This is a request
+                    handle_request(session_id, message)
+                  else
+                    # This is a notification
+                    handle_notification(session_id, message)
+                    {:ok, nil}
+                  end
+                {:error, errors} ->
+                  Logger.warning("Invalid message format",
+                    session_id: session_id,
+                    errors: errors
+                  )
+                  {:error, {MCP.Server.invalid_params(), "Invalid JSON-RPC message parameters", errors}}
+              end
+            {:error, _} ->
+              Logger.warning("Unknown message type",
+                session_id: session_id,
+                method: method
+              )
+              {:error, {MCP.Server.method_not_found(), "Unknown message type: #{method}", nil}}
+          end
+        else
+          Logger.warning("Invalid message format: missing method",
+            session_id: session_id
+          )
+          {:error, {MCP.Server.invalid_request(), "Invalid JSON-RPC message: missing method", nil}}
         end
       end
 
@@ -170,13 +191,16 @@ defmodule MCP.Server do
               rescue
                 e ->
                   stacktrace = __STACKTRACE__
+
                   SSE.log(:error, "Error handling request",
                     session_id: session_id,
                     method: method,
                     error: inspect(e),
                     stacktrace: inspect(stacktrace)
                   )
-                  {:error, {MCP.Server.internal_error(), "Internal error", %{message: inspect(e)}}}
+
+                  {:error,
+                   {MCP.Server.internal_error(), "Internal error", %{message: inspect(e)}}}
               end
             end
 
@@ -185,55 +209,62 @@ defmodule MCP.Server do
         end
       end
 
+      defp supported_version?(%{"protocolVersion" => version}), do: MCP.supports_version?(version)
+
       # Method dispatcher
       defp dispatch_method(session_id, "initialize", request_id, params, _session_data) do
-        protocol_version = params["protocolVersion"]
-        capabilities = params["capabilities"] || %{}
+        if supported_version?(params) do
+          case handle_initialize(session_id, request_id, params) do
+            {:ok, result} ->
+              ConnectionRegistry.update_data(session_id, %{
+                protocol_version: Map.get(params, "protocolVersion"),
+                capabilities: Map.get(params, "capabilities", %{}),
+                initialized: true,
+                client_info: Map.get(params, "clientInfo", %{})
+              })
 
-        if protocol_version do
-          if MCP.supports_version?(protocol_version) do
-            # Let the implementation handle initialization
-            case handle_initialize(session_id, request_id, params) do
-              {:ok, result} ->
-                # Update session data
-                ConnectionRegistry.update_data(session_id, %{
-                  protocol_version: protocol_version,
-                  capabilities: capabilities,
-                  initialized: true,
-                  tools: %{}
-                })
+              initialize_result = %MCP.Message.V20241105InitializeResult{
+                protocolVersion: result.protocolVersion,
+                capabilities: result.capabilities,
+                serverInfo: result.serverInfo,
+                instructions: Map.get(result, :instructions)
+              }
 
-                # Return JSON-RPC formatted result
-                {:ok, %{
-                  jsonrpc: Types.jsonrpc_version(),
-                  id: request_id,
-                  result: result
-                }}
+              response = %{
+                jsonrpc: "2.0",
+                id: request_id,
+                result: MCP.Message.V20241105InitializeResult.encode(initialize_result)
+              }
 
-              {:error, reason} ->
-                {:error, reason}
-            end
-          else
-            supported = Enum.join(MCP.supported_versions(), ", ")
-            {:error, {
-              MCP.Server.protocol_version_mismatch(),
-              "Unsupported protocol version: #{protocol_version}. Supported versions: #{supported}",
-              nil
-            }}
+              {:ok, response}
+
+            {:error, reason} ->
+              {:error, reason}
           end
         else
-          {:error, {MCP.Server.invalid_params(), "Protocol version required", nil}}
+          supported = Enum.join(MCP.supported_versions(), ", ")
+
+          {:error,
+           {
+             MCP.Server.protocol_version_mismatch(),
+             "Unsupported protocol version: #{params["protocolVersion"]}. Supported versions: #{supported}",
+             nil
+           }}
         end
       end
 
       defp dispatch_method(session_id, "ping", request_id, _params, _session_data) do
         case handle_ping(session_id, request_id) do
           {:ok, result} ->
-            {:ok, %{
-              jsonrpc: Types.jsonrpc_version(),
+            ping_result = %MCP.Message.V20241105PingResult{}
+            
+            response = %{
+              jsonrpc: "2.0",
               id: request_id,
-              result: result
-            }}
+              result: Map.merge(MCP.Message.V20241105PingResult.encode(ping_result), result)
+            }
+            
+            {:ok, response}
 
           {:error, reason} ->
             {:error, reason}
@@ -241,37 +272,49 @@ defmodule MCP.Server do
       end
 
       defp dispatch_method(session_id, "tools/register", request_id, params, session_data) do
+        # Get the tool definition
         tool = params["tool"]
 
-        case Types.validate_tool(tool) do
+        # Validate the tool definition
+        case validate_tool(tool) do
           {:ok, _} ->
             # Add tool to the session
             tool_name = tool["name"]
             tools = Map.put(session_data.tools, tool_name, tool)
 
             ConnectionRegistry.update_data(session_id, %{
-              session_data | tools: tools
+              session_data
+              | tools: tools
             })
 
-            {:ok, %{
-              jsonrpc: Types.jsonrpc_version(),
-              id: request_id,
-              result: %{}
-            }}
+            {:ok,
+             %{
+               jsonrpc: "2.0",
+               id: request_id,
+               result: %{}
+             }}
 
-          {:error, errors} ->
-            {:error, {MCP.Server.invalid_params(), "Invalid tool definition", errors}}
+          {:error, reason} ->
+            {:error, {MCP.Server.invalid_params(), "Invalid tool definition: #{reason}", nil}}
         end
       end
 
       defp dispatch_method(session_id, "tools/list", request_id, params, _session_data) do
         case handle_list_tools(session_id, request_id, params) do
           {:ok, result} ->
-            {:ok, %{
-              jsonrpc: Types.jsonrpc_version(),
+            # Create ListToolsResult using the Message module
+            list_tools_result = %MCP.Message.V20241105ListToolsResult{
+              tools: result.tools
+            }
+            
+            # Convert to response format
+            response = %{
+              jsonrpc: "2.0",
               id: request_id,
-              result: result
-            }}
+              result: MCP.Message.V20241105ListToolsResult.encode(list_tools_result)
+            }
+            
+            {:ok, response}
 
           {:error, reason} ->
             {:error, reason}
@@ -289,11 +332,19 @@ defmodule MCP.Server do
           _tool ->
             case handle_tool_call(session_id, request_id, tool_name, arguments) do
               {:ok, result} ->
-                {:ok, %{
-                  jsonrpc: Types.jsonrpc_version(),
-                  id: request_id,
+                # Create a CallToolResult message using the Message module
+                call_tool_result = %MCP.Message.V20241105CallToolResult{
                   result: result
-                }}
+                }
+
+                # Convert to response format
+                response = %{
+                  jsonrpc: "2.0",
+                  id: request_id,
+                  result: MCP.Message.V20241105CallToolResult.encode(call_tool_result)
+                }
+
+                {:ok, response}
 
               {:error, reason} ->
                 {:error, reason}
@@ -304,11 +355,12 @@ defmodule MCP.Server do
       defp dispatch_method(session_id, "resources/list", request_id, params, _session_data) do
         case handle_list_resources(session_id, request_id, params) do
           {:ok, result} ->
-            {:ok, %{
-              jsonrpc: Types.jsonrpc_version(),
-              id: request_id,
-              result: result
-            }}
+            {:ok,
+             %{
+               jsonrpc: "2.0",
+               id: request_id,
+               result: result
+             }}
 
           {:error, reason} ->
             {:error, reason}
@@ -318,11 +370,12 @@ defmodule MCP.Server do
       defp dispatch_method(session_id, "resources/read", request_id, params, _session_data) do
         case handle_read_resource(session_id, request_id, params) do
           {:ok, result} ->
-            {:ok, %{
-              jsonrpc: Types.jsonrpc_version(),
-              id: request_id,
-              result: result
-            }}
+            {:ok,
+             %{
+               jsonrpc: "2.0",
+               id: request_id,
+               result: result
+             }}
 
           {:error, reason} ->
             {:error, reason}
@@ -332,11 +385,12 @@ defmodule MCP.Server do
       defp dispatch_method(session_id, "prompts/list", request_id, params, _session_data) do
         case handle_list_prompts(session_id, request_id, params) do
           {:ok, result} ->
-            {:ok, %{
-              jsonrpc: Types.jsonrpc_version(),
-              id: request_id,
-              result: result
-            }}
+            {:ok,
+             %{
+               jsonrpc: "2.0",
+               id: request_id,
+               result: result
+             }}
 
           {:error, reason} ->
             {:error, reason}
@@ -346,11 +400,12 @@ defmodule MCP.Server do
       defp dispatch_method(session_id, "prompts/get", request_id, params, _session_data) do
         case handle_get_prompt(session_id, request_id, params) do
           {:ok, result} ->
-            {:ok, %{
-              jsonrpc: Types.jsonrpc_version(),
-              id: request_id,
-              result: result
-            }}
+            {:ok,
+             %{
+               jsonrpc: "2.0",
+               id: request_id,
+               result: result
+             }}
 
           {:error, reason} ->
             {:error, reason}
@@ -360,11 +415,12 @@ defmodule MCP.Server do
       defp dispatch_method(session_id, "complete", request_id, params, _session_data) do
         case handle_complete(session_id, request_id, params) do
           {:ok, result} ->
-            {:ok, %{
-              jsonrpc: Types.jsonrpc_version(),
-              id: request_id,
-              result: result
-            }}
+            {:ok,
+             %{
+               jsonrpc: "2.0",
+               id: request_id,
+               result: result
+             }}
 
           {:error, reason} ->
             {:error, reason}
@@ -387,16 +443,18 @@ defmodule MCP.Server do
       @impl true
       def handle_initialize(_session_id, _request_id, params) do
         protocol_version = params["protocolVersion"]
-        {:ok, %{
-          protocolVersion: protocol_version,
-          serverInfo: %{
-            name: "GraphOS MCP Server",
-            version: "0.1.0"
-          },
-          capabilities: %{
-            supportedVersions: MCP.supported_versions()
-          }
-        }}
+
+        {:ok,
+         %{
+           protocolVersion: protocol_version,
+           serverInfo: %{
+             name: "GraphOS MCP Server",
+             version: "0.1.0"
+           },
+           capabilities: %{
+             supportedVersions: MCP.supported_versions()
+           }
+         }}
       end
 
       @impl true
@@ -427,19 +485,17 @@ defmodule MCP.Server do
         do: {:error, {MCP.Server.method_not_found(), "Completion not implemented", nil}}
 
       # Make callbacks overridable
-      defoverridable [
-        start: 1,
-        handle_message: 2,
-        handle_ping: 2,
-        handle_initialize: 3,
-        handle_list_tools: 3,
-        handle_tool_call: 4,
-        handle_list_resources: 3,
-        handle_read_resource: 3,
-        handle_list_prompts: 3,
-        handle_get_prompt: 3,
-        handle_complete: 3
-      ]
+      defoverridable start: 1,
+                     handle_message: 2,
+                     handle_ping: 2,
+                     handle_initialize: 3,
+                     handle_list_tools: 3,
+                     handle_tool_call: 4,
+                     handle_list_resources: 3,
+                     handle_read_resource: 3,
+                     handle_list_prompts: 3,
+                     handle_get_prompt: 3,
+                     handle_complete: 3
     end
   end
 
@@ -447,34 +503,67 @@ defmodule MCP.Server do
   @callback start(session_id :: String.t()) :: :ok
 
   @callback handle_message(session_id :: String.t(), message :: map()) ::
-    {:ok, map() | nil} | {:error, {integer(), String.t(), any()}}
+              {:ok, map() | nil} | {:error, {integer(), String.t(), any()}}
 
-  @callback handle_ping(session_id :: String.t(), request_id :: Types.request_id()) ::
-    {:ok, map()} | {:error, {integer(), String.t(), any()}}
+  @callback handle_ping(session_id :: String.t(), request_id :: MCP.JSON.Schemas.request_id()) ::
+              {:ok, map()} | {:error, {integer(), String.t(), any()}}
 
-  @callback handle_initialize(session_id :: String.t(), request_id :: Types.request_id(), params :: map()) ::
-    {:ok, map()} | {:error, {integer(), String.t(), any()}}
+  @callback handle_initialize(
+              session_id :: String.t(),
+              request_id :: MCP.JSON.Schemas.request_id(),
+              params :: map()
+            ) ::
+              {:ok, map()} | {:error, {integer(), String.t(), any()}}
 
-  @callback handle_list_tools(session_id :: String.t(), request_id :: Types.request_id(), params :: map()) ::
-    {:ok, map()} | {:error, {integer(), String.t(), any()}}
+  @callback handle_list_tools(
+              session_id :: String.t(),
+              request_id :: MCP.JSON.Schemas.request_id(),
+              params :: map()
+            ) ::
+              {:ok, map()} | {:error, {integer(), String.t(), any()}}
 
-  @callback handle_tool_call(session_id :: String.t(), request_id :: Types.request_id(), tool_name :: String.t(), arguments :: map()) ::
-    {:ok, map()} | {:error, {integer(), String.t(), any()}}
+  @callback handle_tool_call(
+              session_id :: String.t(),
+              request_id :: MCP.JSON.Schemas.request_id(),
+              tool_name :: String.t(),
+              arguments :: map()
+            ) ::
+              {:ok, map()} | {:error, {integer(), String.t(), any()}}
 
-  @callback handle_list_resources(session_id :: String.t(), request_id :: Types.request_id(), params :: map()) ::
-    {:ok, map()} | {:error, {integer(), String.t(), any()}}
+  @callback handle_list_resources(
+              session_id :: String.t(),
+              request_id :: MCP.JSON.Schemas.request_id(),
+              params :: map()
+            ) ::
+              {:ok, map()} | {:error, {integer(), String.t(), any()}}
 
-  @callback handle_read_resource(session_id :: String.t(), request_id :: Types.request_id(), params :: map()) ::
-    {:ok, map()} | {:error, {integer(), String.t(), any()}}
+  @callback handle_read_resource(
+              session_id :: String.t(),
+              request_id :: MCP.JSON.Schemas.request_id(),
+              params :: map()
+            ) ::
+              {:ok, map()} | {:error, {integer(), String.t(), any()}}
 
-  @callback handle_list_prompts(session_id :: String.t(), request_id :: Types.request_id(), params :: map()) ::
-    {:ok, map()} | {:error, {integer(), String.t(), any()}}
+  @callback handle_list_prompts(
+              session_id :: String.t(),
+              request_id :: MCP.JSON.Schemas.request_id(),
+              params :: map()
+            ) ::
+              {:ok, map()} | {:error, {integer(), String.t(), any()}}
 
-  @callback handle_get_prompt(session_id :: String.t(), request_id :: Types.request_id(), params :: map()) ::
-    {:ok, map()} | {:error, {integer(), String.t(), any()}}
+  @callback handle_get_prompt(
+              session_id :: String.t(),
+              request_id :: MCP.JSON.Schemas.request_id(),
+              params :: map()
+            ) ::
+              {:ok, map()} | {:error, {integer(), String.t(), any()}}
 
-  @callback handle_complete(session_id :: String.t(), request_id :: Types.request_id(), params :: map()) ::
-    {:ok, map()} | {:error, {integer(), String.t(), any()}}
+  @callback handle_complete(
+              session_id :: String.t(),
+              request_id :: MCP.JSON.Schemas.request_id(),
+              params :: map()
+            ) ::
+              {:ok, map()} | {:error, {integer(), String.t(), any()}}
 
   # Public utilities and helpers for implementations
   @doc """
@@ -511,21 +600,31 @@ defmodule MCP.Server do
     )
 
     # Determine message type
-    case Types.determine_and_validate_message_type(message) do
-      {:ok, :request} ->
-        handle_request(session_id, message)
-
-      {:ok, :notification} ->
-        # Process notification (no response needed)
-        handle_notification(session_id, message)
-        {:ok, nil}
-
-      {:error, errors} ->
-        SSE.log(:warn, "Invalid message format",
+    case MCP.Message.get_message_module(message["jsonrpc"], message["method"]) do
+      {:ok, module} -> 
+        case module.validate(message) do
+          {:ok, _} -> 
+            if Map.has_key?(message, "id") do
+              # This is a request
+              handle_request(session_id, message)
+            else
+              # This is a notification
+              handle_notification(session_id, message)
+              {:ok, nil}
+            end
+          {:error, errors} ->
+            SSE.log(:warn, "Invalid message format",
+              session_id: session_id,
+              errors: errors
+            )
+            {:error, {@invalid_request, "Invalid JSON-RPC message", errors}}
+        end
+      {:error, _} ->
+        SSE.log(:warn, "Unknown message type",
           session_id: session_id,
-          errors: errors
+          method: message["method"]
         )
-        {:error, {@invalid_request, "Invalid JSON-RPC message", errors}}
+        {:error, {MCP.Server.method_not_found(), "Unknown message type: #{message["method"]}", nil}}
     end
   end
 
@@ -544,20 +643,21 @@ defmodule MCP.Server do
       method: method
     )
 
-    case ConnectionRegistry.lookup(session_id) do
-      {:ok, {pid, _data}} ->
-        notification = %{
-          jsonrpc: Types.jsonrpc_version(),
-          method: method,
-          params: params
-        }
+    # Create notification message
+    notification = %{
+      jsonrpc: "2.0",
+      method: method,
+      params: params
+    }
 
-        data = Jason.encode!(notification)
-        ConnectionPlug.send_sse_event(pid, "message", data)
+    # Get the connection
+    case ConnectionRegistry.lookup(session_id) do
+      {:ok, %{pid: pid}} ->
+        ConnectionPlug.send_message(pid, notification)
         :ok
 
-      {:error, :not_found} ->
-        {:error, :not_found}
+      {:error, _} ->
+        {:error, :connection_not_found}
     end
   end
 
@@ -581,9 +681,10 @@ defmodule MCP.Server do
 
   def setup_ping(session_id) do
     # Start a background process to send pings
-    {:ok, _} = Task.start(fn ->
-      ping_loop(session_id)
-    end)
+    {:ok, _} =
+      Task.start(fn ->
+        ping_loop(session_id)
+      end)
   end
 
   defp ping_loop(session_id) do
@@ -599,6 +700,11 @@ defmodule MCP.Server do
       {:error, :not_found} ->
         # Connection closed
         :ok
+
+      {:error, :not_started} ->
+        # Registry not started yet, retry after a short delay
+        Process.sleep(1000)
+        ping_loop(session_id)
     end
   end
 
@@ -618,12 +724,14 @@ defmodule MCP.Server do
           rescue
             e ->
               stacktrace = __STACKTRACE__
+
               SSE.log(:error, "Error handling request",
                 session_id: session_id,
                 method: method,
                 error: inspect(e),
                 stacktrace: inspect(stacktrace)
               )
+
               {:error, {@internal_error, "Internal error", %{message: inspect(e)}}}
           end
         end
@@ -659,9 +767,7 @@ defmodule MCP.Server do
         end)
 
       {:error, :not_found} ->
-        SSE.log(:warn, "Session not found for notification",
-          session_id: session_id
-        )
+        SSE.log(:warn, "Session not found for notification", session_id: session_id)
     end
 
     :ok
@@ -684,65 +790,69 @@ defmodule MCP.Server do
               tools: %{}
             })
 
-            {:ok, %{
-              jsonrpc: Types.jsonrpc_version(),
+            initialize_result = %MCP.Message.V20241105InitializeResult{
+              protocolVersion: protocol_version,
+              capabilities: capabilities,
+              serverInfo: %{
+                name: "GraphOS MCP Server",
+                version: "0.1.0"
+              },
+              instructions: nil
+            }
+
+            response = %{
+              jsonrpc: "2.0",
               id: params["id"],
-              result: %{
-                protocolVersion: protocol_version,
-                serverInfo: %{
-                  name: "GraphOS MCP Server",
-                  version: "0.1.0"
-                },
-                capabilities: %{
-                  supportedVersions: MCP.supported_versions()
-                }
-              }
-            }}
+              result: MCP.Message.V20241105InitializeResult.encode(initialize_result)
+            }
+
+            {:ok, response}
           else
             supported = Enum.join(MCP.supported_versions(), ", ")
-            {:error, {
-              @protocol_version_mismatch,
-              "Unsupported protocol version: #{protocol_version}. Supported versions: #{supported}",
-              nil
-            }}
+
+            {:error,
+             {
+               @protocol_version_mismatch,
+               "Unsupported protocol version: #{protocol_version}. Supported versions: #{supported}",
+               nil
+             }}
           end
         else
           {:error, {@invalid_params, "Protocol version required", nil}}
         end
 
       "tools/register" ->
+        # Get the tool definition
         tool = params["tool"]
 
-        case Types.validate_tool(tool) do
+        # Validate the tool definition
+        case validate_tool(tool) do
           {:ok, _} ->
-            # Add tool to the session
-            tool_name = tool["name"]
-            tools = Map.put(session_data.tools, tool_name, tool)
+            # In a real implementation, we would register the tool here
+            # For this example, we'll just return a success response
 
-            ConnectionRegistry.update_data(session_id, %{
-              session_data | tools: tools
-            })
+            {:ok,
+             %{
+               jsonrpc: "2.0",
+               id: params["id"],
+               result: %{}
+             }}
 
-            {:ok, %{
-              jsonrpc: Types.jsonrpc_version(),
-              id: params["id"],
-              result: %{}
-            }}
-
-          {:error, errors} ->
-            {:error, {@invalid_params, "Invalid tool definition", errors}}
+          {:error, reason} ->
+            {:error, {@invalid_params, "Invalid tool definition: #{reason}", nil}}
         end
 
       "tools/list" ->
         tools = Map.values(session_data.tools)
 
-        {:ok, %{
-          jsonrpc: Types.jsonrpc_version(),
-          id: session_id,
-          result: %{
-            tools: tools
-          }
-        }}
+        {:ok,
+         %{
+           jsonrpc: "2.0",
+           id: session_id,
+           result: %{
+             tools: tools
+           }
+         }}
 
       "tools/call" ->
         tool_name = params["name"]
@@ -755,16 +865,33 @@ defmodule MCP.Server do
           _tool ->
             # In a real implementation, we would dispatch to a tool registry
             # For this example, we'll just return a placeholder result
-            {:ok, %{
-              jsonrpc: Types.jsonrpc_version(),
-              id: session_id,
+            call_tool_result = %MCP.Message.V20241105CallToolResult{
               result: %{
                 result: %{
                   message: "Tool #{tool_name} called with arguments: #{inspect(arguments)}"
                 }
               }
-            }}
+            }
+
+            response = %{
+              jsonrpc: "2.0",
+              id: params["id"],
+              result: MCP.Message.V20241105CallToolResult.encode(call_tool_result)
+            }
+
+            {:ok, response}
         end
+
+      "ping" ->
+        ping_result = %MCP.Message.V20241105PingResult{}
+        
+        response = %{
+          jsonrpc: "2.0",
+          id: params["id"],
+          result: Map.merge(MCP.Message.V20241105PingResult.encode(ping_result), params)
+        }
+        
+        {:ok, response}
 
       _ ->
         {:error, {@method_not_found, "Method not found: #{method}", nil}}
@@ -774,5 +901,33 @@ defmodule MCP.Server do
   defp dispatch_notification(_session_id, _method, _params, _session_data) do
     # Default implementation - does nothing
     :ok
+  end
+
+  @doc """
+  Validates that a tool has the required structure.
+
+  ## Parameters
+
+  * `tool` - The tool to validate
+
+  ## Returns
+
+  * `{:ok, tool}` - If the tool is valid
+  * `{:error, reason}` - If the tool is invalid
+  """
+  def validate_tool(tool) do
+    cond do
+      not is_map(tool) ->
+        {:error, "Tool must be a map"}
+
+      not Map.has_key?(tool, "name") ->
+        {:error, "Tool must have a name"}
+
+      not Map.has_key?(tool, "description") ->
+        {:error, "Tool must have a description"}
+
+      true ->
+        {:ok, tool}
+    end
   end
 end

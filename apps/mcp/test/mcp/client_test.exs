@@ -12,7 +12,7 @@ defmodule MCP.ClientTest do
       headers: [],
       message_endpoint: "/message",
       session_id: "test-session",
-      protocol_version: MCP.Types.latest_protocol_version(),
+      protocol_version: MCP.Message.latest_version(),
       initialized: true,
       connection_pid: nil,
       requests: %{},
@@ -43,7 +43,7 @@ defmodule MCP.ClientTest do
       headers: [],
       message_endpoint: "/message",
       session_id: "test-session",
-      protocol_version: MCP.Types.latest_protocol_version(),
+      protocol_version: MCP.Message.latest_version(),
       initialized: true,
       connection_pid: nil,
       requests: %{},
@@ -84,7 +84,7 @@ defmodule MCP.ClientTest do
       headers: [],
       message_endpoint: "/message",
       session_id: "test-session",
-      protocol_version: MCP.Types.latest_protocol_version(),
+      protocol_version: MCP.Message.latest_version(),
       initialized: true,
       connection_pid: nil,
       requests: %{},
@@ -99,17 +99,21 @@ defmodule MCP.ClientTest do
     {:ok, client} = Agent.start_link(fn -> state end)
 
     # Test creating a request ID
-    request_id_1 = Agent.get_and_update(client, fn state ->
-      id = state.request_id_counter
-      {id, %{state | request_id_counter: id + 1}}
-    end)
+    request_id_1 =
+      Agent.get_and_update(client, fn state ->
+        id = state.request_id_counter
+        {id, %{state | request_id_counter: id + 1}}
+      end)
+
     assert request_id_1 == 1
 
     # Test creating another request ID
-    request_id_2 = Agent.get_and_update(client, fn state ->
-      id = state.request_id_counter
-      {id, %{state | request_id_counter: id + 1}}
-    end)
+    request_id_2 =
+      Agent.get_and_update(client, fn state ->
+        id = state.request_id_counter
+        {id, %{state | request_id_counter: id + 1}}
+      end)
+
     assert request_id_2 == 2
 
     # Ensure request ID counter was incremented correctly

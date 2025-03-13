@@ -12,7 +12,6 @@ defmodule SSE.ConnectionPlug do
 
   import Plug.Conn
   alias MCP.Server
-  alias MCP.Types
 
   @doc """
   Initialize options for the plug.
@@ -68,7 +67,8 @@ defmodule SSE.ConnectionPlug do
     SSE.log(:info, "New SSE connection", session_id: session_id)
 
     # Set up SSE connection
-    conn = conn
+    conn =
+      conn
       |> put_resp_content_type("text/event-stream")
       |> put_resp_header("cache-control", "no-cache")
       |> put_resp_header("connection", "keep-alive")
@@ -105,7 +105,6 @@ defmodule SSE.ConnectionPlug do
     with {:ok, body, conn} <- read_body(conn),
          {:ok, message} <- parse_message(body),
          {:ok, result} <- process_message(session_id, message) do
-
       SSE.log(:debug, "Message processed successfully",
         session_id: session_id,
         request_id: message["id"],
@@ -118,30 +117,38 @@ defmodule SSE.ConnectionPlug do
     else
       {:error, :invalid_json} ->
         SSE.log(:warn, "Invalid JSON in request", session_id: session_id)
+
         conn
         |> put_resp_content_type("application/json")
-        |> send_resp(400, Jason.encode!(%{
-          jsonrpc: Types.jsonrpc_version(),
-          error: %{
-            code: -32700,
-            message: "Parse error: Invalid JSON"
-          }
-        }))
+        |> send_resp(
+          400,
+          Jason.encode!(%{
+            jsonrpc: "2.0",
+            error: %{
+              code: -32700,
+              message: "Parse error: Invalid JSON"
+            }
+          })
+        )
 
       {:error, errors} when is_list(errors) ->
         SSE.log(:warn, "Invalid JSON-RPC message",
           session_id: session_id,
           errors: errors
         )
+
         conn
         |> put_resp_content_type("application/json")
-        |> send_resp(400, Jason.encode!(%{
-          jsonrpc: Types.jsonrpc_version(),
-          error: %{
-            code: -32600,
-            message: "Invalid Request: #{inspect(errors)}"
-          }
-        }))
+        |> send_resp(
+          400,
+          Jason.encode!(%{
+            jsonrpc: "2.0",
+            error: %{
+              code: -32600,
+              message: "Invalid Request: #{inspect(errors)}"
+            }
+          })
+        )
 
       {:error, {code, message, data}} ->
         SSE.log(:warn, "Error processing message",
@@ -149,26 +156,50 @@ defmodule SSE.ConnectionPlug do
           code: code,
           message: message
         )
+
         conn
         |> put_resp_content_type("application/json")
-        |> send_resp(200, Jason.encode!(%{
-          jsonrpc: Types.jsonrpc_version(),
-          id: message["id"],
-          error: %{
-            code: code,
-            message: message,
-            data: data
-          }
-        }))
+        |> send_resp(
+          200,
+          Jason.encode!(%{
+            jsonrpc: "2.0",
+            id: message["id"],
+            error: %{
+              code: code,
+              message: message,
+              data: data
+            }
+          })
+        )
     end
   end
 
   defp parse_message(body) do
-    Types.parse_jsonrpc_message(body)
+    case Jason.decode(body) do
+      {:ok, message} -> {:ok, message}
+      {:error, _reason} -> {:error, "Invalid JSON"}
+    end
   end
 
   defp process_message(session_id, message) do
     Server.handle_message(session_id, message)
+  end
+
+  @doc """
+  Send a JSON-RPC message to the client over SSE.
+
+  ## Parameters
+
+  * `conn` - The connection
+  * `message` - The message to send (will be encoded as JSON)
+  """
+  def send_message(conn, message) do
+    SSE.log(:debug, "Sending message",
+      message: inspect(message)
+    )
+
+    data = Jason.encode!(message)
+    send_sse_event(conn, "message", data)
   end
 
   @doc """
