@@ -1,5 +1,6 @@
 defmodule GraphOS.Core.ExecutableTest do
   use ExUnit.Case, async: true
+  @moduletag :code_graph
   
   alias GraphOS.Graph
   alias GraphOS.Graph.{Node, Transaction, Store}

@@ -6,7 +6,7 @@ defmodule GraphOS.Graph.Store.ETSTest do
 
   setup do
     # Initialize the store before each test
-    ETSStore.init()
+    {:ok, _} = ETSStore.init()
     # Clean up after each test
     on_exit(fn -> ETSStore.close() end)
     :ok
@@ -14,22 +14,22 @@ defmodule GraphOS.Graph.Store.ETSTest do
 
   describe "initialization" do
     test "init creates an ETS table" do
-      assert :ok = ETSStore.init()
+      assert {:ok, %{table: :graph_os_ets_store}} = ETSStore.init()
       assert :ets.info(:graph_os_ets_store) != :undefined
     end
 
     test "init is idempotent" do
       # First initialization already done in setup
-      assert :ok = ETSStore.init()
+      assert {:ok, %{table: :graph_os_ets_store}} = ETSStore.init()
       # Second initialization should also succeed
-      assert :ok = ETSStore.init()
+      assert {:ok, %{table: :graph_os_ets_store}} = ETSStore.init()
     end
 
     test "close removes the ETS table" do
       assert :ok = ETSStore.close()
       assert :ets.info(:graph_os_ets_store) == :undefined
       # Re-init for subsequent tests
-      ETSStore.init()
+      {:ok, _} = ETSStore.init()
     end
   end
 

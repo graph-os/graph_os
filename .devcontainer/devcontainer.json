@@ -1,0 +1,41 @@
+{
+  "name": "GraphOS Elixir",
+  "dockerFile": "Dockerfile",
+  "forwardPorts": [4000, 4001],
+  "postCreateCommand": "mix deps.get && mix compile && .devcontainer/setup-container.sh && .devcontainer/claude-auth.sh && echo \"source /home/coder/.env\" >> ~/.bashrc",
+  "mounts": [
+    "source=${localEnv:HOME}/.env,target=/home/coder/.env,type=bind,readonly",
+    "source=${localEnv:HOME}/.config/anthropic,target=/home/coder/.config/anthropic,type=bind",
+    "source=${localEnv:HOME}/.cache/anthropic,target=/home/coder/.cache/anthropic,type=bind"
+  ],
+  "initializeCommand": ".devcontainer/initialize.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "jakebecker.elixir-ls",
+        "msaraiva.surface",
+        "phoenixframework.phoenix",
+        "anthropic.claude-vscode"
+      ],
+      "settings": {
+        "elixirLS.dialyzerEnabled": true,
+        "editor.formatOnSave": true
+      }
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    },
+    "ghcr.io/devcontainers/features/git:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers-contrib/features/tmux:2": {},
+    "ghcr.io/devcontainers/features/dotfiles:1": {
+      "repository": "vegardkrogh/dotfiles",
+      "installCommand": "install.sh"
+    }
+  },
+  "containerEnv": {
+    "HOSTNAME": "GraphOS"
+  }
+}

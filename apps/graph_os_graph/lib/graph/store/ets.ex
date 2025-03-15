@@ -12,13 +12,13 @@ defmodule GraphOS.Graph.Store.ETS do
   @table_name :graph_os_ets_store
 
   @impl true
-  def init(opts \\ []) do
+  def init(_opts \\ []) do
     case :ets.info(@table_name) do
       :undefined ->
         :ets.new(@table_name, [:set, :public, :named_table])
-        :ok
+        {:ok, %{table: @table_name}}
       _ ->
-        :ok
+        {:ok, %{table: @table_name}}
     end
   end
 

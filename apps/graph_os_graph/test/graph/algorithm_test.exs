@@ -54,14 +54,14 @@ defmodule GraphOS.Graph.AlgorithmTest do
 
     # Try to explicitly find connected nodes - useful for debugging
     # This should return node 2 and node 3 as they are connected to node 1
-    connected_nodes = find_connected_nodes("1")
+    _connected_nodes = find_connected_nodes("1")
   end
 
   # Helper to find connected nodes for debugging
   defp find_connected_nodes(node_id) do
 
     # Inspect all objects in the table
-    all_objects = :ets.match_object(:graph_os_ets_store, :_)
+    _all_objects = :ets.match_object(:graph_os_ets_store, :_)
 
 
     edges = :ets.match_object(:graph_os_ets_store, {{:edge, :_}, :_})

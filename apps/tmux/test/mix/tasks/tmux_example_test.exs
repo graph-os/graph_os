@@ -2,7 +2,7 @@ defmodule Mix.Tasks.Tmux.ExampleTaskTest do
   use ExUnit.Case
   import ExUnit.CaptureIO
 
-  @moduletag :tmux_basic
+  @moduletag :tmux
 
   setup_all do
     # Initial cleanup before all tests
@@ -25,7 +25,7 @@ defmodule Mix.Tasks.Tmux.ExampleTaskTest do
     :ok
   end
 
-  @tag :tmux_basic
+  @tag :tmux
   test "can run the example task directly" do
     # Basic test that doesn't use tmux at all, just runs the task directly to ensure it works
     output = capture_io(fn ->
@@ -35,7 +35,7 @@ defmodule Mix.Tasks.Tmux.ExampleTaskTest do
     assert output =~ "tmux.example", "Task should provide help information"
   end
 
-  @tag :tmux_basic
+  @tag :tmux
   test "example task can be started and stopped" do
     # Directly call the mix command as a user would
     IO.puts("Starting the example task...")
@@ -71,7 +71,7 @@ defmodule Mix.Tasks.Tmux.ExampleTaskTest do
       "Task wasn't stopped properly, status: #{final}"
   end
 
-  @tag :tmux_basic
+  @tag :tmux
   test "example task can be restarted" do
     # Start
     IO.puts("Starting for restart test...")
@@ -100,7 +100,7 @@ defmodule Mix.Tasks.Tmux.ExampleTaskTest do
     {_, _} = System.cmd("mix", ["tmux.example", "stop"], stderr_to_stdout: true)
   end
 
-  @tag :tmux_basic
+  @tag :tmux
   test "example task runs for a while" do
     # Start
     IO.puts("Starting for long-running test...")

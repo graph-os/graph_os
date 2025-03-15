@@ -17,11 +17,24 @@ defmodule GraphOS.Graph.Store do
   ## Examples
 
       iex> GraphOS.Graph.Store.init(GraphOS.Graph.Store.ETS)
-      :ok
+      {:ok, %{table: :graph_os_ets_store}}
   """
-  @spec init(module(), keyword()) :: :ok | {:error, term()}
+  @spec init(module(), keyword()) :: {:ok, term()} | {:error, term()}
   def init(module \\ GraphOS.Graph.Store.ETS, opts \\ []) do
-    module.init(opts)
+    # Try to call init with options first (Core implementation)
+    try do
+      module.init(opts)
+    rescue
+      # If that fails with an UndefinedFunctionError, try legacy protocol style
+      err in UndefinedFunctionError ->
+        if err.function == :init and err.arity == 1 do
+          # Legacy protocol implementation doesn't take options
+          module.init()
+        else
+          # Reraise if it's a different error
+          reraise err, __STACKTRACE__
+        end
+    end
   end
 
   @doc """

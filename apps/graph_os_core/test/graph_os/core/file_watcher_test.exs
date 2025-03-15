@@ -1,5 +1,6 @@
 defmodule GraphOS.Core.FileWatcherTest do
   use ExUnit.Case, async: false
+  @moduletag :code_graph
 
   alias GraphOS.Core.FileWatcher
   alias GraphOS.Core.CodeGraph

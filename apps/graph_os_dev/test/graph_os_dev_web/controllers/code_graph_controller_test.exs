@@ -1,6 +1,7 @@
 defmodule GraphOS.DevWeb.CodeGraphControllerTest do
   @moduledoc false
   use GraphOS.DevWeb.ConnCase
+  @moduletag :code_graph
 
   alias GraphOS.Core.CodeGraph
   alias GraphOS.Core.CodeGraph.Service, as: CodeGraphService

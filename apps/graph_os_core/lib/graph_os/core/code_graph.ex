@@ -31,7 +31,11 @@ defmodule GraphOS.Core.CodeGraph do
   """
   @spec init() :: :ok | {:error, term()}
   def init do
-    Graph.init()
+    # Graph.init now returns :ok directly
+    case Graph.init() do
+      :ok -> :ok
+      error -> error
+    end
   end
 
   @doc """

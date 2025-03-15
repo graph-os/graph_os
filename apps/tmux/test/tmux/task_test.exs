@@ -63,6 +63,7 @@ end
 
 defmodule TMUX.TaskTest do
   use ExUnit.Case
+  @moduletag :tmux
 
   setup do
     # Clean up any existing test sessions before each test

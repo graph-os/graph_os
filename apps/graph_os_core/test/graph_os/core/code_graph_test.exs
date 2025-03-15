@@ -1,5 +1,6 @@
 defmodule GraphOS.Core.CodeGraphTest do
   use ExUnit.Case, async: true
+  @moduletag :code_graph
 
   alias GraphOS.Core.CodeGraph
   alias GraphOS.Core.CodeParser

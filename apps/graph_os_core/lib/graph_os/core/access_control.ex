@@ -64,7 +64,7 @@ defmodule GraphOS.Core.AccessControl do
   @spec init(atom() | pid()) :: :ok | {:error, term()}
   def init(_graph) do
     # Create a transaction to initialize the access control system
-    transaction = Transaction.new(Store.get_store_module())
+    transaction = Transaction.new(GraphOS.Graph.Store.ETS)
 
     # Create the root access control node
     root_node = Node.new(
@@ -82,8 +82,9 @@ defmodule GraphOS.Core.AccessControl do
       GraphOS.Graph.Operation.new(:create, :node, root_node, [id: "access:root"])
     )
 
-    # Execute the transaction
-    case GraphOS.Graph.execute(transaction) do
+    # Execute the transaction directly via GraphOS.Graph.Store
+    # This avoids circular dependencies with GraphOS.Graph
+    case GraphOS.Graph.Store.execute(transaction) do
       {:ok, _result} -> :ok
       error -> error
     end
@@ -113,7 +114,7 @@ defmodule GraphOS.Core.AccessControl do
   @spec define_actor(atom() | pid(), String.t(), map()) :: {:ok, Node.t()} | {:error, term()}
   def define_actor(_graph, actor_id, attributes \\ %{}) do
     # Create a transaction to define the actor
-    transaction = Transaction.new(Store.get_store_module())
+    transaction = Transaction.new(GraphOS.Graph.Store.ETS)
 
     # Create the actor node
     actor_node = Node.new(
@@ -148,8 +149,9 @@ defmodule GraphOS.Core.AccessControl do
       ])
     )
 
-    # Execute the transaction
-    case GraphOS.Graph.execute(transaction) do
+    # Execute the transaction directly via GraphOS.Graph.Store
+    # This avoids circular dependencies with GraphOS.Graph
+    case GraphOS.Graph.Store.execute(transaction) do
       {:ok, _result} -> {:ok, actor_node}
       error -> error
     end
@@ -184,7 +186,7 @@ defmodule GraphOS.Core.AccessControl do
       {:error, "Invalid operations: #{inspect(invalid_operations)}"}
     else
       # Create a transaction to grant the permission
-      transaction = Transaction.new(Store.get_store_module())
+      transaction = Transaction.new(GraphOS.Graph.Store.ETS)
 
       # Create the resource pattern node if it doesn't exist
       transaction = ensure_resource_pattern(transaction, resource_pattern)
@@ -209,8 +211,9 @@ defmodule GraphOS.Core.AccessControl do
         ])
       )
 
-      # Execute the transaction
-      case GraphOS.Graph.execute(transaction) do
+      # Execute the transaction directly via GraphOS.Graph.Store
+      # This avoids circular dependencies with GraphOS.Graph
+      case GraphOS.Graph.Store.execute(transaction) do
         {:ok, _result} -> 
           # Return the created edge
           {:ok, %Edge{
@@ -292,7 +295,7 @@ defmodule GraphOS.Core.AccessControl do
   # Get all permissions for an actor
   defp get_actor_permissions(_graph, actor_id) do
     # Query for all permission edges from this actor
-    case Query.execute(
+    case GraphOS.Graph.Query.execute(
       start_node_id: actor_id,
       edge_type: @permission_edge
     ) do

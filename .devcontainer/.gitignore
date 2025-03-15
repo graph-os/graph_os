@@ -1,0 +1,7 @@
+# VS Code devcontainer cache
+.devcontainer/.vscode-server/
+.devcontainer/node_modules/
+.devcontainer/.npm/
+.devcontainer/.elixir_ls/
+.devcontainer/.hex/
+.devcontainer/.mix/

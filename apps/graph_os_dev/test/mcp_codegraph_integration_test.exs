@@ -1,5 +1,6 @@
 defmodule GraphOS.Dev.MCPCodeGraphIntegrationTest do
   use ExUnit.Case, async: false
+  @moduletag :code_graph
   require Logger
 
   @moduledoc """
