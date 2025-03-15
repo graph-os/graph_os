@@ -15,23 +15,23 @@ This document outlines the implementation plan for the GraphOS Component API usi
 
 #### Phase 1: Core Structure (High Priority)
 
-1. [ ] **Implement `GraphOS.Component.Context` module**
+1. [x] **Implement `GraphOS.Component.Context` module**
    - Define context struct with request/response fields
    - Implement helper functions for transforming context (assign, put_result, put_error, halted?)
    - Add tests for context transformations
 
-2. [ ] **Create `GraphOS.Component` behavior**
+2. [x] **Create `GraphOS.Component` behavior**
    - Define `init/1` and `call/2` callbacks
    - Implement `__using__` macro with default implementations
    - Create protocol implementations for GraphOS.Executable and GraphOS.Queryable
    - Add tests for component behavior
 
-3. [ ] **Develop DSL for tool and resource definitions**
+3. [x] **Develop DSL for tool and resource definitions**
    - Implement `tool` and `resource` macros in `GraphOS.Component.Builder`
    - Create registry mechanisms for tools and resources
    - Add tests for DSL macros
 
-4. [ ] **Implement component pipeline functionality**
+4. [x] **Implement component pipeline functionality**
    - Create pipeline builder function
    - Implement error handling and halting behavior
    - Add tests for pipeline execution
