@@ -11,82 +11,93 @@ This document outlines the implementation plan for the GraphOS Component API usi
 - **Tools & Resources**: Declarative APIs for defining executable operations and queryable resources
 - **Pipelines**: Composable chains of components that transform the context
 
-### Implementation Tasks
+### Refactoring Plan: Graph-Centered Component Architecture
 
-#### Phase 1: Core Structure (High Priority)
+#### Phase 1: Conceptual Realignment (High Priority)
 
-1. [x] **Implement `GraphOS.Component.Context` module**
-   - Define context struct with request/response fields
-   - Implement helper functions for transforming context (assign, put_result, put_error, halted?)
-   - Add tests for context transformations
+1. [✓] **Initial Component API Implementation**
+   - ~~Implement `GraphOS.Component.Context` module~~
+   - ~~Create `GraphOS.Component` behavior~~
+   - ~~Develop DSL for tool and resource definitions~~
+   - ~~Implement component pipeline functionality~~
 
-2. [x] **Create `GraphOS.Component` behavior**
-   - Define `init/1` and `call/2` callbacks
-   - Implement `__using__` macro with default implementations
-   - Create protocol implementations for GraphOS.Executable and GraphOS.Queryable
-   - Add tests for component behavior
+2. [ ] **Refactor Component Registry to use Graph as the central registry**
+   - Convert `GraphOS.Component.Registry` to use Graph store for registry operations
+   - Implement component capabilities as Graph nodes (tools as executable nodes, resources as queryable nodes)
+   - Remove standalone registry ETS table in favor of Graph topology
+   - Update tests to reflect Graph as the central registry
 
-3. [x] **Develop DSL for tool and resource definitions**
-   - Implement `tool` and `resource` macros in `GraphOS.Component.Builder`
-   - Create registry mechanisms for tools and resources
-   - Add tests for DSL macros
+3. [ ] **Define Graph topology for Component capabilities**
+   - Define node types for components, tools, and resources
+   - Design edge relationships (component provides tool/resource, tool requires permission, etc.)
+   - Create schema validation for component nodes
+   - Add migration path for existing components to Graph-based architecture
 
-4. [x] **Implement component pipeline functionality**
-   - Create pipeline builder function
-   - Implement error handling and halting behavior
-   - Add tests for pipeline execution
+4. [ ] **Create Graph query/action handlers for Component operations**
+   - Implement query handlers that resolve to resource functions
+   - Implement action handlers that execute tool functions 
+   - Create a standardized response format for component operations via Graph
+   - Add error handling and context propagation
 
-#### Phase 2: Graph Integration (Medium Priority)
+#### Phase 2: Runtime Integration (Medium Priority)
 
-5. [ ] **Adapt `GraphOS.Graph` to work with components**
-   - Extend the Graph API to recognize components as special node types
-   - Implement execute and query routing for component nodes
-   - Add tests for component-graph integration
+5. [ ] **Implement Component Registration System**
+   - Create startup registration mechanism for components to register with Graph
+   - Develop runtime APIs for component lifecycle management (start, stop, update)
+   - Add introspection capabilities to examine available components
+   - Implement dependency resolution between components
 
-6. [ ] **Component node registration**
-   - Define mechanism for components to register their nodes in the graph
-   - Create automatic node generation from tool/resource definitions
-   - Add tests for node registration
+6. [ ] **Design Component Config System**
+   - Create a configuration schema for components
+   - Implement config loading and validation
+   - Support environment-based config overrides
+   - Add live config reload capabilities
 
-7. [ ] **Access control integration**
-   - Extend access control to handle component operations
-   - Implement permission checking in component execution
-   - Add tests for component access control
+7. [ ] **Access Control Integration**
+   - Map component tools/resources to access control permissions automatically
+   - Implement permission checking in Graph query/action handlers
+   - Add capability-based security model for components
+   - Create test harness for component permission verification
 
-#### Phase 3: MCP Integration (Medium Priority)
+#### Phase 3: Protocol Adaptation (Medium Priority)
 
-8. [ ] **Create MCP adapter component**
-   - Implement `GraphOS.MCP.Adapter` component for protocol translation
-   - Create mappers between MCP requests and component contexts
-   - Add tests for MCP adapter
+8. [ ] **Create unified MCP -> Graph translation layer**
+   - Implement a single MCP adapter that translates all requests to Graph operations
+   - Map MCP methods directly to Graph paths (e.g., `git.log -> graph.query("git.log", args)`)
+   - Create bidirectional serialization between MCP and Graph contexts
+   - Add comprehensive tests for protocol translation
 
-9. [ ] **Tool and resource exposure via MCP**
-   - Implement automatic tool registration from component definitions
-   - Create schema generators for MCP tool definitions
-   - Add tests for MCP tool exposure
+9. [ ] **Update MCP tool schema generation**
+   - Generate MCP tool schemas directly from Graph capability nodes
+   - Implement automatic versioning for tool schemas
+   - Create batched operations for MCP -> Graph translations
+   - Add schema diff tools for capability evolution
 
-10. [ ] **Server configuration via components**
-    - Create mechanism for components to influence MCP server configuration
-    - Implement aggregation of server configurations
-    - Add tests for server configuration
+10. [ ] **Add Server Discovery Mechanism**
+    - Create service discovery for available Graph capabilities
+    - Implement dynamic tool registration based on runtime Graph state
+    - Add health checking and status reporting
+    - Create capability advertising mechanism
 
-#### Phase 4: Extension and Documentation (Lower Priority)
+#### Phase 4: Developer Experience (Lower Priority)
 
 11. [ ] **Create middleware components**
-    - Implement validation middleware
-    - Create logging middleware
-    - Add error handling middleware
-    - Add tests for each middleware
+    - Implement validation middleware for Graph operations
+    - Create logging/telemetry middleware
+    - Add error handling middleware with standardized formats
+    - Design transaction middleware for multi-step Graph operations
 
 12. [ ] **Documentation and examples**
-    - Create comprehensive documentation for the Component API
-    - Write example components for common use cases
-    - Add tutorials for building custom components
+    - Document Graph as the central runtime concept
+    - Create examples showing component registration with Graph
+    - Add tutorials for querying/executing through Graph
+    - Document MCP as just one possible interface to Graph
 
-13. [ ] **Tooling and developer experience**
-    - Implement generators for new components
-    - Create debugging tools for component pipelines
-    - Add telemetry integration for performance monitoring
+13. [ ] **Tooling improvements**
+    - Create GraphOS CLI for component management
+    - Implement Graph visualization tools
+    - Add debugging facilities for component operations
+    - Create deployment tools for component distribution
 
 ### Integration Plan
 
