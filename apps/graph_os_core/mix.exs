@@ -19,7 +19,10 @@ defmodule GraphOS.Core.MixProject do
       description: "Core OS functions for GraphOS",
       package: package(),
       docs: docs(),
-      name: "GraphOS.Core"
+      name: "GraphOS.Core",
+      # Boundary enforcement
+      compilers: [:boundary | Mix.compilers()],
+      boundary: boundary()
     ]
   end
 
@@ -36,6 +39,8 @@ defmodule GraphOS.Core.MixProject do
     [
       {:graph_os_graph, in_umbrella: true},
       {:mcp, in_umbrella: true},
+      {:boundary, "~> 0.9", runtime: false},
+      {:gen_stage, "~> 1.2"},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false}
     ]
   end
@@ -54,6 +59,40 @@ defmodule GraphOS.Core.MixProject do
       main: "GraphOS.Core",
       source_url: @source_url,
       extras: ["README.md"]
+    ]
+  end
+  
+  defp boundary do
+    [
+      default: [
+        check: [
+          # Only allow dependencies on apps higher in the hierarchy
+          deps: [:graph_os_graph, :mcp, :tmux],
+          # Prevent this app from using apps lower in the hierarchy
+          apps: [in: [:graph_os_graph, :mcp, :tmux]],
+        ]
+      ],
+      # Define public exports from this application
+      exports: [
+        # Component system
+        GraphOS.Component,
+        GraphOS.Component.Builder,
+        GraphOS.Component.Context,
+        GraphOS.Component.Pipeline,
+        GraphOS.Component.Registry,
+        # Core functionality
+        GraphOS.Core,
+        GraphOS.Core.CodeGraph,
+        GraphOS.Core.Executable,
+        GraphOS.Core.AccessControl,
+        GraphOS.Core.GitIntegration,
+        # Adapter system
+        GraphOS.Adapter.GraphAdapter,
+        GraphOS.Adapter.Context,
+        GraphOS.Adapter.Server,
+        GraphOS.Adapter.PlugAdapter,
+        GraphOS.Adapter.GenServer
+      ]
     ]
   end
 end
