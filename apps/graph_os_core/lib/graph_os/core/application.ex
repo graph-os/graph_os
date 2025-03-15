@@ -9,7 +9,10 @@ defmodule GraphOS.Core.Application do
   def start(_type, _args) do
     children = [
       # Core services
-      {GraphOS.Core.Access.Supervisor, []}
+      {GraphOS.Core.Access.Supervisor, []},
+      
+      # Component Registry
+      {GraphOS.Component.Registry, []}
     ]
 
     # Add CodeGraph Service if enabled
