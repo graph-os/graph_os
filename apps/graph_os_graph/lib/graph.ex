@@ -5,8 +5,10 @@ defmodule GraphOS.Graph do
   This module provides high-level functions for interacting with the graph,
   including querying and manipulating graph data.
   """
+  
+  use Boundary, exports: [], deps: [:mcp]
 
-  alias GraphOS.Graph.{Node, Transaction, Query, Store, Algorithm}
+  alias GraphOS.Graph.{Node, Transaction, Query, Store, Algorithm, Subscription}
 
   @doc """
   Initialize the graph store.
@@ -30,7 +32,7 @@ defmodule GraphOS.Graph do
   def init(opts \\ []) do
     store_module = Keyword.get(opts, :store_module, GraphOS.Graph.Store.ETS)
     _enable_access_control = Keyword.get(opts, :access_control, true)
-    
+
     # Initialize the store
     case Store.init(store_module) do
       {:ok, _config} ->
@@ -60,8 +62,6 @@ defmodule GraphOS.Graph do
   """
   @spec query(Query.query_params(), term()) :: Query.query_result()
   def query(query_params, _access_context \\ nil) do
-    # TODO: Implement access control checks
-    # For now, we'll pass through to the original implementation
     Query.execute(query_params)
   end
 
@@ -81,64 +81,9 @@ defmodule GraphOS.Graph do
   """
   @spec execute(Transaction.t(), term()) :: {:ok, term()} | {:error, term()}
   def execute(transaction, _access_context \\ nil) do
-    # TODO: Implement access control checks
-    # For now, we'll pass through to the original implementation
     Store.execute(transaction)
   end
 
-  @doc """
-  Executes a node using the GraphOS.Executable protocol.
-
-  This function allows nodes to have executable behavior defined by implementing
-  the GraphOS.Executable protocol.
-
-  ## Parameters
-
-  - `node` - The node to execute
-  - `context` - Map of contextual information needed for execution
-  - `access_context` - Optional access control context for permission checks
-
-  ## Examples
-
-      iex> GraphOS.Graph.execute_node(%GraphOS.Graph.Node{id: "my_node"}, %{input: "value"})
-      {:ok, result}
-  """
-  @spec execute_node(Node.t(), map(), term()) :: {:ok, any()} | {:error, term()}
-  def execute_node(node, _context \\ %{}, access_context \\ nil) do
-    # Check if access is permitted
-    with {:ok, true} <- check_execute_permission(node, access_context) do
-      # GraphOS.Graph doesn't directly execute nodes - this is a limitation
-      # to break circular dependencies
-      {:error, :not_implemented_in_graph}
-    else
-      {:ok, false} -> {:error, :permission_denied}
-      {:error, reason} -> {:error, reason}
-    end
-  end
-
-  @doc """
-  Executes a node by ID.
-
-  This function fetches a node by its ID and then executes it using the
-  GraphOS.Executable protocol.
-
-  ## Parameters
-
-  - `node_id` - The ID of the node to execute
-  - `context` - Map of contextual information needed for execution
-  - `access_context` - Optional access control context for permission checks
-
-  ## Examples
-
-      iex> GraphOS.Graph.execute_node_by_id("my_node", %{input: "value"})
-      {:ok, result}
-  """
-  @spec execute_node_by_id(Node.id(), map(), term()) :: {:ok, any()} | {:error, term()}
-  def execute_node_by_id(node_id, context \\ %{}, access_context \\ nil) do
-    with {:ok, node} <- Query.get_node(node_id) do
-      execute_node(node, context, access_context)
-    end
-  end
 
   # Algorithm-related functions
 
@@ -206,64 +151,98 @@ defmodule GraphOS.Graph do
   def minimum_spanning_tree(opts \\ []) do
     Algorithm.minimum_spanning_tree(opts)
   end
-
-  # Access control convenience functions
-
+  
+  # Subscription functions
+  
   @doc """
-  Define an actor in the access control system.
-
-  This is a stub implementation to avoid circular dependencies.
+  Subscribe to events for a specific node.
+  
+  This is a convenience function that uses the configured subscription module.
+  The default implementation is a no-op that does nothing.
+  
+  ## Parameters
+  
+  - `node_id` - The ID of the node to subscribe to
+  - `opts` - Subscription options
+  
+  ## Examples
+  
+      iex> GraphOS.Graph.subscribe_to_node("node1")
+      {:ok, #Reference<0.123.456.789>}
   """
-  @spec define_actor(String.t(), map()) :: {:ok, Node.t()} | {:error, term()}
-  def define_actor(_actor_id, _attributes \\ %{}) do
-    # Stub implementation that will be overridden by GraphOS.Core.AccessControl
-    {:error, :not_implemented_in_graph}
+  @spec subscribe_to_node(Node.id(), keyword()) :: 
+        {:ok, Subscription.subscription_id()} | {:error, term()}
+  def subscribe_to_node(node_id, opts \\ []) do
+    subscription_module().subscribe("node:#{node_id}", opts)
   end
-
+  
   @doc """
-  Grant permission for an actor to perform operations on a resource.
-
-  This is a stub implementation to avoid circular dependencies.
+  Subscribe to events for a specific edge.
+  
+  This is a convenience function that uses the configured subscription module.
+  The default implementation is a no-op that does nothing.
+  
+  ## Parameters
+  
+  - `edge_id` - The ID of the edge to subscribe to
+  - `opts` - Subscription options
+  
+  ## Examples
+  
+      iex> GraphOS.Graph.subscribe_to_edge("edge1")
+      {:ok, #Reference<0.123.456.789>}
   """
-  @spec grant_permission(String.t(), String.t(), list(atom())) :: 
-        {:ok, GraphOS.Graph.Edge.t()} | {:error, term()}
-  def grant_permission(_actor_id, _resource_pattern, _operations) do
-    # Stub implementation that will be overridden by GraphOS.Core.AccessControl
-    {:error, :not_implemented_in_graph}
+  @spec subscribe_to_edge(Edge.id(), keyword()) :: 
+        {:ok, Subscription.subscription_id()} | {:error, term()}
+  def subscribe_to_edge(edge_id, opts \\ []) do
+    subscription_module().subscribe("edge:#{edge_id}", opts)
   end
-
+  
   @doc """
-  Check if an actor has permission to perform an operation on a resource.
-
-  This is a stub implementation to avoid circular dependencies.
+  Subscribe to events for the entire graph.
+  
+  This is a convenience function that uses the configured subscription module.
+  The default implementation is a no-op that does nothing.
+  
+  ## Parameters
+  
+  - `opts` - Subscription options
+  
+  ## Examples
+  
+      iex> GraphOS.Graph.subscribe_to_graph()
+      {:ok, #Reference<0.123.456.789>}
   """
-  @spec can?(String.t(), String.t(), atom()) :: {:ok, boolean()} | {:error, term()}
-  def can?(_actor_id, _resource_id, _operation) do
-    # Stub implementation that will be overridden by GraphOS.Core.AccessControl
-    {:ok, true}  # Default to permissive for development
+  @spec subscribe_to_graph(keyword()) :: 
+        {:ok, Subscription.subscription_id()} | {:error, term()}
+  def subscribe_to_graph(opts \\ []) do
+    subscription_module().subscribe("graph", opts)
   end
-
-  # Private helpers
-
-  # Check if execution is permitted
-  defp check_execute_permission(_node, nil) do
-    # No access context provided, allow by default
-    # This is a permissive default for development
-    # In production, this should be configurable to fail-closed
-    {:ok, true}
+  
+  @doc """
+  Unsubscribe from events.
+  
+  This is a convenience function that uses the configured subscription module.
+  The default implementation is a no-op that does nothing.
+  
+  ## Parameters
+  
+  - `subscription_id` - The ID returned from a subscribe function
+  
+  ## Examples
+  
+      iex> {:ok, id} = GraphOS.Graph.subscribe_to_node("node1")
+      iex> GraphOS.Graph.unsubscribe(id)
+      :ok
+  """
+  @spec unsubscribe(Subscription.subscription_id()) :: :ok | {:error, term()}
+  def unsubscribe(subscription_id) do
+    subscription_module().unsubscribe(subscription_id)
   end
-
-  defp check_execute_permission(_node, _access_context) do
-    # Simplified implementation to avoid circular dependencies
-    # In production, this would check permissions properly
-    {:ok, true}
+  
+  # Return the configured subscription module or the default
+  defp subscription_module do
+    Application.get_env(:graph_os_graph, :subscription_module, 
+                         GraphOS.Graph.Subscription.NoOp)
   end
-
-  # Extract actor ID from access context - Kept for future use
-  # Not currently used but will be needed for access control
-  # Functions marked with underscore prefix are intentionally unused
-  # @dialyzer {:nowarn_function, extract_actor_id: 1}
-  # defp extract_actor_id(access_context) when is_binary(access_context), do: access_context
-  # defp extract_actor_id(%{actor_id: actor_id}), do: actor_id
-  # defp extract_actor_id(_), do: nil
 end

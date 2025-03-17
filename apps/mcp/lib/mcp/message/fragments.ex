@@ -1,4 +1,9 @@
 defmodule MCP.Message.Fragments do
+  @moduledoc """
+  Provides JSON schema fragments for MCP message validation.
+  Contains reusable components for building message schemas with version support.
+  """
+
   def client_capabilities("2024-11-05") do
     %{
       "type" => "object",

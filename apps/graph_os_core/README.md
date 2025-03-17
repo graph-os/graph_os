@@ -1,11 +1,34 @@
 # GraphOS.Core
 
-**TODO: Add description**
+GraphOS.Core provides the central functionality of GraphOS, including the component system, code graph, executables, and access control. It sits above graph_os_graph in the dependency hierarchy.
+
+## Key Features
+
+- Component system for modular functionality
+- Code graph generation and analysis
+- Executable graph management
+- Access control implementation
+- File watching and git integration
+- MCP server implementations
+
+## Documentation
+
+For detailed documentation, please refer to the centralized documentation:
+
+- [CLAUDE.md](../../instructions/CLAUDE.md) - Development guide with component details
+- [BOUNDARIES.md](../../instructions/BOUNDARIES.md) - Component boundaries and API definitions
+
+## Local Development
+
+```bash
+# Run tests
+mix test
+
+# Format code
+mix format
+```
 
 ## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed
-by adding `graph_os_core` to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
@@ -14,8 +37,3 @@ def deps do
   ]
 end
 ```
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/graph_os_core>.
-

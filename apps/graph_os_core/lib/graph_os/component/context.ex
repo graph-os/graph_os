@@ -1,22 +1,22 @@
 defmodule GraphOS.Component.Context do
   @moduledoc """
   Defines a context struct that flows through component pipelines.
-  
+
   The context is similar to `Plug.Conn` and holds request/response data as it
   passes through a series of components. Each component can transform the context
   by adding assigns, setting results, or marking it as halted.
   """
 
   @type t :: %__MODULE__{
-    assigns: map(),
-    halted: boolean(),
-    params: map(),
-    request_id: binary(),
-    result: any(),
-    error: nil | {atom(), binary()},
-    metadata: map(),
-    private: map()
-  }
+          assigns: map(),
+          halted: boolean(),
+          params: map(),
+          request_id: binary(),
+          result: any(),
+          error: nil | {atom(), binary()},
+          metadata: map(),
+          private: map()
+        }
 
   defstruct assigns: %{},
             halted: false,
@@ -29,12 +29,12 @@ defmodule GraphOS.Component.Context do
 
   @doc """
   Creates a new context with the given parameters.
-  
+
   ## Options
     * `:params` - Initial parameters for the request (default: %{})
     * `:request_id` - Unique ID for the request (default: generated UUID)
     * `:metadata` - Additional metadata for the request (default: %{})
-  
+
   ## Examples
       iex> Context.new(params: %{name: "test"})
       %Context{params: %{name: "test"}, request_id: "..."}
@@ -54,7 +54,7 @@ defmodule GraphOS.Component.Context do
 
   @doc """
   Adds values to the context's assigns map.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.assign(context, :user_id, 123)
@@ -78,7 +78,7 @@ defmodule GraphOS.Component.Context do
 
   @doc """
   Stores a successful result in the context.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_result(context, %{data: [1, 2, 3]})
@@ -92,10 +92,10 @@ defmodule GraphOS.Component.Context do
 
   @doc """
   Stores an error in the context and optionally halts the pipeline.
-  
+
   ## Options
     * `:halt` - Whether to halt the pipeline (default: true)
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_error(context, :not_found, "Resource not found")
@@ -112,16 +112,17 @@ defmodule GraphOS.Component.Context do
       false
   """
   @spec put_error(t(), atom(), binary(), keyword()) :: t()
-  def put_error(%__MODULE__{} = context, type, message, opts \\ []) when is_atom(type) and is_binary(message) do
+  def put_error(%__MODULE__{} = context, type, message, opts \\ [])
+      when is_atom(type) and is_binary(message) do
     should_halt = Keyword.get(opts, :halt, true)
-    
+
     context = %{context | error: {type, message}}
     if should_halt, do: halt(context), else: context
   end
 
   @doc """
   Halts the component pipeline, preventing further components from running.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.halt(context)
@@ -135,7 +136,7 @@ defmodule GraphOS.Component.Context do
 
   @doc """
   Checks if the context has been halted.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> Context.halted?(context)
@@ -150,10 +151,10 @@ defmodule GraphOS.Component.Context do
 
   @doc """
   Adds values to the context's private map for internal use by components.
-  
+
   This is useful for storing data that should not be exposed in the final result
   but needs to be passed between components.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_private(context, :auth_token, "abc123")
@@ -167,7 +168,7 @@ defmodule GraphOS.Component.Context do
 
   @doc """
   Adds multiple values to the context's private map.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_private(context, auth_token: "abc123", session_id: "xyz")
@@ -181,7 +182,7 @@ defmodule GraphOS.Component.Context do
 
   @doc """
   Adds metadata to the context.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_metadata(context, :timestamp, 1615000000)
@@ -195,7 +196,7 @@ defmodule GraphOS.Component.Context do
 
   @doc """
   Adds multiple metadata values to the context.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_metadata(context, timestamp: 1615000000, source: :api)
@@ -209,7 +210,7 @@ defmodule GraphOS.Component.Context do
 
   @doc """
   Checks if the context has an error.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> Context.error?(context)
@@ -225,7 +226,7 @@ defmodule GraphOS.Component.Context do
 
   @doc """
   Returns the error type and message if the context has an error, nil otherwise.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> Context.error(context)
@@ -241,9 +242,11 @@ defmodule GraphOS.Component.Context do
   # Generate a unique request ID
   defp generate_request_id do
     uuid = :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
-    
+
     # Format as UUID
-    <<a::binary-size(8), b::binary-size(4), c::binary-size(4), d::binary-size(4), e::binary-size(12)>> = uuid
+    <<a::binary-size(8), b::binary-size(4), c::binary-size(4), d::binary-size(4),
+      e::binary-size(12)>> = uuid
+
     "#{a}-#{b}-#{c}-#{d}-#{e}"
   end
 end

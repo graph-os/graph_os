@@ -2,6 +2,8 @@ defmodule GraphOS.Graph.Meta do
   @moduledoc """
   A module for managing metadata for the graph.
   """
+  
+  use Boundary, deps: []
 
   @typedoc "The creation date of the node"
   @type created_at() :: DateTime.t()
@@ -28,6 +30,7 @@ defmodule GraphOS.Graph.Meta do
   @type opts() :: [opt()]
 
   @keys [:created_at, :updated_at, :deleted_at, :version, :deleted]
+  @derive {Jason.Encoder, only: @keys}
   defguard is_metadata_key(key) when key in @keys
 
   @enforce_keys @keys

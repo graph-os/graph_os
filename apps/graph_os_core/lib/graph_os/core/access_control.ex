@@ -22,20 +22,27 @@ defmodule GraphOS.Core.AccessControl do
   ```elixir
   # Define an actor (user or agent)
   GraphOS.Core.AccessControl.define_actor(graph, "user:alice", %{role: "admin"})
-  
+
   # Grant permission to a resource
   GraphOS.Core.AccessControl.grant_permission(graph, "user:alice", "filesystem:*", [:read, :write])
-  
+
   # Check if an operation is permitted
   {:ok, true} = GraphOS.Core.AccessControl.can?(graph, "user:alice", "filesystem:/tmp/file.txt", :read)
+
+  # Use with graph operations via the GraphOS.Graph.Access interface
+  access_control = GraphOS.Core.Access.GraphAccess
+  access_context = %{actor_id: "user:alice", graph: graph}
+  GraphOS.Graph.Store.query(params, GraphOS.Graph.Store.ETS, 
+    access_control: access_control,
+    access_context: access_context
+  )
   ```
   """
 
-  alias GraphOS.Graph.{Node, Edge, Transaction, Query, Store}
+  alias GraphOS.Graph.{Node, Edge, Transaction}
 
   # Node and edge types for access control
   @actor_type "access:actor"
-  @scope_type "access:scope"
   @resource_type "access:resource"
   @permission_edge "access:permission"
 
@@ -67,24 +74,25 @@ defmodule GraphOS.Core.AccessControl do
     transaction = Transaction.new(GraphOS.Graph.Store.ETS)
 
     # Create the root access control node
-    root_node = Node.new(
-      %{
-        name: "AccessControl",
-        protected: true,
-        created_at: DateTime.utc_now()
-      },
-      [id: "access:root"]
-    )
+    root_node =
+      Node.new(
+        %{
+          name: "AccessControl",
+          protected: true,
+          created_at: DateTime.utc_now()
+        },
+        id: "access:root"
+      )
 
     # Add the root node operation to the transaction
-    transaction = Transaction.add(
-      transaction,
-      GraphOS.Graph.Operation.new(:create, :node, root_node, [id: "access:root"])
-    )
+    transaction =
+      Transaction.add(
+        transaction,
+        GraphOS.Graph.Operation.new(:create, :node, root_node, id: "access:root")
+      )
 
-    # Execute the transaction directly via GraphOS.Graph.Store
-    # This avoids circular dependencies with GraphOS.Graph
-    case GraphOS.Graph.Store.execute(transaction) do
+    # Execute the transaction via GraphOS.Graph
+    case GraphOS.Graph.execute(transaction) do
       {:ok, _result} -> :ok
       error -> error
     end
@@ -117,41 +125,46 @@ defmodule GraphOS.Core.AccessControl do
     transaction = Transaction.new(GraphOS.Graph.Store.ETS)
 
     # Create the actor node
-    actor_node = Node.new(
-      Map.merge(attributes, %{
-        name: actor_id,
-        type: @actor_type,
-        protected: true,
-        created_at: DateTime.utc_now()
-      }),
-      [id: actor_id]
-    )
+    actor_node =
+      Node.new(
+        Map.merge(attributes, %{
+          name: actor_id,
+          type: @actor_type,
+          protected: true,
+          created_at: DateTime.utc_now()
+        }),
+        id: actor_id
+      )
 
     # Add the actor node operation to the transaction
-    transaction = Transaction.add(
-      transaction,
-      GraphOS.Graph.Operation.new(:create, :node, actor_node, [id: actor_id])
-    )
+    transaction =
+      Transaction.add(
+        transaction,
+        GraphOS.Graph.Operation.new(:create, :node, actor_node, id: actor_id)
+      )
 
     # Add an edge linking the actor to the access control root
-    transaction = Transaction.add(
-      transaction,
-      GraphOS.Graph.Operation.new(:create, :edge, %{
-        type: "access:actor_def",
-        protected: true,
-        created_at: DateTime.utc_now()
-      }, [
-        id: "#{actor_id}->access:root",
-        key: "access:actor_def",
-        weight: 1,
-        source: actor_id,
-        target: "access:root"
-      ])
-    )
+    transaction =
+      Transaction.add(
+        transaction,
+        GraphOS.Graph.Operation.new(
+          :create,
+          :edge,
+          %{
+            type: "access:actor_def",
+            protected: true,
+            created_at: DateTime.utc_now()
+          },
+          id: "#{actor_id}->access:root",
+          key: "access:actor_def",
+          weight: 1,
+          source: actor_id,
+          target: "access:root"
+        )
+      )
 
-    # Execute the transaction directly via GraphOS.Graph.Store
-    # This avoids circular dependencies with GraphOS.Graph
-    case GraphOS.Graph.Store.execute(transaction) do
+    # Execute the transaction via GraphOS.Graph
+    case GraphOS.Graph.execute(transaction) do
       {:ok, _result} -> {:ok, actor_node}
       error -> error
     end
@@ -177,11 +190,12 @@ defmodule GraphOS.Core.AccessControl do
       iex> GraphOS.Core.AccessControl.grant_permission(graph, "user:alice", "filesystem:*", [:read, :write])
       {:ok, %GraphOS.Graph.Edge{id: "user:alice->filesystem:*", ...}}
   """
-  @spec grant_permission(atom() | pid(), String.t(), String.t(), list(atom())) :: 
-        {:ok, Edge.t()} | {:error, term()}
+  @spec grant_permission(atom() | pid(), String.t(), String.t(), list(atom())) ::
+          {:ok, Edge.t()} | {:error, term()}
   def grant_permission(_graph, actor_id, resource_pattern, operations) do
     # Validate operations
     invalid_operations = Enum.reject(operations, &(&1 in @operation_types))
+
     if length(invalid_operations) > 0 do
       {:error, "Invalid operations: #{inspect(invalid_operations)}"}
     else
@@ -193,6 +207,7 @@ defmodule GraphOS.Core.AccessControl do
 
       # Create the permission edge
       permission_id = "#{actor_id}->#{resource_pattern}"
+
       edge_data = %{
         type: @permission_edge,
         operations: operations,
@@ -200,31 +215,34 @@ defmodule GraphOS.Core.AccessControl do
         created_at: DateTime.utc_now()
       }
 
-      transaction = Transaction.add(
-        transaction,
-        GraphOS.Graph.Operation.new(:create, :edge, edge_data, [
-          id: permission_id,
-          key: @permission_edge,
-          weight: 1,
-          source: actor_id,
-          target: resource_pattern
-        ])
-      )
-
-      # Execute the transaction directly via GraphOS.Graph.Store
-      # This avoids circular dependencies with GraphOS.Graph
-      case GraphOS.Graph.Store.execute(transaction) do
-        {:ok, _result} -> 
-          # Return the created edge
-          {:ok, %Edge{
+      transaction =
+        Transaction.add(
+          transaction,
+          GraphOS.Graph.Operation.new(:create, :edge, edge_data,
             id: permission_id,
             key: @permission_edge,
             weight: 1,
             source: actor_id,
-            target: resource_pattern,
-            meta: GraphOS.Graph.Meta.new()
-          }}
-        error -> error
+            target: resource_pattern
+          )
+        )
+
+      # Execute the transaction via GraphOS.Graph
+      case GraphOS.Graph.execute(transaction) do
+        {:ok, _result} ->
+          # Return the created edge
+          {:ok,
+           %Edge{
+             id: permission_id,
+             key: @permission_edge,
+             weight: 1,
+             source: actor_id,
+             target: resource_pattern,
+             meta: GraphOS.Graph.Meta.new()
+           }}
+
+        error ->
+          error
       end
     end
   end
@@ -250,8 +268,8 @@ defmodule GraphOS.Core.AccessControl do
       iex> GraphOS.Core.AccessControl.can?(graph, "user:alice", "filesystem:/tmp/file.txt", :read)
       {:ok, true}
   """
-  @spec can?(atom() | pid(), String.t(), String.t(), atom()) :: 
-        {:ok, boolean()} | {:error, term()}
+  @spec can?(atom() | pid(), String.t(), String.t(), atom()) ::
+          {:ok, boolean()} | {:error, term()}
   def can?(graph, actor_id, resource_id, operation) do
     # TODO: Implement actual pattern matching with wildcards
     # For now, we'll do a simple check for exact matching or wildcard matching
@@ -259,15 +277,46 @@ defmodule GraphOS.Core.AccessControl do
     # Query for the actor's permissions
     with {:ok, permissions} <- get_actor_permissions(graph, actor_id) do
       # Check if any permission allows this operation on this resource
-      has_permission = Enum.any?(permissions, fn {resource_pattern, ops} ->
-        # Check if operation is allowed
-        operation in ops && 
-        # Check if resource matches the pattern (simple implementation for now)
-        (resource_pattern == resource_id || resource_pattern == "*" || String.ends_with?(resource_pattern, ":*"))
-      end)
+      has_permission =
+        Enum.any?(permissions, fn {resource_pattern, ops} ->
+          # Check if operation is allowed
+          # Check if resource matches the pattern (simple implementation for now)
+          operation in ops &&
+            (resource_pattern == resource_id || resource_pattern == "*" ||
+               String.ends_with?(resource_pattern, ":*") ||
+               resource_pattern_match?(resource_pattern, resource_id))
+        end)
 
       {:ok, has_permission}
     end
+  end
+
+  @doc """
+  Creates an access context map for use with GraphOS.Graph.Access implementations.
+
+  ## Parameters
+
+  - `graph` - The graph to use
+  - `actor_id` - The actor ID to use for access control
+
+  ## Returns
+
+  - Access context map
+
+  ## Examples
+
+      iex> context = GraphOS.Core.AccessControl.create_context(graph, "user:alice")
+      iex> GraphOS.Graph.Store.query(params, GraphOS.Graph.Store.ETS, 
+      ...>   access_control: GraphOS.Core.Access.GraphAccess,
+      ...>   access_context: context
+      ...> )
+  """
+  @spec create_context(atom() | pid(), String.t()) :: map()
+  def create_context(graph, actor_id) do
+    %{
+      actor_id: actor_id,
+      graph: graph
+    }
   end
 
   # Private helper functions
@@ -285,10 +334,11 @@ defmodule GraphOS.Core.AccessControl do
 
     Transaction.add(
       transaction,
-      GraphOS.Graph.Operation.new(:create, :node, node_data, [
+      GraphOS.Graph.Operation.new(:create, :node, node_data,
         id: resource_pattern,
-        on_conflict: :ignore  # Skip if already exists
-      ])
+        # Skip if already exists
+        on_conflict: :ignore
+      )
     )
   end
 
@@ -296,19 +346,32 @@ defmodule GraphOS.Core.AccessControl do
   defp get_actor_permissions(_graph, actor_id) do
     # Query for all permission edges from this actor
     case GraphOS.Graph.Query.execute(
-      start_node_id: actor_id,
-      edge_type: @permission_edge
-    ) do
+           start_node_id: actor_id,
+           edge_type: @permission_edge
+         ) do
       {:ok, edges} ->
         # For now, we'll just return a list with read/write/execute permissions
         # In a real implementation, we would store operations in edge metadata
-        permissions = Enum.map(edges, fn edge ->
-          {edge.target, [:read, :write, :execute]}
-        end)
+        permissions =
+          Enum.map(edges, fn edge ->
+            {edge.target, [:read, :write, :execute]}
+          end)
+
         {:ok, permissions}
 
       error ->
         error
+    end
+  end
+
+  # Simple pattern matching for resource patterns
+  # This is a basic implementation that supports wildcards with * at the end
+  defp resource_pattern_match?(pattern, resource_id) do
+    if String.ends_with?(pattern, "*") do
+      prefix = String.replace_suffix(pattern, "*", "")
+      String.starts_with?(resource_id, prefix)
+    else
+      pattern == resource_id
     end
   end
 end

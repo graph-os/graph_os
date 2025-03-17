@@ -7,7 +7,7 @@ defmodule GraphOS.Component.RegistryTest do
     use Component
     use GraphOS.Component.Builder
 
-    tool :test_tool,
+    tool(:test_tool,
       description: "A test tool for testing",
       params: [
         name: %{
@@ -20,8 +20,9 @@ defmodule GraphOS.Component.RegistryTest do
       execute: fn context, _params ->
         context
       end
+    )
 
-    resource :test_resource,
+    resource(:test_resource,
       description: "A test resource for testing",
       params: [
         id: %{
@@ -34,6 +35,7 @@ defmodule GraphOS.Component.RegistryTest do
       query: fn context, _params ->
         context
       end
+    )
 
     @impl true
     def call(context, _opts) do
@@ -45,7 +47,7 @@ defmodule GraphOS.Component.RegistryTest do
     use Component
     use GraphOS.Component.Builder
 
-    tool :another_tool,
+    tool(:another_tool,
       description: "Another test tool",
       params: [
         data: %{
@@ -58,6 +60,7 @@ defmodule GraphOS.Component.RegistryTest do
       execute: fn context, _params ->
         context
       end
+    )
 
     @impl true
     def call(context, _opts) do
@@ -66,7 +69,9 @@ defmodule GraphOS.Component.RegistryTest do
   end
 
   defmodule InvalidModule do
-    # Not a component, missing call/2
+    # Not a component, missing use Component and call/2
+    # We'll define it this way to test registry validation
+    def some_function, do: :ok
   end
 
   setup do
@@ -78,19 +83,19 @@ defmodule GraphOS.Component.RegistryTest do
   describe "register/1" do
     test "successfully registers a valid component" do
       assert :ok = Registry.register(TestComponent)
-      
+
       # Verify component was registered
       assert {:ok, component_info} = Registry.lookup_component(TestComponent)
       assert component_info.module == TestComponent
       assert map_size(component_info.tools) == 1
       assert map_size(component_info.resources) == 1
-      
+
       # Verify tool was registered
       assert {:ok, {component, tool_info}} = Registry.lookup_tool(:test_tool)
       assert component == TestComponent
       assert tool_info.name == :test_tool
       assert tool_info.description == "A test tool for testing"
-      
+
       # Verify resource was registered
       assert {:ok, {component, resource_info}} = Registry.lookup_resource(:test_resource)
       assert component == TestComponent
@@ -106,7 +111,7 @@ defmodule GraphOS.Component.RegistryTest do
   describe "register_many/1" do
     test "registers multiple components" do
       assert :ok = Registry.register_many([TestComponent, AnotherComponent])
-      
+
       assert {:ok, _} = Registry.lookup_component(TestComponent)
       assert {:ok, _} = Registry.lookup_component(AnotherComponent)
       assert {:ok, _} = Registry.lookup_tool(:test_tool)
@@ -114,8 +119,11 @@ defmodule GraphOS.Component.RegistryTest do
     end
 
     test "returns errors for invalid components" do
-      assert {:error, _} = Registry.register_many([TestComponent, InvalidModule])
-      
+      # The registry function returns {:error, errors} where errors is a list of error messages
+      assert {:error, errors} = Registry.register_many([TestComponent, InvalidModule])
+      # Verify we get a list of errors back
+      assert is_list(errors)
+
       # The valid component should still be registered
       assert {:ok, _} = Registry.lookup_component(TestComponent)
       assert {:error, :not_found} = Registry.lookup_component(InvalidModule)
@@ -131,24 +139,24 @@ defmodule GraphOS.Component.RegistryTest do
     test "lookup_component/1 finds registered components" do
       assert {:ok, info} = Registry.lookup_component(TestComponent)
       assert info.module == TestComponent
-      
+
       assert {:error, :not_found} = Registry.lookup_component(InvalidModule)
     end
 
     test "lookup_tool/1 finds registered tools" do
       assert {:ok, {TestComponent, tool_info}} = Registry.lookup_tool(:test_tool)
       assert tool_info.name == :test_tool
-      
+
       assert {:ok, {AnotherComponent, tool_info}} = Registry.lookup_tool(:another_tool)
       assert tool_info.name == :another_tool
-      
+
       assert {:error, :not_found} = Registry.lookup_tool(:non_existent_tool)
     end
 
     test "lookup_resource/1 finds registered resources" do
       assert {:ok, {TestComponent, resource_info}} = Registry.lookup_resource(:test_resource)
       assert resource_info.name == :test_resource
-      
+
       assert {:error, :not_found} = Registry.lookup_resource(:non_existent_resource)
     end
   end
@@ -162,7 +170,7 @@ defmodule GraphOS.Component.RegistryTest do
     test "list_components/0 returns all registered components" do
       components = Registry.list_components()
       assert length(components) == 2
-      
+
       component_modules = Enum.map(components, fn {module, _info} -> module end)
       assert TestComponent in component_modules
       assert AnotherComponent in component_modules
@@ -171,7 +179,7 @@ defmodule GraphOS.Component.RegistryTest do
     test "list_tools/0 returns all registered tools" do
       tools = Registry.list_tools()
       assert length(tools) == 2
-      
+
       tool_names = Enum.map(tools, fn {name, _info} -> name end)
       assert :test_tool in tool_names
       assert :another_tool in tool_names
@@ -180,7 +188,7 @@ defmodule GraphOS.Component.RegistryTest do
     test "list_resources/0 returns all registered resources" do
       resources = Registry.list_resources()
       assert length(resources) == 1
-      
+
       resource_names = Enum.map(resources, fn {name, _info} -> name end)
       assert :test_resource in resource_names
     end

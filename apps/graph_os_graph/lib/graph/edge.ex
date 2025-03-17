@@ -2,6 +2,8 @@ defmodule GraphOS.Graph.Edge do
   @moduledoc """
   A module for managing edges in a graph.
   """
+  
+  use Boundary, deps: []
 
   alias GraphOS.Graph.Meta
 

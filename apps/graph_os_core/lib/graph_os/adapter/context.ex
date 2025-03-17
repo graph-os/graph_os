@@ -6,20 +6,22 @@ defmodule GraphOS.Adapter.Context do
   plug pipeline. It contains information about the operation being performed,
   authentication/authorization details, and any additional metadata.
   """
+  
+  use Boundary, deps: []
 
   @type t :: %__MODULE__{
-    assigns: map(),
-    halted: boolean(),
-    params: map(),
-    request_id: binary(),
-    result: any(),
-    error: nil | {atom(), binary()},
-    metadata: map(),
-    private: map(),
-    auth: map(),
-    adapter: atom() | nil,
-    path: String.t() | nil
-  }
+          assigns: map(),
+          halted: boolean(),
+          params: map(),
+          request_id: binary(),
+          result: any(),
+          error: nil | {atom(), binary()},
+          metadata: map(),
+          private: map(),
+          auth: map(),
+          adapter: atom() | nil,
+          path: String.t() | nil
+        }
 
   defstruct assigns: %{},
             halted: false,
@@ -35,7 +37,7 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Creates a new context with the given parameters.
-  
+
   ## Options
     * `:params` - Initial parameters for the request (default: %{})
     * `:request_id` - Unique ID for the request (default: generated UUID)
@@ -43,7 +45,7 @@ defmodule GraphOS.Adapter.Context do
     * `:adapter` - The adapter module handling the request (default: nil)
     * `:path` - The operation path (default: nil)
     * `:auth` - Authentication information (default: %{})
-  
+
   ## Examples
       iex> Context.new(params: %{name: "test"})
       %Context{params: %{name: "test"}, request_id: "..."}
@@ -69,7 +71,7 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Adds values to the context's assigns map.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.assign(context, :user_id, 123)
@@ -93,7 +95,7 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Stores a successful result in the context.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_result(context, %{data: [1, 2, 3]})
@@ -107,10 +109,10 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Stores an error in the context and optionally halts the pipeline.
-  
+
   ## Options
     * `:halt` - Whether to halt the pipeline (default: true)
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_error(context, :not_found, "Resource not found")
@@ -127,16 +129,17 @@ defmodule GraphOS.Adapter.Context do
       false
   """
   @spec put_error(t(), atom(), binary(), keyword()) :: t()
-  def put_error(%__MODULE__{} = context, type, message, opts \\ []) when is_atom(type) and is_binary(message) do
+  def put_error(%__MODULE__{} = context, type, message, opts \\ [])
+      when is_atom(type) and is_binary(message) do
     should_halt = Keyword.get(opts, :halt, true)
-    
+
     context = %{context | error: {type, message}}
     if should_halt, do: halt(context), else: context
   end
 
   @doc """
   Halts the adapter pipeline, preventing further plugs from running.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.halt(context)
@@ -150,7 +153,7 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Checks if the context has been halted.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> Context.halted?(context)
@@ -165,10 +168,10 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Adds values to the context's private map for internal use by adapters/plugs.
-  
+
   This is useful for storing data that should not be exposed in the final result
   but needs to be passed between plugs.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_private(context, :auth_token, "abc123")
@@ -187,7 +190,7 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Adds or updates authentication information in the context.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_auth(context, :user_id, "user123")
@@ -206,7 +209,7 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Adds metadata to the context.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_metadata(context, :timestamp, 1615000000)
@@ -220,7 +223,7 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Adds multiple metadata values to the context.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_metadata(context, timestamp: 1615000000, source: :api)
@@ -234,7 +237,7 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Sets the operation path in the context.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> context = Context.put_path(context, "git.log")
@@ -248,7 +251,7 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Checks if the context has an error.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> Context.error?(context)
@@ -264,7 +267,7 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Returns the error type and message if the context has an error, nil otherwise.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> Context.error(context)
@@ -279,9 +282,9 @@ defmodule GraphOS.Adapter.Context do
 
   @doc """
   Checks if the context is authenticated.
-  
+
   A context is considered authenticated if it has a non-empty auth map.
-  
+
   ## Examples
       iex> context = Context.new()
       iex> Context.authenticated?(context)
@@ -299,9 +302,11 @@ defmodule GraphOS.Adapter.Context do
   # Generate a unique request ID
   defp generate_request_id do
     uuid = :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
-    
+
     # Format as UUID
-    <<a::binary-size(8), b::binary-size(4), c::binary-size(4), d::binary-size(4), e::binary-size(12)>> = uuid
+    <<a::binary-size(8), b::binary-size(4), c::binary-size(4), d::binary-size(4),
+      e::binary-size(12)>> = uuid
+
     "#{a}-#{b}-#{c}-#{d}-#{e}"
   end
 end

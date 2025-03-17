@@ -14,10 +14,10 @@ defmodule GraphOS.Core.MCP.CodeGraphServer do
   def start(session_id) do
     # Call the parent's start method
     super(session_id)
-    
+
     # Initialize CodeGraph if needed
     ensure_code_graph_initialized()
-    
+
     :ok
   end
 
@@ -25,7 +25,7 @@ defmodule GraphOS.Core.MCP.CodeGraphServer do
   def handle_list_tools(session_id, request_id, params) do
     # Get the base tools from the parent
     {:ok, base_result} = super(session_id, request_id, params)
-    
+
     # Add the CodeGraph tools
     code_graph_tools = [
       %{
@@ -147,84 +147,109 @@ defmodule GraphOS.Core.MCP.CodeGraphServer do
         }
       }
     ]
-    
+
     # Merge the tools lists
     updated_tools = Map.update!(base_result, :tools, fn tools -> tools ++ code_graph_tools end)
-    
+
     {:ok, updated_tools}
   end
 
   @impl true
   def handle_tool_call(session_id, request_id, %{"name" => "code_graph.build"} = params, _meta) do
     Logger.info("Handling code_graph.build", session_id: session_id, request_id: request_id)
-    
+
     tool_params = params["parameters"] || %{}
     directory = tool_params["directory"]
-    
-    if !directory do
-      {:error, {-32602, "Missing required parameter: directory", nil}}
-    else
+
+    if directory do
       opts = [
         recursive: Map.get(tool_params, "recursive", true),
         file_pattern: Map.get(tool_params, "file_pattern", "**/*.ex"),
         exclude_pattern: Map.get(tool_params, "exclude_pattern")
       ]
-      
+
       case CodeGraph.build_graph(directory, opts) do
-        {:ok, stats} -> {:ok, %{result: stats}}
-        {:error, reason} -> {:error, {-32000, "Failed to build graph", %{message: inspect(reason)}}}
+        {:ok, stats} ->
+          {:ok, %{result: stats}}
+
+        {:error, reason} ->
+          {:error, {-32000, "Failed to build graph", %{message: inspect(reason)}}}
       end
+    else
+      {:error, {-32602, "Missing required parameter: directory", nil}}
     end
   end
 
   @impl true
-  def handle_tool_call(session_id, request_id, %{"name" => "code_graph.get_module_info"} = params, _meta) do
-    Logger.info("Handling code_graph.get_module_info", session_id: session_id, request_id: request_id)
-    
+  def handle_tool_call(
+        session_id,
+        request_id,
+        %{"name" => "code_graph.get_module_info"} = params,
+        _meta
+      ) do
+    Logger.info("Handling code_graph.get_module_info",
+      session_id: session_id,
+      request_id: request_id
+    )
+
     tool_params = params["parameters"] || %{}
     module_name = tool_params["module_name"]
-    
-    if !module_name do
-      {:error, {-32602, "Missing required parameter: module_name", nil}}
-    else
+
+    if module_name do
       case CodeGraph.get_module_info(module_name) do
-        {:ok, info} -> {:ok, %{result: info}}
-        {:error, reason} -> {:error, {-32000, "Failed to get module info", %{message: inspect(reason)}}}
+        {:ok, info} ->
+          {:ok, %{result: info}}
+
+        {:error, reason} ->
+          {:error, {-32000, "Failed to get module info", %{message: inspect(reason)}}}
       end
+    else
+      {:error, {-32602, "Missing required parameter: module_name", nil}}
     end
   end
 
   @impl true
-  def handle_tool_call(session_id, request_id, %{"name" => "code_graph.find_implementations"} = params, _meta) do
-    Logger.info("Handling code_graph.find_implementations", session_id: session_id, request_id: request_id)
-    
+  def handle_tool_call(
+        session_id,
+        request_id,
+        %{"name" => "code_graph.find_implementations"} = params,
+        _meta
+      ) do
+    Logger.info("Handling code_graph.find_implementations",
+      session_id: session_id,
+      request_id: request_id
+    )
+
     tool_params = params["parameters"] || %{}
     protocol_or_behaviour = tool_params["protocol_or_behaviour"]
-    
-    if !protocol_or_behaviour do
-      {:error, {-32602, "Missing required parameter: protocol_or_behaviour", nil}}
-    else
+
+    if protocol_or_behaviour do
       case CodeGraph.find_implementations(protocol_or_behaviour) do
-        {:ok, implementations} -> {:ok, %{result: %{implementations: implementations}}}
-        {:error, reason} -> {:error, {-32000, "Failed to find implementations", %{message: inspect(reason)}}}
+        {:ok, implementations} ->
+          {:ok, %{result: %{implementations: implementations}}}
+
+        {:error, reason} ->
+          {:error, {-32000, "Failed to find implementations", %{message: inspect(reason)}}}
       end
+    else
+      {:error, {-32602, "Missing required parameter: protocol_or_behaviour", nil}}
     end
   end
 
   @impl true
   def handle_tool_call(session_id, request_id, %{"name" => "code_graph.query"} = params, _meta) do
     Logger.info("Handling code_graph.query", session_id: session_id, request_id: request_id)
-    
+
     tool_params = params["parameters"] || %{}
     query = tool_params["query"]
-    
-    if !query do
-      {:error, {-32602, "Missing required parameter: query", nil}}
-    else
+
+    if query do
       case apply_query(query) do
         {:ok, results} -> {:ok, %{result: %{results: results}}}
         {:error, reason} -> {:error, {-32000, "Query failed", %{message: inspect(reason)}}}
       end
+    else
+      {:error, {-32602, "Missing required parameter: query", nil}}
     end
   end
 

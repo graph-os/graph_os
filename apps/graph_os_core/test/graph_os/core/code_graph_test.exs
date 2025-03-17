@@ -101,6 +101,7 @@ defmodule GraphOS.Core.CodeGraphTest do
         def main, do: :ok
       end
       """
+
       File.write!(Path.join(test_dir, "main_module.ex"), main_module)
 
       # Create a sample file in the nested directory
@@ -109,6 +110,7 @@ defmodule GraphOS.Core.CodeGraphTest do
         def nested, do: :ok
       end
       """
+
       File.write!(Path.join(nested_dir, "nested_module.ex"), nested_module)
 
       # Build the graph non-recursively
@@ -129,6 +131,7 @@ defmodule GraphOS.Core.CodeGraphTest do
         def function2(arg), do: arg
       end
       """
+
       file_path = Path.join(test_dir, "info_module.ex")
       File.write!(file_path, sample_module)
 
@@ -153,7 +156,7 @@ defmodule GraphOS.Core.CodeGraphTest do
       assert {:ok, info} = result
 
       # Verify module info
-      assert %{module: module, functions: functions} = info
+      assert %{module: _module, functions: _functions} = info
     end
 
     test "returns error for non-existent module" do
@@ -170,6 +173,7 @@ defmodule GraphOS.Core.CodeGraphTest do
         def initial, do: :initial
       end
       """
+
       file_path = Path.join(test_dir, "update_module.ex")
       File.write!(file_path, initial_module)
 
@@ -184,6 +188,7 @@ defmodule GraphOS.Core.CodeGraphTest do
         def added, do: :added
       end
       """
+
       File.write!(file_path, updated_module)
 
       # Update the graph
@@ -226,10 +231,14 @@ defmodule GraphOS.Core.CodeGraphTest do
 
       # Should have dependencies for alias, import, use, and behaviour
       dep_types = Enum.map(dependencies, & &1.type)
-      assert "references" in dep_types  # for alias
-      assert "imports" in dep_types     # for import
-      assert "uses" in dep_types        # for use
-      assert "implements" in dep_types  # for behaviour
+      # for alias
+      assert "references" in dep_types
+      # for import
+      assert "imports" in dep_types
+      # for use
+      assert "uses" in dep_types
+      # for behaviour
+      assert "implements" in dep_types
     end
   end
 end

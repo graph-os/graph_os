@@ -166,3 +166,16 @@ See the [extension README](./vscode-graphos/README.md) for more details.
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+## Documentation
+
+Project documentation is centralized in the `instructions/` directory. All documentation files are stored there and symlinked to their respective locations in the project. When updating documentation, always edit the files in the `instructions/` directory.
+
+Key documentation files:
+- [Architecture](instructions/ARCHITECTURE.md): Overall system architecture
+- [Boundaries](instructions/BOUNDARIES.md): Component boundaries and responsibilities
+- [Development Guide](instructions/CLAUDE.md): Development guidelines and best practices
+- [Refactoring](instructions/REFACTORING.md): Refactoring guidelines and plans
+- [Tasks](instructions/TASKS.md): Current and planned tasks
+
+For more information on the documentation system, see the [Documentation README](instructions/README.md).
+

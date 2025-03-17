@@ -13,7 +13,8 @@ defmodule GraphOS.Core.FileWatcher do
 
   alias GraphOS.Core.CodeGraph
 
-  @poll_interval 1000 # 1 second polling interval
+  # 1 second polling interval
+  @poll_interval 1000
 
   # Public API
 
@@ -156,9 +157,12 @@ defmodule GraphOS.Core.FileWatcher do
 
       case CodeGraph.build_graph(dir, opts) do
         {:ok, stats} ->
-          Logger.info("Built initial code graph for #{dir}: " <>
-                     "#{stats.modules} modules, #{stats.functions} functions, " <>
-                     "#{stats.relationships} relationships")
+          Logger.info(
+            "Built initial code graph for #{dir}: " <>
+              "#{stats.modules} modules, #{stats.functions} functions, " <>
+              "#{stats.relationships} relationships"
+          )
+
         {:error, reason} ->
           Logger.error("Failed to build initial graph for #{dir}: #{inspect(reason)}")
       end
@@ -169,12 +173,13 @@ defmodule GraphOS.Core.FileWatcher do
     # Get all files matching the pattern in all directories
     all_files =
       Enum.flat_map(state.directories, fn dir ->
-        pattern = if state.recursive do
-          Path.join(dir, state.file_pattern)
-        else
-          # Handle non-recursive case
-          Path.join(dir, Path.basename(state.file_pattern))
-        end
+        pattern =
+          if state.recursive do
+            Path.join(dir, state.file_pattern)
+          else
+            # Handle non-recursive case
+            Path.join(dir, Path.basename(state.file_pattern))
+          end
 
         Path.wildcard(pattern)
       end)
@@ -183,7 +188,7 @@ defmodule GraphOS.Core.FileWatcher do
     files =
       if state.exclude_pattern do
         exclude_paths = Path.wildcard(state.exclude_pattern)
-        Enum.reject(all_files, & &1 in exclude_paths)
+        Enum.reject(all_files, &(&1 in exclude_paths))
       else
         all_files
       end
@@ -200,6 +205,7 @@ defmodule GraphOS.Core.FileWatcher do
         case {Map.get(current_mtimes, file), Map.get(state.file_mtimes, file)} do
           {current, old} when is_nil(old) or current > old ->
             true
+
           _ ->
             false
         end
@@ -209,22 +215,25 @@ defmodule GraphOS.Core.FileWatcher do
     changed = process_file_changes(new_or_modified, deleted_files, state)
 
     # Update state with new mtimes and last_update timestamp
-    %{state |
-      file_mtimes: current_mtimes,
-      last_update: if changed or Enum.any?(new_or_modified) or Enum.any?(deleted_files) do
-        # Force update of the timestamp when any files have been modified or deleted
-        # Add a small delay to ensure the timestamp is different from previous timestamps
-        Process.sleep(10)  # Small delay to ensure timestamp is different
-        DateTime.utc_now()
-      else
-        state.last_update
-      end
+    %{
+      state
+      | file_mtimes: current_mtimes,
+        last_update:
+          if changed or Enum.any?(new_or_modified) or Enum.any?(deleted_files) do
+            # Force update of the timestamp when any files have been modified or deleted
+            # Add a small delay to ensure the timestamp is different from previous timestamps
+            # Small delay to ensure timestamp is different
+            Process.sleep(10)
+            DateTime.utc_now()
+          else
+            state.last_update
+          end
     }
   end
 
   defp get_mtimes(files) do
     Enum.reduce(files, %{}, fn file, acc ->
-      case File.stat(file, [time: :posix]) do
+      case File.stat(file, time: :posix) do
         {:ok, %{mtime: mtime}} -> Map.put(acc, file, mtime)
         {:error, _} -> acc
       end
@@ -236,16 +245,18 @@ defmodule GraphOS.Core.FileWatcher do
     changed_count = 0
 
     # Process new or modified files
-    changed_count = Enum.reduce(new_or_modified, changed_count, fn file, count ->
-      if process_changed_file(file, state) do
-        count + 1
-      else
-        count
-      end
-    end)
+    changed_count =
+      Enum.reduce(new_or_modified, changed_count, fn file, count ->
+        if process_changed_file(file, state) do
+          count + 1
+        else
+          count
+        end
+      end)
 
     # Process deleted files (if needed)
     deleted_count = Enum.count(deleted)
+
     Enum.each(deleted, fn file ->
       Logger.debug("File deleted: #{file}")
       # We might want to handle deleted files differently
@@ -261,8 +272,10 @@ defmodule GraphOS.Core.FileWatcher do
     # Update the code graph with the changed file
     case CodeGraph.update_file(file) do
       {:ok, stats} ->
-        Logger.info("Updated graph for #{file}: " <>
-                   "#{stats.modules} modules, #{stats.functions} functions")
+        Logger.info(
+          "Updated graph for #{file}: " <>
+            "#{stats.modules} modules, #{stats.functions} functions"
+        )
 
         # If auto-reload is enabled, reload the modules
         if state.auto_reload do
@@ -293,6 +306,7 @@ defmodule GraphOS.Core.FileWatcher do
       # Reload each module
       Enum.each(modules, fn module_name ->
         module = String.to_atom("Elixir.#{module_name}")
+
         if Code.ensure_loaded?(module) do
           Logger.debug("Reloading module: #{module_name}")
           :code.purge(module)
@@ -306,11 +320,14 @@ defmodule GraphOS.Core.FileWatcher do
 
   defp extract_modules_from_ast(ast) do
     {_, modules} =
-      Macro.traverse(ast, [],
+      Macro.traverse(
+        ast,
+        [],
         fn
           {:defmodule, _, [{:__aliases__, _, module_parts} | _]} = ast, acc ->
             module_name = Enum.map_join(module_parts, ".", &to_string/1)
             {ast, [module_name | acc]}
+
           ast, acc ->
             {ast, acc}
         end,

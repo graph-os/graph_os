@@ -150,20 +150,20 @@ defmodule GraphOS.Core.CodeGraph.Service do
 
   @doc """
   Query for code items across multiple branch graphs.
-  
+
   ## Parameters
-  
+
   - `query` - Query to execute across graphs
   - `repo_path` - Repository path to limit the query to
   - `opts` - Options for cross-graph query
-  
+
   ## Options
-  
+
   - `:branches` - List of branches to query (default: all branches)
   - `:merge_results` - Whether to merge results into a single list (default: false)
-  
+
   ## Examples
-  
+
       iex> GraphOS.Core.CodeGraph.Service.query_across_branches(%{name: "MyModule"}, "path/to/repo")
       {:ok, %{results_by_branch}}
   """
@@ -171,37 +171,38 @@ defmodule GraphOS.Core.CodeGraph.Service do
   def query_across_branches(query, repo_path, opts \\ []) do
     GenServer.call(__MODULE__, {:query_across_branches, query, repo_path, opts})
   end
-  
+
   @doc """
   Compare code structure between two branches.
-  
+
   ## Parameters
-  
+
   - `repo_path` - Repository path
   - `branch1` - First branch name
   - `branch2` - Second branch name
   - `opts` - Options for comparison
-  
+
   ## Options
-  
+
   - `:node_types` - Types of nodes to compare (default: all)
   - `:include_attributes` - Whether to compare attributes (default: true)
-  
+
   ## Examples
-  
+
       iex> GraphOS.Core.CodeGraph.Service.compare_branches("path/to/repo", "main", "feature-x")
       {:ok, diff_results}
   """
-  @spec compare_branches(Path.t(), String.t(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec compare_branches(Path.t(), String.t(), String.t(), keyword()) ::
+          {:ok, map()} | {:error, term()}
   def compare_branches(repo_path, branch1, branch2, opts \\ []) do
     GenServer.call(__MODULE__, {:compare_branches, repo_path, branch1, branch2, opts})
   end
 
   @doc """
   Get a list of all repositories and branches being tracked.
-  
+
   ## Examples
-  
+
       iex> GraphOS.Core.CodeGraph.Service.list_repositories()
       {:ok, [%{repo_path: "...", branches: [...], ...}]}
   """
@@ -348,11 +349,11 @@ defmodule GraphOS.Core.CodeGraph.Service do
 
     # Add to :all events if not already included
     updated_subscribers =
-      if :all not in event_types do
+      if Enum.member?(event_types, :all) do
+        updated_subscribers
+      else
         all_subscribers = Map.get(updated_subscribers, :all, [])
         Map.put(updated_subscribers, :all, [subscriber | all_subscribers])
-      else
-        updated_subscribers
       end
 
     {:noreply, %{state | subscribers: updated_subscribers}}
@@ -382,26 +383,30 @@ defmodule GraphOS.Core.CodeGraph.Service do
   def handle_info(:initial_build, state) do
     # Build the graph for each watched directory
     stats =
-      Enum.reduce(state.watched_dirs, %{modules: 0, functions: 0, relationships: 0, files: 0}, fn dir, acc ->
-        case CodeGraph.build_graph(dir, [
-          recursive: true,
-          file_pattern: state.file_pattern,
-          exclude_pattern: state.exclude_pattern
-        ]) do
-          {:ok, dir_stats} ->
-            # Combine stats
-            %{
-              modules: acc.modules + dir_stats.modules,
-              functions: acc.functions + dir_stats.functions,
-              relationships: acc.relationships + dir_stats.relationships,
-              files: acc.files + dir_stats.processed_files
-            }
+      Enum.reduce(
+        state.watched_dirs,
+        %{modules: 0, functions: 0, relationships: 0, files: 0},
+        fn dir, acc ->
+          case CodeGraph.build_graph(dir,
+                 recursive: true,
+                 file_pattern: state.file_pattern,
+                 exclude_pattern: state.exclude_pattern
+               ) do
+            {:ok, dir_stats} ->
+              # Combine stats
+              %{
+                modules: acc.modules + dir_stats.modules,
+                functions: acc.functions + dir_stats.functions,
+                relationships: acc.relationships + dir_stats.relationships,
+                files: acc.files + dir_stats.processed_files
+              }
 
-          {:error, reason} ->
-            Logger.error("Failed to build graph for #{dir}: #{inspect(reason)}")
-            acc
+            {:error, reason} ->
+              Logger.error("Failed to build graph for #{dir}: #{inspect(reason)}")
+              acc
+          end
         end
-      end)
+      )
 
     # Update index stats
     index_stats = Map.merge(state.index_stats, Map.put(stats, :last_update, DateTime.utc_now()))
@@ -433,24 +438,24 @@ defmodule GraphOS.Core.CodeGraph.Service do
   def handle_info({:git_event, repo_path, event}, state) do
     # Process Git events
     Logger.debug("Received Git event for #{repo_path}: #{inspect(event.type)}")
-    
+
     case event.type do
       :branch_changed ->
         # Branch has changed, update the current branch in state
         handle_branch_change(repo_path, event.previous_branch, event.current_branch, state)
-        
+
       :new_commit ->
         # New commit detected, process changed files
         handle_new_commit(repo_path, event.commit, event.changed_files, state)
-        
+
       :initial ->
         # Initial repository detection
         Logger.info("Initialized Git tracking for #{repo_path} on branch #{event.current_branch}")
-        
+
       _ ->
-        Logger.warn("Unknown Git event type: #{inspect(event.type)}")
+        Logger.warning("Unknown Git event type: #{inspect(event.type)}")
     end
-    
+
     {:noreply, state}
   end
 
@@ -458,37 +463,38 @@ defmodule GraphOS.Core.CodeGraph.Service do
 
   defp handle_branch_change(repo_path, previous_branch, current_branch, state) do
     Logger.info("Branch changed in #{repo_path} from #{previous_branch} to #{current_branch}")
-    
+
     # Get the store for the current branch or create it if it doesn't exist
     current_store = get_branch_store(repo_path, current_branch, state)
-    
+
     # Notify subscribers
     notify_subscribers(state, :branch_change, %{
       repo_path: repo_path,
       previous_branch: previous_branch,
       current_branch: current_branch
     })
-    
+
     # Rebuild the graph for this branch
     rebuild_branch_graph(repo_path, current_branch, current_store)
   end
-  
+
   defp handle_new_commit(repo_path, commit, changed_files, state) do
     Logger.info("New commit in #{repo_path}: #{commit.hash} - #{commit.subject}")
-    
+
     # Get the store for the current branch
     {:ok, current_branch} = GitIntegration.get_current_branch(repo_path)
     current_store = get_branch_store(repo_path, current_branch, state)
-    
+
     # Process only changed source files
-    source_files = changed_files 
-      |> Enum.filter(fn file -> 
+    source_files =
+      changed_files
+      |> Enum.filter(fn file ->
         String.ends_with?(file.path, ".ex") || String.ends_with?(file.path, ".exs")
       end)
-    
+
     # Update the graph with changed files
     update_graph_with_files(repo_path, current_store, source_files, commit)
-    
+
     # Notify subscribers
     notify_subscribers(state, :commit, %{
       repo_path: repo_path,
@@ -497,87 +503,90 @@ defmodule GraphOS.Core.CodeGraph.Service do
       changed_files: changed_files
     })
   end
-  
+
   defp get_branch_store(repo_path, branch, state) do
     store_key = "branch:#{repo_path}:#{branch}"
-    
+
     case Map.get(state.stores, store_key) do
       nil ->
         # Create a new store for this branch
         store_name = "GraphOS.Core.CodeGraph.Store:#{repo_path}:#{branch}"
-        {:ok, pid} = GraphOS.Graph.Store.Supervisor.start_store(
-          store_name,
-          GraphOS.Graph.Store.ETS,
-          [repo_path: repo_path, branch: branch]
-        )
-        
+
+        {:ok, pid} =
+          GraphOS.Graph.Store.Supervisor.start_store(
+            store_name,
+            GraphOS.Graph.Store.ETS,
+            repo_path: repo_path,
+            branch: branch
+          )
+
         # Update state.stores (done in caller)
         pid
-        
+
       store_pid ->
         store_pid
     end
   end
-  
-  defp rebuild_branch_graph(repo_path, branch, store) do
+
+  defp rebuild_branch_graph(_repo_path, _branch, store) do
     # Clear the store
     GraphOS.Graph.Store.Server.clear(store)
-    
+
     # Build the graph for this branch by checking out this branch and scanning
     # TODO: Implement checkout functionality or use git worktree for non-disruptive analysis
     # For now, just build the graph based on current checkout state
-    
+
     # Use code_graph to build the graph but direct it to this specific store
     # This would require modification to CodeGraph module to accept a store parameter
     :ok
   end
-  
+
   defp update_graph_with_files(repo_path, store, changed_files, commit) do
     Enum.each(changed_files, fn file ->
       file_path = Path.join(repo_path, file.path)
-      
+
       case file.change_type do
         :added ->
           # Parse and add new file
           process_file_for_store(file_path, store, commit)
-          
+
         :modified ->
           # Update existing file
           # First remove existing nodes for this file
           remove_file_from_store(file_path, store)
           # Then add updated file
           process_file_for_store(file_path, store, commit)
-          
+
         :deleted ->
           # Remove file from graph
           remove_file_from_store(file_path, store)
-          
+
         _ ->
-          Logger.warn("Unhandled change type #{file.change_type} for #{file_path}")
+          Logger.warning("Unhandled change type #{file.change_type} for #{file_path}")
       end
     end)
   end
-  
+
   defp process_file_for_store(file_path, store, commit) do
     # Parse the file
-    case CodeParser.parse_file(file_path) do
+    case GraphOS.Core.CodeParser.parse_file(file_path) do
       {:ok, parsed_data} ->
         # Add to the store with Git metadata
         add_to_store(parsed_data, file_path, store, commit)
-        
+
       {:error, reason} ->
         Logger.error("Failed to parse file #{file_path}: #{inspect(reason)}")
     end
   end
-  
-  defp remove_file_from_store(file_path, store) do
+
+  defp remove_file_from_store(_file_path, _store) do
     # Remove all nodes associated with this file from the store
     # Ideally this would use a query to find all nodes for the file
     # and then remove them, but we'll need to implement that in the store
     :ok
   end
-  
-  defp add_to_store(parsed_data, file_path, store, commit) do
+
+  defp add_to_store(_parsed_data, _file_path, _store, _commit) do
     # Add parsed data to the store with git metadata
     # This would require modification to the existing add_to_graph function
     # to work with a specific store and add commit metadata
@@ -592,13 +601,13 @@ defmodule GraphOS.Core.CodeGraph.Service do
       nil
     else
       # Start the file watcher
-      case FileWatcher.start_link(state.watched_dirs, [
-        recursive: true,
-        file_pattern: state.file_pattern,
-        exclude_pattern: state.exclude_pattern,
-        auto_reload: state.auto_reload,
-        poll_interval: state.poll_interval
-      ]) do
+      case FileWatcher.start_link(state.watched_dirs,
+             recursive: true,
+             file_pattern: state.file_pattern,
+             exclude_pattern: state.exclude_pattern,
+             auto_reload: state.auto_reload,
+             poll_interval: state.poll_interval
+           ) do
         {:ok, pid} ->
           Logger.info("Started file watcher for: #{inspect(state.watched_dirs)}")
           pid
@@ -646,94 +655,102 @@ defmodule GraphOS.Core.CodeGraph.Service do
       {DynamicSupervisor, name: GraphOS.Graph.StoreSupervisor, strategy: :one_for_one},
       {GraphOS.Graph.Store.Config, []}
     ]
-    
+
     # Start supervisor without linking (we're inside GenServer init)
-    {:ok, _pid} = Supervisor.start_link(children, strategy: :one_for_all, name: GraphOS.Graph.StoreSystem)
+    {:ok, _pid} =
+      Supervisor.start_link(children, strategy: :one_for_all, name: GraphOS.Graph.StoreSystem)
+
     :ok
   end
 
   defp detect_repositories(state) do
     # Scan watched directories for Git repositories
-    repositories = 
+    repositories =
       state.watched_dirs
       |> Enum.flat_map(fn dir ->
         case GitIntegration.repository_info(dir) do
           {:ok, repo_info} ->
             # Create a store for this repository
             repo_store = get_or_create_repo_store(repo_info.repo_path)
-            
+
             # Get available branches
             {:ok, branches} = GitIntegration.list_branches(repo_info.repo_path)
-            
+
             # Create stores for each branch
             branch_stores = create_branch_stores(repo_info.repo_path, branches)
-            
+
             # Start a Git watcher for this repository
-            {:ok, watcher_pid} = GitIntegration.watch_repository(
-              repo_info.repo_path,
-              &handle_git_event(&1, repo_info.repo_path)
-            )
-            
+            {:ok, watcher_pid} =
+              GitIntegration.watch_repository(
+                repo_info.repo_path,
+                &handle_git_event(&1, repo_info.repo_path)
+              )
+
             # Return repository info with stores
-            [%{
-              repo_path: repo_info.repo_path,
-              current_branch: repo_info.current_branch,
-              remote_url: repo_info.remote_url,
-              repo_store: repo_store,
-              branch_stores: branch_stores,
-              watcher_pid: watcher_pid
-            }]
-            
+            [
+              %{
+                repo_path: repo_info.repo_path,
+                current_branch: repo_info.current_branch,
+                remote_url: repo_info.remote_url,
+                repo_store: repo_store,
+                branch_stores: branch_stores,
+                watcher_pid: watcher_pid
+              }
+            ]
+
           {:error, _} ->
             # Not a Git repository, ignore
             []
         end
       end)
       |> Enum.into(%{}, fn repo -> {repo.repo_path, repo} end)
-    
+
     # Update state with repository information
-    watchers = 
+    watchers =
       repositories
       |> Enum.map(fn {repo_path, repo} -> {repo_path, repo.watcher_pid} end)
       |> Enum.into(%{})
-    
-    stores = 
+
+    stores =
       repositories
       |> Enum.flat_map(fn {repo_path, repo} ->
         # Add repo store
         repo_store = [{"repo:#{repo_path}", repo.repo_store}]
-        
+
         # Add branch stores
-        branch_stores = Enum.map(repo.branch_stores, fn {branch, store} ->
-          {"branch:#{repo_path}:#{branch}", store}
-        end)
-        
+        branch_stores =
+          Enum.map(repo.branch_stores, fn {branch, store} ->
+            {"branch:#{repo_path}:#{branch}", store}
+          end)
+
         repo_store ++ branch_stores
       end)
       |> Enum.into(%{})
-    
+
     %{state | git_watchers: watchers, stores: stores}
   end
 
   defp get_or_create_repo_store(repo_path) do
     # Create a store for this repository if it doesn't exist
     store_name = "GraphOS.Core.CodeGraph.Store:#{repo_path}"
-    
+
     # Check if store exists, create if not
     case Registry.lookup(GraphOS.Graph.StoreRegistry, store_name) do
       [{pid, _}] ->
         pid
+
       [] ->
         # Start new store with ETS adapter
-        {:ok, pid} = GraphOS.Graph.Store.Supervisor.start_store(
-          store_name,
-          GraphOS.Graph.Store.ETS,
-          [repo_path: repo_path]
-        )
-        
+        {:ok, pid} =
+          GraphOS.Graph.Store.Supervisor.start_store(
+            store_name,
+            GraphOS.Graph.Store.ETS,
+            repo_path: repo_path
+          )
+
         # Update state.stores (done in caller)
         pid
-        
+
       store_pid ->
         store_pid
     end
@@ -744,21 +761,26 @@ defmodule GraphOS.Core.CodeGraph.Service do
     branches
     |> Enum.map(fn branch ->
       store_name = "GraphOS.Core.CodeGraph.Store:#{repo_path}:#{branch}"
-      
+
       # Create store if it doesn't exist
-      store_pid = case Registry.lookup(GraphOS.Graph.StoreRegistry, store_name) do
-        [{pid, _}] ->
-          pid
-        [] ->
-          # Start new store
-          {:ok, pid} = GraphOS.Graph.Store.Supervisor.start_store(
-            store_name,
-            GraphOS.Graph.Store.ETS,
-            [repo_path: repo_path, branch: branch]
-          )
-          pid
-      end
-      
+      store_pid =
+        case Registry.lookup(GraphOS.Graph.StoreRegistry, store_name) do
+          [{pid, _}] ->
+            pid
+
+          [] ->
+            # Start new store
+            {:ok, pid} =
+              GraphOS.Graph.Store.Supervisor.start_store(
+                store_name,
+                GraphOS.Graph.Store.ETS,
+                repo_path: repo_path,
+                branch: branch
+              )
+
+            pid
+        end
+
       {branch, store_pid}
     end)
     |> Enum.into(%{})

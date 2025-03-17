@@ -20,21 +20,25 @@ defmodule GraphOS.Graph.MixProject do
       description: "Graph library for GraphOS",
       package: package(),
       docs: docs(),
-      name: "GraphOS.Graph"
+      name: "GraphOS.Graph",
+      
+      # Boundary enforcement
+      compilers: [:boundary | Mix.compilers()],
+      boundary: boundary()
     ]
   end
 
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
-      mod: {GraphOS.Graph.Application, []}
+      extra_applications: [:logger]
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:boundary, "~> 0.10", runtime: false},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
       {:jason, "~> 1.4"},
       {:uuid, "~> 1.1"}
@@ -55,6 +59,40 @@ defmodule GraphOS.Graph.MixProject do
       main: "GraphOS.Graph",
       source_url: @source_url,
       extras: ["README.md"]
+    ]
+  end
+  
+  defp boundary do
+    [
+      default: [
+        check: [
+          # No dependencies on other GraphOS components (except MCP for serialization)
+          deps: [:mcp],
+          # Prevent this app from using apps higher in the hierarchy
+          apps: [in: [:mcp]]
+        ]
+      ],
+      # Define this boundary's ID for other components to reference
+      identifier: :graph_os_graph,
+      # Define public exports from this application
+      exports: [
+        # Core interfaces
+        GraphOS.Graph,
+        GraphOS.Graph.Node,
+        GraphOS.Graph.Edge,
+        GraphOS.Graph.Meta,
+        GraphOS.Graph.Transaction,
+        GraphOS.Graph.Operation,
+        # Interfaces for other components to use
+        GraphOS.Graph.Query,
+        GraphOS.Graph.Store,
+        GraphOS.Graph.Access,
+        GraphOS.Graph.Subscription,
+        GraphOS.Graph.Protocol,
+        # Schema system (public interfaces only)
+        GraphOS.Graph.Schema,
+        GraphOS.Graph.SchemaBehaviour
+      ]
     ]
   end
 end

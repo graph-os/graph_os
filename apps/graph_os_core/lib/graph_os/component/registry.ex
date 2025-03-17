@@ -1,15 +1,15 @@
 defmodule GraphOS.Component.Registry do
   @moduledoc """
   Registry for GraphOS components, tools, and resources.
-  
+
   This module provides a centralized registry for all components, tools, and
   resources in the GraphOS system. It allows for discovery and lookup of
   components and their capabilities.
-  
+
   The registry is built at application startup and can be updated dynamically
   as new components are registered.
   """
-  
+
   use GenServer
   require Logger
 
@@ -26,16 +26,16 @@ defmodule GraphOS.Component.Registry do
 
   @doc """
   Registers a component module in the registry.
-  
+
   This function analyzes the component module, extracting information about
   its tools and resources, and adds it to the registry.
-  
+
   ## Parameters
-  
+
     * `component` - The component module to register
     
   ## Returns
-  
+
     * `:ok` if the component was registered successfully
     * `{:error, reason}` if registration failed
   """
@@ -45,13 +45,13 @@ defmodule GraphOS.Component.Registry do
 
   @doc """
   Registers multiple component modules in the registry.
-  
+
   ## Parameters
-  
+
     * `components` - A list of component modules to register
     
   ## Returns
-  
+
     * `:ok` if all components were registered successfully
     * `{:error, reason}` if registration failed
   """
@@ -61,13 +61,13 @@ defmodule GraphOS.Component.Registry do
 
   @doc """
   Looks up a component in the registry.
-  
+
   ## Parameters
-  
+
     * `component` - The component module to look up
     
   ## Returns
-  
+
     * `{:ok, info}` if the component was found
     * `{:error, :not_found}` if the component was not found
   """
@@ -80,13 +80,13 @@ defmodule GraphOS.Component.Registry do
 
   @doc """
   Looks up a tool in the registry.
-  
+
   ## Parameters
-  
+
     * `tool_name` - The name of the tool to look up
     
   ## Returns
-  
+
     * `{:ok, {component, tool_info}}` if the tool was found
     * `{:error, :not_found}` if the tool was not found
   """
@@ -99,13 +99,13 @@ defmodule GraphOS.Component.Registry do
 
   @doc """
   Looks up a resource in the registry.
-  
+
   ## Parameters
-  
+
     * `resource_name` - The name of the resource to look up
     
   ## Returns
-  
+
     * `{:ok, {component, resource_info}}` if the resource was found
     * `{:error, :not_found}` if the resource was not found
   """
@@ -118,9 +118,9 @@ defmodule GraphOS.Component.Registry do
 
   @doc """
   Lists all registered components.
-  
+
   ## Returns
-  
+
     * A list of `{component_module, info}` tuples
   """
   def list_components do
@@ -130,9 +130,9 @@ defmodule GraphOS.Component.Registry do
 
   @doc """
   Lists all registered tools.
-  
+
   ## Returns
-  
+
     * A list of `{tool_name, {component_module, tool_info}}` tuples
   """
   def list_tools do
@@ -142,9 +142,9 @@ defmodule GraphOS.Component.Registry do
 
   @doc """
   Lists all registered resources.
-  
+
   ## Returns
-  
+
     * A list of `{resource_name, {component_module, resource_info}}` tuples
   """
   def list_resources do
@@ -156,13 +156,14 @@ defmodule GraphOS.Component.Registry do
 
   @impl true
   def init(_opts) do
-    table = :ets.new(@registry_table, [
-      :set, 
-      :named_table, 
-      :public, 
-      read_concurrency: true
-    ])
-    
+    table =
+      :ets.new(@registry_table, [
+        :set,
+        :named_table,
+        :public,
+        read_concurrency: true
+      ])
+
     {:ok, %{table: table}}
   end
 
@@ -175,7 +176,7 @@ defmodule GraphOS.Component.Registry do
   @impl true
   def handle_call({:register_many, components}, _from, state) do
     results = Enum.map(components, &register_component/1)
-    
+
     if Enum.all?(results, &(&1 == :ok)) do
       {:reply, :ok, state}
     else
@@ -190,21 +191,21 @@ defmodule GraphOS.Component.Registry do
     try do
       # Ensure the module exists and is compiled
       Code.ensure_loaded!(component)
-      
+
       # Check if the module is a component
       unless function_exported?(component, :call, 2) do
         raise "Module #{inspect(component)} is not a GraphOS.Component"
       end
-      
+
       # Register the component
       component_info = %{
         module: component,
         tools: get_tools(component),
         resources: get_resources(component)
       }
-      
+
       :ets.insert(@registry_table, {{:component, component}, component_info})
-      
+
       # Register each tool
       if function_exported?(component, :__tools__, 0) do
         component.__tools__()
@@ -212,7 +213,7 @@ defmodule GraphOS.Component.Registry do
           :ets.insert(@registry_table, {{:tool, tool_name}, {component, tool_info}})
         end)
       end
-      
+
       # Register each resource
       if function_exported?(component, :__resources__, 0) do
         component.__resources__()
@@ -220,11 +221,14 @@ defmodule GraphOS.Component.Registry do
           :ets.insert(@registry_table, {{:resource, resource_name}, {component, resource_info}})
         end)
       end
-      
+
       :ok
     rescue
       e ->
-        Logger.error("Failed to register component #{inspect(component)}: #{Exception.message(e)}")
+        Logger.error(
+          "Failed to register component #{inspect(component)}: #{Exception.message(e)}"
+        )
+
         {:error, Exception.message(e)}
     end
   end

@@ -10,7 +10,7 @@ defmodule GraphOS.Core.Application do
     children = [
       # Core services
       {GraphOS.Core.Access.Supervisor, []},
-      
+
       # Component Registry
       {GraphOS.Component.Registry, []}
     ]

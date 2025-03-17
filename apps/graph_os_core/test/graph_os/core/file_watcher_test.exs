@@ -4,7 +4,7 @@ defmodule GraphOS.Core.FileWatcherTest do
 
   alias GraphOS.Core.FileWatcher
   alias GraphOS.Core.CodeGraph
-  alias GraphOS.Graph.Query
+  # QueryAPI is used in some tests
 
   setup do
     # Initialize the graph store before each test
@@ -71,6 +71,7 @@ defmodule GraphOS.Core.FileWatcherTest do
         def hello, do: :world
       end
       """
+
       file_path = Path.join(test_dir, "new_module.ex")
       File.write!(file_path, sample_module)
 
@@ -90,6 +91,7 @@ defmodule GraphOS.Core.FileWatcherTest do
         def initial, do: :initial
       end
       """
+
       file_path = Path.join(test_dir, "module_to_change.ex")
       File.write!(file_path, initial_module)
 
@@ -105,7 +107,8 @@ defmodule GraphOS.Core.FileWatcherTest do
       IO.puts("Initial update time: #{inspect(initial_update_time)}")
 
       # Ensure some time passes for update detection
-      :timer.sleep(1000)  # Increase sleep time to ensure file modification time changes
+      # Increase sleep time to ensure file modification time changes
+      :timer.sleep(1000)
 
       # Update the file
       updated_module = """
@@ -115,14 +118,16 @@ defmodule GraphOS.Core.FileWatcherTest do
         def another, do: :another  # Add another function to ensure content is different
       end
       """
+
       File.write!(file_path, updated_module)
 
       # Get file modification time
-      {:ok, %{mtime: mtime}} = File.stat(file_path, [time: :posix])
+      {:ok, %{mtime: mtime}} = File.stat(file_path, time: :posix)
       IO.puts("File modification time: #{inspect(mtime)}")
 
       # Wait for the file watcher to detect the change
-      :timer.sleep(1000)  # Increase sleep time to ensure detection
+      # Increase sleep time to ensure detection
+      :timer.sleep(1000)
 
       # Check if the file change was detected
       updated_status = FileWatcher.status()

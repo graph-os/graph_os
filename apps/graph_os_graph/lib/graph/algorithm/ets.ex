@@ -141,66 +141,72 @@ defmodule GraphOS.Graph.Algorithm.ETS do
 
     try do
       # Get all nodes
-      node_pattern = {:_, {:node, :_, :_, :_, :_}}
+      node_pattern = {{:node, :_}, :_}
       nodes = :ets.match_object(table_name, node_pattern)
       |> Enum.map(fn {_, node} -> node end)
+      
+      # Handle empty graph
+      if Enum.empty?(nodes) do
+        {:ok, %{}}
+      else
+        # Create initial ranks (evenly distributed)
+        initial_rank = 1.0 / length(nodes)
+        ranks = Enum.reduce(nodes, %{}, fn node, acc ->
+          Map.put(acc, node.id, initial_rank)
+        end)
 
-      # Create initial ranks (evenly distributed)
-      initial_rank = 1.0 / length(nodes)
-      ranks = Enum.reduce(nodes, %{}, fn node, acc ->
-        Map.put(acc, node.id, initial_rank)
-      end)
+        # Get all edges for outgoing links calculation
+        edge_pattern = {{:edge, :_}, :_}
+        edges = :ets.match_object(table_name, edge_pattern)
+        |> Enum.map(fn {_, edge} -> edge end)
 
-      # Get all edges for outgoing links calculation
-      edge_pattern = {:_, {:edge, :_, :_, :_, :_, :_}}
-      edges = :ets.match_object(table_name, edge_pattern)
-      |> Enum.map(fn {_, edge} -> edge end)
+        # Calculate outgoing counts for each node (possibly weighted)
+        {outgoing_counts, edge_weights} =
+          if weighted do
+            # Calculate edge weights using the direct weight field
+            edge_weights = Map.new(edges, fn edge ->
+              weight = if Map.has_key?(edge, :weight), do: edge.weight, else: default_weight
+              {edge.id, weight}
+            end)
 
-      # Calculate outgoing counts for each node (possibly weighted)
-      {outgoing_counts, edge_weights} =
-        if weighted do
-          # Calculate edge weights
-          edge_weights = Map.new(edges, fn edge ->
-            {edge.id, Weights.get_edge_weight(edge, weight_property, default_weight)}
-          end)
+            # Normalize weights if requested
+            normalized_weights =
+              if normalize_weights && !Enum.empty?(edge_weights) do
+                Weights.normalize_weights(edge_weights)
+              else
+                edge_weights
+              end
 
-          # Normalize weights if requested
-          normalized_weights =
-            if normalize_weights do
-              Weights.normalize_weights(edge_weights)
-            else
-              edge_weights
-            end
+            # Calculate outgoing weights per node
+            outgoing_weights = Enum.reduce(edges, %{}, fn edge, acc ->
+              weight = Map.get(normalized_weights, edge.id, default_weight)
+              Map.update(acc, edge.source, weight, &(&1 + weight))
+            end)
 
-          # Calculate outgoing weights per node
-          outgoing_weights = Enum.reduce(edges, %{}, fn edge, acc ->
-            weight = Map.get(normalized_weights, edge.id, default_weight)
-            Map.update(acc, edge.source_id, weight, &(&1 + weight))
-          end)
+            {outgoing_weights, normalized_weights}
+          else
+            # Simple count for unweighted case
+            outgoing_counts = Enum.reduce(edges, %{}, fn edge, acc ->
+              Map.update(acc, edge.source, 1, &(&1 + 1))
+            end)
 
-          {outgoing_weights, normalized_weights}
-        else
-          # Simple count for unweighted case
-          outgoing_counts = Enum.reduce(edges, %{}, fn edge, acc ->
-            Map.update(acc, edge.source_id, 1, &(&1 + 1))
-          end)
+            {outgoing_counts, %{}}
+          end
 
-          {outgoing_counts, %{}}
-        end
+        # Run PageRank iterations
+        final_ranks = run_pagerank_iterations(
+          nodes,
+          edges,
+          ranks,
+          outgoing_counts,
+          edge_weights,
+          iterations,
+          damping,
+          weighted
+        )
 
-      # Run PageRank iterations
-      final_ranks = run_pagerank_iterations(
-        nodes,
-        edges,
-        ranks,
-        outgoing_counts,
-        edge_weights,
-        iterations,
-        damping,
-        weighted
-      )
-
-      {:ok, final_ranks}
+        {:ok, final_ranks}
+      end
     catch
       kind, reason ->
         {:error, {kind, reason, __STACKTRACE__}}
@@ -383,27 +389,33 @@ defmodule GraphOS.Graph.Algorithm.ETS do
             if edge.source_id == node.id, do: edge.target_id, else: edge.source_id
         end
 
-        weight = Weights.get_edge_weight(edge, weight_property, default_weight)
-        {target_id, weight}
+        # Get weight from the edge
+        weight = if Map.has_key?(edge, :weight) do
+          edge.weight
+        else
+          default_weight
+        end
+        
+        {target_id, weight, node.id}  # Include source node ID for reference
       end)
     end)
 
     # Filter out visited nodes
     unvisited_with_weights = neighbors_with_weights
-                          |> Enum.reject(fn {id, _} -> MapSet.member?(visited, id) end)
+                          |> Enum.reject(fn {id, _, _} -> MapSet.member?(visited, id) end)
+                          |> Enum.uniq_by(fn {id, _, _} -> id end)  # Only keep unique target nodes
 
     # If prefer_lower_weights is true, sort by ascending weight, otherwise by descending
     sorted_neighbors =
       if prefer_lower_weights do
-        Enum.sort_by(unvisited_with_weights, fn {_, weight} -> weight end)
+        Enum.sort_by(unvisited_with_weights, fn {_, weight, _} -> weight end)
       else
-        Enum.sort_by(unvisited_with_weights, fn {_, weight} -> weight end, :desc)
+        Enum.sort_by(unvisited_with_weights, fn {_, weight, _} -> weight end, :desc)
       end
 
     # Get the node objects
     sorted_nodes = sorted_neighbors
-                 |> Enum.map(fn {id, _} -> id end)
-                 |> Enum.uniq()
+                 |> Enum.map(fn {id, _, _} -> id end)
                  |> Enum.map(fn id ->
                      case :ets.lookup(table_name, {:node, id}) do
                        [{_, node}] -> node
@@ -422,7 +434,8 @@ defmodule GraphOS.Graph.Algorithm.ETS do
       end)
 
       # Continue traversal with next level
-      weighted_bfs_traverse(
+      # Note: We append current_level to the result to ensure that nodes are added in BFS order
+      sorted_nodes ++ weighted_bfs_traverse(
         table_name,
         sorted_nodes,
         new_visited,
@@ -432,7 +445,7 @@ defmodule GraphOS.Graph.Algorithm.ETS do
         weight_property,
         prefer_lower_weights,
         default_weight
-      ) ++ current_level
+      )
     end
   end
 
@@ -456,14 +469,14 @@ defmodule GraphOS.Graph.Algorithm.ETS do
     new_ranks = Enum.reduce(nodes, %{}, fn node, acc ->
       # Sum of incoming ranks
       incoming_sum = Enum.reduce(edges, 0.0, fn edge, sum ->
-        if edge.target_id == node.id do
+        if edge.target == node.id do
           # Get source rank
-          source_rank = Map.get(ranks, edge.source_id, 0.0)
+          source_rank = Map.get(ranks, edge.source, 0.0)
 
           if weighted do
             # Get edge weight and outgoing weight sum
             edge_weight = Map.get(edge_weights, edge.id, 1.0)
-            outgoing_weight_sum = Map.get(outgoing_counts, edge.source_id, 0.0)
+            outgoing_weight_sum = Map.get(outgoing_counts, edge.source, 0.0)
 
             if outgoing_weight_sum > 0 do
               sum + (source_rank * edge_weight / outgoing_weight_sum)
@@ -472,7 +485,7 @@ defmodule GraphOS.Graph.Algorithm.ETS do
             end
           else
             # Unweighted version - just use counts
-            source_outgoing = Map.get(outgoing_counts, edge.source_id, 0)
+            source_outgoing = Map.get(outgoing_counts, edge.source, 0)
 
             if source_outgoing > 0 do
               sum + (source_rank / source_outgoing)
@@ -493,16 +506,20 @@ defmodule GraphOS.Graph.Algorithm.ETS do
     end)
 
     # Continue with next iteration
-    run_pagerank_iterations(
-      nodes,
-      edges,
-      new_ranks,
-      outgoing_counts,
-      edge_weights,
-      iterations - 1,
-      damping,
-      weighted
-    )
+    if iterations <= 1 do
+      new_ranks
+    else
+      run_pagerank_iterations(
+        nodes,
+        edges,
+        new_ranks,
+        outgoing_counts,
+        edge_weights,
+        iterations - 1,
+        damping,
+        weighted
+      )
+    end
   end
 
   # Kruskal's algorithm implementation for MST

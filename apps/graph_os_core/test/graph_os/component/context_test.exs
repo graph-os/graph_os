@@ -16,12 +16,13 @@ defmodule GraphOS.Component.ContextTest do
     end
 
     test "creates a new context with provided values" do
-      context = Context.new(
-        params: %{name: "test"},
-        request_id: "custom-id",
-        metadata: %{source: :test}
-      )
-      
+      context =
+        Context.new(
+          params: %{name: "test"},
+          request_id: "custom-id",
+          metadata: %{source: :test}
+        )
+
       assert context.params == %{name: "test"}
       assert context.request_id == "custom-id"
       assert context.metadata == %{source: :test}
@@ -47,10 +48,11 @@ defmodule GraphOS.Component.ContextTest do
     end
 
     test "merges with existing assigns" do
-      context = Context.new() 
-                |> Context.assign(:user_id, 123)
-                |> Context.assign(role: :admin, team: "engineering")
-      
+      context =
+        Context.new()
+        |> Context.assign(:user_id, 123)
+        |> Context.assign(role: :admin, team: "engineering")
+
       assert context.assigns == %{user_id: 123, role: :admin, team: "engineering"}
     end
   end
@@ -63,10 +65,11 @@ defmodule GraphOS.Component.ContextTest do
     end
 
     test "clears any existing error" do
-      context = Context.new() 
-                |> Context.put_error(:not_found, "Not found")
-                |> Context.put_result(%{data: [1, 2, 3]})
-      
+      context =
+        Context.new()
+        |> Context.put_error(:not_found, "Not found")
+        |> Context.put_result(%{data: [1, 2, 3]})
+
       assert context.error == nil
       assert context.result == %{data: [1, 2, 3]}
     end
@@ -119,33 +122,35 @@ defmodule GraphOS.Component.ContextTest do
     end
 
     test "merges with existing private values" do
-      context = Context.new() 
-                |> Context.put_private(:auth_token, "abc123")
-                |> Context.put_private(session_id: "xyz", user_agent: "test")
-      
+      context =
+        Context.new()
+        |> Context.put_private(:auth_token, "abc123")
+        |> Context.put_private(session_id: "xyz", user_agent: "test")
+
       assert context.private == %{auth_token: "abc123", session_id: "xyz", user_agent: "test"}
     end
   end
 
   describe "put_metadata/3" do
     test "adds a value to metadata" do
-      context = Context.new() |> Context.put_metadata(:timestamp, 1615000000)
-      assert context.metadata.timestamp == 1615000000
+      context = Context.new() |> Context.put_metadata(:timestamp, 1_615_000_000)
+      assert context.metadata.timestamp == 1_615_000_000
     end
   end
 
   describe "put_metadata/2" do
     test "adds multiple values to metadata" do
-      context = Context.new() |> Context.put_metadata(timestamp: 1615000000, source: :api)
-      assert context.metadata == %{timestamp: 1615000000, source: :api}
+      context = Context.new() |> Context.put_metadata(timestamp: 1_615_000_000, source: :api)
+      assert context.metadata == %{timestamp: 1_615_000_000, source: :api}
     end
 
     test "merges with existing metadata" do
-      context = Context.new() 
-                |> Context.put_metadata(:timestamp, 1615000000)
-                |> Context.put_metadata(source: :api, ip: "127.0.0.1")
-      
-      assert context.metadata == %{timestamp: 1615000000, source: :api, ip: "127.0.0.1"}
+      context =
+        Context.new()
+        |> Context.put_metadata(:timestamp, 1_615_000_000)
+        |> Context.put_metadata(source: :api, ip: "127.0.0.1")
+
+      assert context.metadata == %{timestamp: 1_615_000_000, source: :api, ip: "127.0.0.1"}
     end
   end
 

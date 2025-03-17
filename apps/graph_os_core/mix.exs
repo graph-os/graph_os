@@ -61,7 +61,7 @@ defmodule GraphOS.Core.MixProject do
       extras: ["README.md"]
     ]
   end
-  
+
   defp boundary do
     [
       default: [
@@ -69,9 +69,11 @@ defmodule GraphOS.Core.MixProject do
           # Only allow dependencies on apps higher in the hierarchy
           deps: [:graph_os_graph, :mcp, :tmux],
           # Prevent this app from using apps lower in the hierarchy
-          apps: [in: [:graph_os_graph, :mcp, :tmux]],
+          apps: [in: [:graph_os_graph, :mcp, :tmux]]
         ]
       ],
+      # Define this boundary's ID for other components to reference
+      identifier: :graph_os_core,
       # Define public exports from this application
       exports: [
         # Component system
@@ -87,6 +89,7 @@ defmodule GraphOS.Core.MixProject do
         GraphOS.Core.AccessControl,
         GraphOS.Core.GitIntegration,
         # Adapter system
+        GraphOS.Adapter,
         GraphOS.Adapter.GraphAdapter,
         GraphOS.Adapter.Context,
         GraphOS.Adapter.Server,

@@ -35,9 +35,9 @@ defmodule GraphOS.ComponentTest do
 
   describe "use Component" do
     test "defines a component with default init/1" do
-      context = Context.new()
-      result = TestComponent.init([value: 42])
-      
+      _context = Context.new()
+      result = TestComponent.init(value: 42)
+
       assert result == [value: 42]
       assert function_exported?(TestComponent, :call, 2)
     end
@@ -46,35 +46,35 @@ defmodule GraphOS.ComponentTest do
   describe "execute/3" do
     test "executes a component with the given context and options" do
       context = Context.new()
-      result = Component.execute(TestComponent, context, [value: 42])
-      
+      result = Component.execute(TestComponent, context, value: 42)
+
       assert result.assigns.test_component == 42
     end
-    
+
     test "calls the component's init function before call" do
       context = Context.new()
-      result = Component.execute(CustomInitComponent, context, [value: 21])
-      
+      result = Component.execute(CustomInitComponent, context, value: 21)
+
       assert result.assigns.custom_init == 42
     end
 
     test "does not execute the component if the context is halted" do
       context = Context.new() |> Context.halt()
-      result = Component.execute(TestComponent, context, [value: 42])
-      
+      result = Component.execute(TestComponent, context, value: 42)
+
       refute Map.has_key?(result.assigns, :test_component)
       assert Context.halted?(result)
     end
 
     test "respects halting in the middle of execution" do
       context = Context.new()
-      
-      result = 
+
+      result =
         context
-        |> Component.execute(TestComponent, [value: 42])
+        |> Component.execute(TestComponent, value: 42)
         |> Component.execute(HaltingComponent, [])
-        |> Component.execute(TestComponent, [value: 100])
-      
+        |> Component.execute(TestComponent, value: 100)
+
       assert result.assigns.test_component == 42
       refute Map.has_key?(result.assigns, :second_test)
       assert Context.halted?(result)

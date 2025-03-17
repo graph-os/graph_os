@@ -339,6 +339,6 @@ defmodule GraphOS.Core.CodeParser do
   # Check if a module is an Elixir built-in
   defp elixir_builtin?(module_name) do
     String.starts_with?(module_name, "Elixir.") or
-    module_name in ~w(Kernel Enum Map String List Process Application)
+      module_name in ~w(Kernel Enum Map String List Process Application)
   end
 end

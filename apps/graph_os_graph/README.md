@@ -1,6 +1,6 @@
 # GraphOS.Graph
 
-The core graph library for GraphOS, providing data structures, algorithms, and storage capabilities.
+The core graph library for GraphOS, providing data structures, algorithms, and storage capabilities. This is a pure graph library with no dependencies on other GraphOS components except potentially MCP for serialization.
 
 ## Features
 
@@ -8,18 +8,15 @@ The core graph library for GraphOS, providing data structures, algorithms, and s
 * Graph algorithms (centrality metrics, path finding, etc.)
 * ETS-based in-memory storage
 * Optional persistent storage integration
+* Query interface for graph traversal
+* Transaction and operation system
 
-## Installation
+## Documentation
 
-Add to your mix.exs dependencies:
+For detailed documentation, please refer to the centralized documentation:
 
-```elixir
-def deps do
-  [
-    {:graph_os_graph, "~> 0.1.0"}
-  ]
-end
-```
+- [CLAUDE.md](../../instructions/CLAUDE.md) - Development guide with component details
+- [BOUNDARIES.md](../../instructions/BOUNDARIES.md) - Component boundaries and API definitions
 
 ## Usage
 
@@ -38,15 +35,22 @@ graph = GraphOS.Graph.add_edge(graph, "node1", "node2", :knows, %{since: ~D[2023
 neighbors = GraphOS.Graph.neighbors(graph, "node1")
 ```
 
-## Documentation
-
-Generate documentation with:
+## Local Development
 
 ```bash
-mix docs
+# Run tests
+mix test
+
+# Format code
+mix format
 ```
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc)
-and published on [HexDocs](https://hexdocs.pm). Once published, the docs can
-be found at <https://hexdocs.pm/graph_os_graph>.
+## Installation
 
+```elixir
+def deps do
+  [
+    {:graph_os_graph, "~> 0.1.0"}
+  ]
+end
+```

@@ -108,6 +108,7 @@ defmodule GraphOS.Core.CodeGraph do
         case process_file(file, current_stats) do
           {:ok, updated_stats} ->
             {:ok, updated_stats}
+
           {:error, reason} ->
             # Log the error but continue processing
             require Logger
@@ -147,16 +148,19 @@ defmodule GraphOS.Core.CodeGraph do
           Query.execute(start_node_id: module_name, edge_type: "depends_on")
 
         # Combine all data
-        {:ok, %{
-          module: node,
-          functions: related_functions,
-          dependencies: dependencies
-        }}
+        {:ok,
+         %{
+           module: node,
+           functions: related_functions,
+           dependencies: dependencies
+         }}
+
       {:error, _reason} ->
         # Try looking up with a case-insensitive approach (module name might have different casing)
         case find_module_by_name(module_name) do
           {:ok, actual_module_name} ->
             get_module_info(actual_module_name)
+
           _ ->
             {:error, :not_found}
         end
@@ -168,9 +172,10 @@ defmodule GraphOS.Core.CodeGraph do
     # Look for nodes that might be modules with similar names
     with {:ok, nodes} <- Query.find_nodes_by_properties(%{}) do
       # Filter nodes that might be modules matching the name (case insensitive)
-      module_node = Enum.find(nodes, fn node ->
-        String.downcase(node.id) == String.downcase(module_name)
-      end)
+      module_node =
+        Enum.find(nodes, fn node ->
+          String.downcase(node.id) == String.downcase(module_name)
+        end)
 
       case module_node do
         nil -> {:error, :not_found}
@@ -196,12 +201,13 @@ defmodule GraphOS.Core.CodeGraph do
   def find_implementations(protocol_or_behaviour) do
     # Query for nodes that have an "implements" edge to the protocol
     case Query.execute(
-      start_node_id: protocol_or_behaviour,
-      edge_type: "implemented_by",
-      direction: :incoming
-    ) do
+           start_node_id: protocol_or_behaviour,
+           edge_type: "implemented_by",
+           direction: :incoming
+         ) do
       {:ok, nodes} ->
         {:ok, Enum.map(nodes, & &1.id)}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -224,12 +230,13 @@ defmodule GraphOS.Core.CodeGraph do
   def find_dependents(module_name) do
     # Query for nodes that have a "depends_on" edge to the module
     case Query.execute(
-      start_node_id: module_name,
-      edge_type: "depends_on",
-      direction: :incoming
-    ) do
+           start_node_id: module_name,
+           edge_type: "depends_on",
+           direction: :incoming
+         ) do
       {:ok, nodes} ->
         {:ok, Enum.map(nodes, & &1.id)}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -293,48 +300,61 @@ defmodule GraphOS.Core.CodeGraph do
     # Add modules as nodes
     transaction =
       Enum.reduce(modules, transaction, fn module, tx ->
-        module_node = Node.new(
-          %{
-            name: module.name,
-            file: file_path,
-            line: module.line,
-            documentation: module.documentation
-          },
-          [id: module.name]
-        )
+        module_node =
+          Node.new(
+            %{
+              name: module.name,
+              file: file_path,
+              line: module.line,
+              documentation: module.documentation
+            },
+            id: module.name
+          )
 
         # Add operation to transaction
-        Transaction.add(tx, GraphOS.Graph.Operation.new(:create, :node, module_node, [id: module.name]))
+        Transaction.add(
+          tx,
+          GraphOS.Graph.Operation.new(:create, :node, module_node, id: module.name)
+        )
       end)
 
     # Add functions as nodes
     transaction =
       Enum.reduce(functions, transaction, fn function, tx ->
         function_id = "#{function.module}##{function.name}/#{function.arity}"
-        function_node = Node.new(
-          %{
-            name: function.name,
-            arity: function.arity,
-            module: function.module,
-            file: file_path,
-            line: function.line,
-            documentation: function.documentation,
-            visibility: function.visibility
-          },
-          [id: function_id]
-        )
+
+        function_node =
+          Node.new(
+            %{
+              name: function.name,
+              arity: function.arity,
+              module: function.module,
+              file: file_path,
+              line: function.line,
+              documentation: function.documentation,
+              visibility: function.visibility
+            },
+            id: function_id
+          )
 
         # Add function node
-        tx = Transaction.add(tx, GraphOS.Graph.Operation.new(:create, :node, function_node, [id: function_id]))
+        tx =
+          Transaction.add(
+            tx,
+            GraphOS.Graph.Operation.new(:create, :node, function_node, id: function_id)
+          )
 
         # Add edge from module to function (defines relationship)
-        Transaction.add(tx, GraphOS.Graph.Operation.new(:create, :edge, %{}, [
-          id: "#{function.module}->#{function_id}",
-          key: "defines",
-          weight: 1,
-          source: function.module,
-          target: function_id
-        ]))
+        Transaction.add(
+          tx,
+          GraphOS.Graph.Operation.new(:create, :edge, %{},
+            id: "#{function.module}->#{function_id}",
+            key: "defines",
+            weight: 1,
+            source: function.module,
+            target: function_id
+          )
+        )
       end)
 
     # Add dependencies as edges
@@ -344,13 +364,16 @@ defmodule GraphOS.Core.CodeGraph do
         target = dependency.target
 
         # Add operation to transaction
-        Transaction.add(tx, GraphOS.Graph.Operation.new(:create, :edge, %{}, [
-          id: "#{source}->#{target}",
-          key: dependency.type,
-          weight: 1,
-          source: source,
-          target: target
-        ]))
+        Transaction.add(
+          tx,
+          GraphOS.Graph.Operation.new(:create, :edge, %{},
+            id: "#{source}->#{target}",
+            key: dependency.type,
+            weight: 1,
+            source: source,
+            target: target
+          )
+        )
       end)
 
     # Execute the transaction
@@ -382,7 +405,7 @@ defmodule GraphOS.Core.CodeGraph do
         # Add delete operations for each node
         transaction =
           Enum.reduce(nodes, transaction, fn node, tx ->
-            Transaction.add(tx, GraphOS.Graph.Operation.new(:delete, :node, %{}, [id: node.id]))
+            Transaction.add(tx, GraphOS.Graph.Operation.new(:delete, :node, %{}, id: node.id))
           end)
 
         # Execute the transaction

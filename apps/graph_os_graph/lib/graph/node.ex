@@ -2,6 +2,9 @@ defmodule GraphOS.Graph.Node do
   @moduledoc """
   A node in a `GraphOS.Graph`.
   """
+  
+  use Boundary, deps: []
+  
   alias GraphOS.Graph.Meta
 
   @typedoc "The id of the node"

@@ -123,10 +123,12 @@ defmodule SSE.ConnectionRegistry do
   """
   def list_sessions do
     # Get the state directly from the registry
-    with {:ok, pid} <- get_registry() do
-      GenServer.call(pid, :list_sessions)
-    else
-      _ -> %{} # Return empty map if registry not available
+    case get_registry() do
+      {:ok, pid} ->
+        GenServer.call(pid, :list_sessions)
+
+      _ ->
+        %{} # Return empty map if registry not available
     end
   end
 

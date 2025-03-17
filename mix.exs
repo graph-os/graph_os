@@ -27,7 +27,9 @@ defmodule GraphOS.MixProject do
     [
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.3", only: [:dev, :test], runtime: false}
+      {:dialyxir, "~> 1.3", only: [:dev, :test], runtime: false},
+      {:protobuf, "~> 0.14.1"},
+      {:boundary, "~> 0.9", runtime: false}
     ]
   end
 
