@@ -156,38 +156,61 @@ Phase 2.5 of the refactoring has been completed with the following changes:
 - `/apps/graph_os_graph/test/graph/adapter/*` - Adapter tests
 - `/apps/graph_os_graph/test/support/schema_factory.ex` - Unused factory
 
-## Phase 3: Create New graph_os_protocol Application
+## Phase 3: Create New graph_os_protocol Application ✅
 
-### New Application Structure
+**Status: COMPLETED**
+
+Phase 3 of the refactoring has been completed with the creation of the graph_os_protocol application:
+
+1. Created new application structure with core protocol modules:
+   - Created basic Protocol module with application structure
+   - Implemented adapter interfaces for different protocols
+   - Added router implementation for protocol routing
+   - Included schema handling for protocol messages
+
+2. Implemented protocol-specific modules:
+   - `protocol/plug.ex` - Standard Plug implementation
+   - `protocol/grpc.ex` - gRPC implementation
+   - `protocol/jsonrpc.ex` - JSON-RPC implementation
+   - `protocol/router.ex` - Routing logic
+
+3. Added comprehensive test coverage:
+   - Tests for Plug implementation
+   - Tests for gRPC handlers
+   - Tests for schema validation
+   - Tests for protocol upgrades
+
+### Implemented Application Structure
 ```
 /apps/graph_os_protocol/
   /lib/
-    /graph_os/protocol.ex
-    /graph_os/protocol/
-      /plug.ex - Standard Plug implementation
-      /http.ex - HTTP interface
-      /router.ex - Routing logic
-      /controllers/ - HTTP controllers
-      /json_rpc.ex - JSON-RPC implementation
-      /grpc.ex - gRPC implementation
-      /sse.ex - Server-sent events
+    /protocol.ex
+    /protocol/
+      /adapter.ex
+      /adapters/
+      /application.ex
+      /grpc.ex
+      /grpc/
+      /jsonrpc.ex
+      /jsonrpc/
+      /mcp/
+      /plug.ex
+      /plug/
+      /router.ex
+      /schema.ex
   /test/
-    /graph_os/protocol/
-      /plug_test.exs
-      /http_test.exs
-      /router_test.exs
-      /json_rpc_test.exs
+    /graph_os_protocol_test.exs
+    /protocol/
       /grpc_test.exs
-      /sse_test.exs
+      /plug_test.exs
+      /schema_test.exs
+      /upgrade_test.exs
+    /support/
+    /test_helper.exs
   mix.exs
   README.md
+  BOUNDARIES.md
 ```
-
-### Required Code Changes
-1. Create new app with dependencies on `:plug` and `:phoenix` (optional)
-2. Implement standard Plug-compliant interfaces
-3. Migrate protocol logic from adapters
-4. Create proper routers and controllers
 
 ## Phase 4: Convert Key Flows to GenStage
 
@@ -333,3 +356,48 @@ Phase 5 of the refactoring has been completed with the following changes:
 - Improved performance in data processing flows
 - Standard compliance with Plug ecosystem
 - Easier integration with external systems
+
+## Security Enhancements
+
+During security analysis, several areas for improvement were identified:
+
+### Network Interface Binding
+
+**Status: COMPLETED**
+
+- Changed default binding from "0.0.0.0" to "localhost" in MCP.Endpoint
+- Added documentation about security implications of different binding options
+- Created warning about using 0.0.0.0 in production environments
+
+### User-Level Access Control
+
+**Status: PARTIALLY IMPLEMENTED**
+
+Current improvements:
+- Implemented secret-based authentication for all protocol interfaces
+- Created `GraphOS.Protocol.Auth` module with comprehensive security features
+- Added plugs that enforce authentication for both gRPC and JSON-RPC
+- Configured environment-specific secrets with proper production handling
+- Added support for authentication via headers, metadata, or context
+
+Current findings:
+- Any process on localhost can connect to GraphOS services, but now requires a secret
+- No Unix socket or file permission-based isolation is implemented yet
+- The authentication system protects against different users on the same machine
+- The graph-based access control system controls resource access after authentication
+
+Remaining work:
+1. **Unix Socket Support**
+   - Implement Unix socket as an alternative to TCP/IP
+   - Configure restrictive file permissions (e.g., 0600)
+   - Default to Unix sockets for development and local usage
+
+2. **Process Environment Authentication**
+   - Enhance the shared secret mechanism for inter-process communication
+   - Set up additional environment variable based authentication for local services
+   - Document secure setup procedures for different deployment scenarios
+
+Implementation priority:
+- Phase 1: Default Authentication with API keys/tokens ✅
+- Phase 2: Unix Socket implementation
+- Phase 3: Process Environment Authentication

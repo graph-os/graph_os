@@ -37,14 +37,21 @@ defmodule MCP.Endpoint do
   * `:server` - The MCP server module to use (default: MCP.DefaultServer)
   * `:port` - The port to listen on (default: 4000)
   * `:mode` - The mode to use (`:sse`, `:debug`, or `:inspect`) (default: `:sse`)
-  * `:host` - The host to bind to (default: "0.0.0.0")
+  * `:host` - The host to bind to (default: "localhost" for better security)
   * `:path_prefix` - The URL path prefix for MCP endpoints (default: "/mcp")
+  
+  ## Security Note
+  
+  For security reasons, the default binding is set to "localhost" (127.0.0.1),
+  which only allows connections from the local machine. If you need to allow
+  remote connections, you can set `:host` to "0.0.0.0", but be aware that
+  this opens the server to all network interfaces and should be used with caution.
   """
   def start_link(opts \\ []) do
     server = Keyword.get(opts, :server, MCP.DefaultServer)
     port = Keyword.get(opts, :port, 4000)
     mode = Keyword.get(opts, :mode, :sse)
-    host = Keyword.get(opts, :host, "0.0.0.0")
+    host = Keyword.get(opts, :host, "localhost")
     path_prefix = Keyword.get(opts, :path_prefix, "/mcp")
 
     # Store configuration for the router

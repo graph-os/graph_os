@@ -46,12 +46,12 @@ defmodule GraphOS.Dev.Application do
       {:ok, started_apps} ->
         Logger.info("MCP started successfully, loaded applications: #{inspect(started_apps)}")
         
-        # Register our GraphOS.Core.MCP.CodeGraphServer as the server implementation
+        # Register our GraphOS.Dev.MCP.CodeGraphServer as the server implementation
         # This ensures all MCP connections are handled by our custom server
         # with CodeGraph functionality
-        if Code.ensure_loaded?(GraphOS.Core.MCP.CodeGraphServer) do
-          Logger.info("Registering GraphOS.Core.MCP.CodeGraphServer as the MCP server implementation")
-          Application.put_env(:mcp, :server_module, GraphOS.Core.MCP.CodeGraphServer)
+        if Code.ensure_loaded?(GraphOS.Dev.MCP.CodeGraphServer) do
+          Logger.info("Registering GraphOS.Dev.MCP.CodeGraphServer as the MCP server implementation")
+          Application.put_env(:mcp, :server_module, GraphOS.Dev.MCP.CodeGraphServer)
         else
           Logger.warning("CodeGraph MCP server module not available")
         end
@@ -63,23 +63,23 @@ defmodule GraphOS.Dev.Application do
 
   # Ensure CodeGraph service is started
   defp ensure_code_graph_started do
-    if Application.get_env(:graph_os_core, :enable_code_graph, false) do
+    if Application.get_env(:graph_os_dev, :enable_code_graph, false) do
       Logger.info("Ensuring CodeGraph service is started")
 
       # Check if the CodeGraph service is already running
-      case Process.whereis(GraphOS.Core.CodeGraph.Service) do
+      case Process.whereis(GraphOS.Dev.CodeGraph.Service) do
         nil ->
           # If not running, start it with configured options
           code_graph_opts = [
-            watched_dirs: Application.get_env(:graph_os_core, :watch_directories, ["lib"]),
-            file_pattern: Application.get_env(:graph_os_core, :file_pattern, "**/*.ex"),
-            exclude_pattern: Application.get_env(:graph_os_core, :exclude_pattern),
-            auto_reload: Application.get_env(:graph_os_core, :auto_reload, false),
-            poll_interval: Application.get_env(:graph_os_core, :poll_interval, 1000),
-            distributed: Application.get_env(:graph_os_core, :distributed, true)
+            watched_dirs: Application.get_env(:graph_os_dev, :watch_directories, ["lib"]),
+            file_pattern: Application.get_env(:graph_os_dev, :file_pattern, "**/*.ex"),
+            exclude_pattern: Application.get_env(:graph_os_dev, :exclude_pattern),
+            auto_reload: Application.get_env(:graph_os_dev, :auto_reload, false),
+            poll_interval: Application.get_env(:graph_os_dev, :poll_interval, 1000),
+            distributed: Application.get_env(:graph_os_dev, :distributed, true)
           ]
 
-          case GraphOS.Core.CodeGraph.Service.start_link(code_graph_opts) do
+          case GraphOS.Dev.CodeGraph.Service.start_link(code_graph_opts) do
             {:ok, _pid} ->
               Logger.info("Started CodeGraph service")
             {:error, {:already_started, _pid}} ->

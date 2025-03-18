@@ -19,7 +19,9 @@ Applications follow a strict dependency ordering to maintain modularity and prev
 2. **mcp** - Model Context Protocol library
 3. **graph_os_graph** - Graph data structure
 4. **graph_os_core** - Core system functionality
-5. **graph_os_dev** - Development interface
+5. **graph_os_protocol** - Protocol adapters 
+6. **graph_os_dev** - Development interface
+7. **graph_os_cli** - Command line interface (Rust)
 
 Applications can only depend on those earlier in this list, not later. For example, `mcp` cannot depend on `graph_os_graph`, but `graph_os_graph` can depend on `mcp`.
 
@@ -44,27 +46,49 @@ Applications can only depend on those earlier in this list, not later. For examp
    - May depend on: `mcp`
 
 4. **graph_os_core** - Core functionality
-   - Builds code graphs from source code
-   - Provides file system monitoring
-   - Implements code parsing and analysis
+   - Implements the virtualized OS abstractions
+   - Provides controlled access to host system resources
+   - Implements access control and permission system
    - Connects graph components to executable resources
    - May depend on: `mcp`, `graph_os_graph`
 
-5. **graph_os_dev** - Development interface
+5. **graph_os_protocol** - Protocol adapters
+   - Protocol interfaces (HTTP, JSON-RPC, gRPC, SSE)
+   - Authentication and authorization
+   - May depend on: `mcp`, `graph_os_graph`, `graph_os_core`
+
+6. **graph_os_dev** - Development interface
    - Web dashboard for graph visualization
    - Interactive code exploration
    - Live development environment
-   - May depend on: `mcp`, `graph_os_graph`, `graph_os_core`
+   - Development-specific tools (code_graph, git_integration, etc.)
+   - May depend on: `mcp`, `graph_os_graph`, `graph_os_core`, `graph_os_protocol`
+
+7. **graph_os_cli** - Command line interface
+   - Built with Rust
+   - Provides TUI (Terminal User Interface)
+   - Connects to GraphOS services using MCP
+   - May depend on: `mcp`
 
 ### Extension System
 
 GraphOS supports two types of extension modules:
 
 1. **GraphOS.Core** - Core "OS" applications
-   - Built-in interface bindings (filesystem, git, etc.)
+   - Built-in interface bindings for virtualized OS access
    - System-level functionality
    - Tightly integrated with the core system
    - Part of graph_os_core application
+   - Core OS modules include:
+     - `filesystem` - Safe file access abstraction
+     - `process` - To manage and control system processes
+     - `terminal` - For interactive shell access
+     - `network` - For controlled network access
+     - `registry` - Windows-specific registry access
+     - `ui` - For controlling UI elements/windows
+     - `permission` - Fine-grained permission system
+     - `session` - To manage user/agent sessions
+     - `event` - For system event monitoring
 
 2. **GraphOS.Modules** - Optional/installable modules
    - Extension functionality

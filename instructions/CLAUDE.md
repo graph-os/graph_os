@@ -56,6 +56,7 @@ This is an Elixir umbrella project with the following hierarchy:
 4. **graph_os_core** - Main functionality and components
 5. **graph_os_protocol** - Protocol adapters
 6. **graph_os_dev** - Development interface
+7. **graph_os_cli** - Command line interface (Rust)
 
 Dependencies flow downward only: apps can only depend on apps earlier in this list.
 
@@ -70,6 +71,7 @@ Each component has strict boundaries and responsibilities. See [BOUNDARIES.md](.
 - **graph_os_core**: Main GraphOS functionality, components, registries
 - **graph_os_protocol**: Protocol interfaces (HTTP, JSON-RPC, gRPC, SSE)
 - **graph_os_dev**: Phoenix UI and development server
+- **graph_os_cli**: Terminal UI client interface (Rust)
 
 ## Build/Test Commands
 ```bash

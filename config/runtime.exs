@@ -7,6 +7,16 @@ import Config
 # any compile-time configuration in here, as it won't be applied.
 # The block below contains prod specific runtime configuration.
 
+# Configure protocol RPC secret for all environments
+# For security in production, this must be set via environment variables
+graph_os_rpc_secret = System.get_env("GRAPH_OS_RPC_SECRET")
+
+if graph_os_rpc_secret do
+  config :graph_os_protocol, :auth,
+    rpc_secret: graph_os_rpc_secret,
+    required: true
+end
+
 # ## Using releases
 #
 # If you use `mix release`, you need to explicitly enable the server

@@ -41,7 +41,7 @@ defmodule GraphOS.Adapter.GenServer do
   def execute(adapter, operation, context) do
     GenServer.call(adapter, {:execute, operation, context})
   end
-  
+
   def start_link(opts) do
     {:ok, self()}
   end

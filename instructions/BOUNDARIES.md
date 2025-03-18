@@ -12,6 +12,7 @@ GraphOS is designed as a collection of focused applications, each with a specifi
 4. **graph_os_core**: Core GraphOS functionality and infrastructure
 5. **graph_os_protocol**: Protocol interfaces (HTTP, JSON-RPC, gRPC, SSE)
 6. **graph_os_dev**: Development tools and interfaces
+7. **graph_os_cli**: Terminal UI client (Rust)
 
 ## Component Dependencies
 
@@ -27,8 +28,8 @@ graph_os_graph
 graph_os_core
   ↓
 graph_os_protocol
-  ↓
-graph_os_dev
+  ↓     ↙
+graph_os_dev  graph_os_cli
 ```
 
 ## Component Responsibilities
@@ -158,6 +159,26 @@ Development tools and interfaces.
 - Interactive development tools
 - Debugging utilities
 
+### graph_os_cli
+
+Terminal UI client interface.
+
+#### Dependencies
+- `mcp` - For communication protocol
+- `graph_os_graph` - For graph data structures
+- `graph_os_core` - For core functionality
+- `graph_os_protocol` - For protocol interfaces (gRPC)
+
+#### Public API
+- Command-line interface
+- Terminal UI views
+
+#### Responsibilities
+- Terminal UI for interacting with GraphOS
+- Command-line operations
+- Interactive terminal-based graph exploration
+- Local workflow management
+
 ### mcp
 
 Messaging and communication protocol.
@@ -194,6 +215,7 @@ None (standalone library)
 ## Cross-Component Communication
 
 - **graph_os_dev** → **graph_os_protocol** → **graph_os_core**: UI uses Protocol interfaces which use Core functionality
+- **graph_os_cli** → **graph_os_protocol** → **graph_os_core**: CLI uses Protocol interfaces which use Core functionality
 - **graph_os_core** → **graph_os_graph**: Core uses Graph for data storage and queries
 - **graph_os_graph** → **mcp**: Graph can use MCP for serialization
 - All components may use **tmux** for development tooling

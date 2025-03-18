@@ -1,0 +1,1 @@
+cargo:rustc-env=MIME_TYPES_GENERATED_PATH=/Users/vegard/Developer/GraphOS/vibe_cli/target/debug/build/mime_guess-90d0283e3f43deb2/out/mime_types_generated.rs

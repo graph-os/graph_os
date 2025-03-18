@@ -20,3 +20,9 @@ config :phoenix_live_view,
 # Configure query module for the GraphController
 config :graph_os_dev,
   query_module: GraphOS.Graph.Query
+  
+# Configure protocol RPC secret for tests
+# This is a fixed test value for predictable test outcomes
+config :graph_os_protocol, :auth,
+  rpc_secret: "test_only_secret_not_for_production",
+  required: true

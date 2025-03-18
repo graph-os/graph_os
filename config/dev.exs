@@ -80,3 +80,9 @@ config :graph_os_core,
 # Configure query module for the GraphController
 config :graph_os_dev,
   query_module: GraphOS.Graph.Query
+
+# Configure protocol RPC secret for development
+# In production, this should be set via env vars in runtime.exs
+config :graph_os_protocol, :auth,
+  rpc_secret: "dev_only_8c5f243ed96a55ea767e41e75e2c38f09b07cec8",
+  required: true

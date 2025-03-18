@@ -13,7 +13,7 @@ defmodule GraphOS.Protocol.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       elixirc_paths: elixirc_paths(Mix.env()),
-      
+
       # Boundary enforcement
       compilers: [:boundary | Mix.compilers()],
       boundary: boundary()
@@ -39,26 +39,26 @@ defmodule GraphOS.Protocol.MixProject do
       {:graph_os_core, in_umbrella: true},
       {:graph_os_graph, in_umbrella: true},
       {:mcp, in_umbrella: true},
-      
+
       # Protocol-specific dependencies
       {:plug, "~> 1.14"},
       {:plug_cowboy, "~> 2.6"},
       {:jason, "~> 1.4"},
       {:boundary, "~> 0.10", runtime: false},
-      
+
       # Development and testing
       {:dialyxir, "~> 1.3", only: [:dev], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:meck, "~> 0.9", only: :test}
     ]
   end
-  
+
   defp boundary do
     [
       default: [
         check: [
           # Allow dependencies on components higher in the hierarchy
-          deps: [:graph_os_core, :graph_os_graph, :mcp, :tmux],
+          deps: [:graph_os_core, :graph_os_graph, :mcp, :tmux, GraphOS.Adapter],
           # Prevent this app from using apps lower in the hierarchy
           apps: [in: [:graph_os_core, :graph_os_graph, :mcp, :tmux]]
         ]
@@ -74,7 +74,11 @@ defmodule GraphOS.Protocol.MixProject do
         GraphOS.Protocol.Plug,
         GraphOS.Protocol.Schema,
         GraphOS.Protocol.Router,
-        GraphOS.Protocol.Adapter
+        GraphOS.Protocol.Adapter,
+        # Auth modules (needed for the new authentication system)
+        GraphOS.Protocol.Auth,
+        GraphOS.Protocol.Auth.Secret,
+        GraphOS.Protocol.Auth.Plug
       ]
     ]
   end

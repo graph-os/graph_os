@@ -81,6 +81,48 @@ iex -S mix
 
 This will start the MCP protocol server for AI/LLM integration.
 
+## Authentication
+
+GraphOS uses a secret-based authentication system to secure its protocol interfaces (gRPC, JSON-RPC, HTTP):
+
+### Server Configuration
+
+Set the authentication secret via environment variable or in your config:
+
+```elixir
+# In config/dev.exs or config/runtime.exs
+config :graph_os_protocol, :auth,
+  rpc_secret: "your_secret_here",
+  required: true  # Set to false to disable auth
+```
+
+For production, always use environment variables:
+
+```bash
+export GRAPH_OS_RPC_SECRET="your_secure_secret"
+```
+
+### Client Authentication
+
+When making requests to GraphOS services, include the secret:
+
+```
+# HTTP/JSON-RPC requests (headers)
+X-GraphOS-RPC-Secret: your_secret_here
+
+# Alternative with Bearer token
+Authorization: Bearer your_secret_here
+
+# gRPC requests (metadata)
+x-graphos-rpc-secret: your_secret_here
+```
+
+### Security Considerations
+
+- Authentication is required by default in all environments
+- Secret comparison uses constant-time algorithms to prevent timing attacks
+- For local-only services, consider using Unix sockets for enhanced security
+
 ## Development
 
 ### Development Mode

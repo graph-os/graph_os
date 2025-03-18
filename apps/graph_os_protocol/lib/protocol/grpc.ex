@@ -16,7 +16,7 @@ defmodule GraphOS.Protocol.GRPC do
   - `:graph_module` - The Graph module to use (default: `GraphOS.Graph`)
   - `:schema_module` - The Schema module that defines Protocol Buffer messages
   - `:service_module` - The Protocol Buffer service module (default: from schema_module)
-  
+
   ## Usage
 
   ```elixir
@@ -29,11 +29,11 @@ defmodule GraphOS.Protocol.GRPC do
       LoggingPlug
     ]
   )
-  
+
   # Process a gRPC request
   request = MyApp.Proto.GetNodeRequest.new(id: "node-123")
   {:ok, response} = GraphOS.Protocol.GRPC.process(MyGRPCAdapter, request, "GetNode")
-  
+
   # Upgrade the response to JSON-RPC format
   {:ok, jsonrpc_response} = GraphOS.Protocol.GRPC.upgrade(
     MyGRPCAdapter, 
@@ -42,23 +42,23 @@ defmodule GraphOS.Protocol.GRPC do
     :jsonrpc
   )
   ```
-  
+
   ## Protocol Upgrading
-  
+
   The GRPC adapter supports upgrading Protocol Buffer messages to other protocol formats:
-  
+
   ```elixir
   # Upgrade to JSON-RPC
   {:ok, jsonrpc_format} = GraphOS.Protocol.GRPC.upgrade(adapter, response, rpc_name, :jsonrpc)
-  
+
   # Upgrade to Plug
   {:ok, plug_format} = GraphOS.Protocol.GRPC.upgrade(adapter, response, rpc_name, :plug)
-  
+
   # Upgrade to Model Context Protocol
   {:ok, mcp_format} = GraphOS.Protocol.GRPC.upgrade(adapter, response, rpc_name, :mcp)
   ```
   """
-  
+
   use Boundary, deps: [:graph_os_core, :graph_os_graph]
   use GraphOS.Protocol.Adapter
   alias GraphOS.Adapter.{Context, GenServer}
@@ -67,14 +67,14 @@ defmodule GraphOS.Protocol.GRPC do
   # State for this adapter
   defmodule State do
     @moduledoc false
-    
+
     @type t :: %__MODULE__{
-      graph_module: module(),
-      gen_server_adapter: pid(),
-      schema_module: module(),
-      service_module: module()
-    }
-    
+            graph_module: module(),
+            gen_server_adapter: pid(),
+            schema_module: module(),
+            service_module: module()
+          }
+
     defstruct [
       :graph_module,
       :gen_server_adapter,
@@ -103,11 +103,11 @@ defmodule GraphOS.Protocol.GRPC do
   def process(adapter, request, rpc_name, context \\ nil) do
     # If adapter is a module, convert to pid
     adapter_pid = if is_atom(adapter), do: Process.whereis(adapter), else: adapter
-    
+
     if adapter_pid && Process.alive?(adapter_pid) do
       # Create a new context if not provided
       context = context || Context.new()
-      
+
       # Pass the request to the adapter as a GenServer call
       # Use the GraphOS.Adapter.GenServer.call function that has special handling in tests
       GraphOS.Adapter.GenServer.call(adapter_pid, {:grpc_request, request, rpc_name, context})
@@ -122,21 +122,47 @@ defmodule GraphOS.Protocol.GRPC do
   def init(opts) do
     graph_module = Keyword.get(opts, :graph_module, GraphOS.Graph)
     schema_module = Keyword.fetch!(opts, :schema_module)
-    
+
     # Get service module from schema or options
-    service_module = Keyword.get(opts, :service_module) || 
-                    (if function_exported?(schema_module, :service_module, 0) do
-                      schema_module.service_module()
-                    else
-                      raise ArgumentError, "Missing service_module option or schema_module doesn't implement service_module/0"
-                    end)
-    
+    service_module =
+      Keyword.get(opts, :service_module) ||
+        if function_exported?(schema_module, :service_module, 0) do
+          schema_module.service_module()
+        else
+          raise ArgumentError,
+                "Missing service_module option or schema_module doesn't implement service_module/0"
+        end
+
+    # Add the authentication plug by default if not explicitly disabled
+    plugs =
+      case Keyword.get(opts, :auth, true) do
+        false ->
+          Keyword.get(opts, :plugs, [])
+
+        _ ->
+          auth_plug = GraphOS.Protocol.Auth.Plug
+          existing_plugs = Keyword.get(opts, :plugs, [])
+
+          # Only add the auth plug if it's not already included
+          if Enum.any?(existing_plugs, fn
+               ^auth_plug -> true
+               {^auth_plug, _} -> true
+               _ -> false
+             end) do
+            existing_plugs
+          else
+            [auth_plug | existing_plugs]
+          end
+      end
+
     # Start the GenServer adapter as a child
-    gen_server_opts = Keyword.merge(opts, [
-      adapter: Keyword.get(opts, :gen_server_adapter, GenServer),
-      graph_module: graph_module
-    ])
-    
+    gen_server_opts =
+      Keyword.merge(opts,
+        adapter: Keyword.get(opts, :gen_server_adapter, GenServer),
+        graph_module: graph_module,
+        plugs: plugs
+      )
+
     case GenServer.start_link(gen_server_opts) do
       {:ok, gen_server_pid} ->
         state = %State{
@@ -145,8 +171,9 @@ defmodule GraphOS.Protocol.GRPC do
           schema_module: schema_module,
           service_module: service_module
         }
+
         {:ok, state}
-        
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -159,7 +186,7 @@ defmodule GraphOS.Protocol.GRPC do
       {:ok, result} ->
         # Operation succeeded
         {:reply, result, context, state}
-        
+
       {:error, reason} ->
         # Operation failed
         {:error, reason, context, state}
@@ -184,8 +211,8 @@ defmodule GraphOS.Protocol.GRPC do
     * `{:error, reason, context, state}` - Request failed with the given reason
   """
   @spec handle_grpc_request(struct(), String.t(), Context.t(), State.t()) ::
-          {:reply, struct(), Context.t(), State.t()} |
-          {:error, term(), Context.t(), State.t()}
+          {:reply, struct(), Context.t(), State.t()}
+          | {:error, term(), Context.t(), State.t()}
   def handle_grpc_request(request, rpc_name, context, state) do
     # Map the gRPC method to a Graph operation
     case map_grpc_to_operation(rpc_name, request, state.schema_module) do
@@ -196,11 +223,11 @@ defmodule GraphOS.Protocol.GRPC do
             # Convert the result back to a Protocol Buffer message
             response = convert_result_to_proto(result, rpc_name, state.schema_module)
             {:reply, response, context, state}
-            
+
           {:error, reason} ->
             {:error, reason, context, state}
         end
-        
+
       {:error, reason} ->
         {:error, reason, context, state}
     end
@@ -213,22 +240,24 @@ defmodule GraphOS.Protocol.GRPC do
       schema_module.map_rpc_to_operation(rpc_name, request)
     else
       # Get the protobuf definition for this request type
-      proto_def = GraphOS.Graph.Schema.Protobuf.get_proto_definition(schema_module, request.__struct__)
-      
+      proto_def =
+        GraphOS.Graph.Schema.Protobuf.get_proto_definition(schema_module, request.__struct__)
+
       # Convert the request to a map using the protobuf utilities
       params = GraphOS.Graph.Schema.Protobuf.proto_to_map(request, proto_def)
-      
+
       # Default mapping based on method name conventions
       cond do
-        String.starts_with?(rpc_name, "Get") or String.starts_with?(rpc_name, "List") or String.starts_with?(rpc_name, "Find") ->
+        String.starts_with?(rpc_name, "Get") or String.starts_with?(rpc_name, "List") or
+            String.starts_with?(rpc_name, "Find") ->
           path = format_operation_path(rpc_name)
           {:ok, :query, %{path: path, params: params}}
-          
-        String.starts_with?(rpc_name, "Create") or String.starts_with?(rpc_name, "Update") or 
-        String.starts_with?(rpc_name, "Delete") or String.starts_with?(rpc_name, "Add") ->
+
+        String.starts_with?(rpc_name, "Create") or String.starts_with?(rpc_name, "Update") or
+          String.starts_with?(rpc_name, "Delete") or String.starts_with?(rpc_name, "Add") ->
           path = format_operation_path(rpc_name)
           {:ok, :action, %{path: path, params: params}}
-          
+
         true ->
           {:error, {:unknown_rpc, rpc_name}}
       end
@@ -260,11 +289,12 @@ defmodule GraphOS.Protocol.GRPC do
     else
       # Get the response message type for this RPC method
       response_type = get_response_type_for_rpc(schema_module, rpc_name)
-      
+
       if response_type do
         # Get the protobuf definition for this message type
-        proto_def = GraphOS.Graph.Schema.Protobuf.get_proto_definition(schema_module, response_type)
-        
+        proto_def =
+          GraphOS.Graph.Schema.Protobuf.get_proto_definition(schema_module, response_type)
+
         # Convert the result to a Protocol Buffer message
         GraphOS.Graph.Schema.Protobuf.map_to_proto(result, proto_def, response_type)
       else
@@ -272,7 +302,7 @@ defmodule GraphOS.Protocol.GRPC do
       end
     end
   end
-  
+
   # Get the response type for an RPC method
   defp get_response_type_for_rpc(schema_module, rpc_name) do
     if function_exported?(schema_module, :get_response_type_for_rpc, 1) do
@@ -280,43 +310,47 @@ defmodule GraphOS.Protocol.GRPC do
     else
       # Default behavior - try to infer the response type from the RPC name
       # This assumes a standard naming convention like GetNode -> Node
-      
+
       proto_module = schema_module.protobuf_module()
-      
+
       # Make some guesses based on common patterns
       # GetXXX -> XXX
       # ListXXXs -> XXXList
       # CreateXXX -> XXX
       # etc.
-      
-      response_type = cond do
-        String.starts_with?(rpc_name, "Get") ->
-          # GetNode -> Node
-          String.replace_prefix(rpc_name, "Get", "")
-          
-        String.starts_with?(rpc_name, "List") ->
-          # ListNodes -> NodeList
-          singular = String.replace_prefix(rpc_name, "List", "")
-          # Remove trailing 's' if present
-          singular = if String.ends_with?(singular, "s") do
-            String.replace_suffix(singular, "s", "")
-          else
-            singular
-          end
-          "#{singular}List"
-          
-        String.starts_with?(rpc_name, "Create") or
-        String.starts_with?(rpc_name, "Update") ->
-          # CreateNode -> Node
-          String.replace(rpc_name, ~r/^(Create|Update)/, "")
-          
-        true ->
-          # Use the RPC name itself as a fallback
-          rpc_name
-      end
-      
+
+      response_type =
+        cond do
+          String.starts_with?(rpc_name, "Get") ->
+            # GetNode -> Node
+            String.replace_prefix(rpc_name, "Get", "")
+
+          String.starts_with?(rpc_name, "List") ->
+            # ListNodes -> NodeList
+            singular = String.replace_prefix(rpc_name, "List", "")
+            # Remove trailing 's' if present
+            singular =
+              if String.ends_with?(singular, "s") do
+                String.replace_suffix(singular, "s", "")
+              else
+                singular
+              end
+
+            "#{singular}List"
+
+          String.starts_with?(rpc_name, "Create") or
+              String.starts_with?(rpc_name, "Update") ->
+            # CreateNode -> Node
+            String.replace(rpc_name, ~r/^(Create|Update)/, "")
+
+          true ->
+            # Use the RPC name itself as a fallback
+            rpc_name
+        end
+
       # Check if the module exists
       response_module = Module.concat(proto_module, response_type)
+
       if Code.ensure_loaded?(response_module) do
         response_module
       else
@@ -333,7 +367,7 @@ defmodule GraphOS.Protocol.GRPC do
       {:reply, response, _updated_context, updated_state} ->
         # Return the response
         {:reply, {:ok, response}, updated_state}
-        
+
       {:error, reason, _updated_context, updated_state} ->
         # Return the error
         {:reply, {:error, reason}, updated_state}
@@ -346,10 +380,10 @@ defmodule GraphOS.Protocol.GRPC do
     if Process.alive?(adapter_pid) do
       GenServer.stop(adapter_pid, reason)
     end
-    
+
     :ok
   end
-  
+
   @doc """
   Upgrades a gRPC response to another protocol format.
 
@@ -370,16 +404,16 @@ defmodule GraphOS.Protocol.GRPC do
   def upgrade(adapter, response, rpc_name, target_protocol) do
     # If adapter is a module, convert to pid
     adapter_pid = if is_atom(adapter), do: Process.whereis(adapter), else: adapter
-    
+
     if adapter_pid && Process.alive?(adapter_pid) do
       # Get the schema module from the adapter state
       # In tests, this might be mocked
-      schema_module = 
+      schema_module =
         try do
           GraphOS.Adapter.GenServer.call(adapter_pid, :get_schema_module)
         rescue
           # For tests, use a mock schema module
-          _ -> 
+          _ ->
             if Code.ensure_loaded?(GraphOS.Protocol.Test.MockSchema) do
               GraphOS.Protocol.Test.MockSchema
             else
@@ -391,18 +425,18 @@ defmodule GraphOS.Protocol.GRPC do
               end
             end
         end
-      
+
       # Upgrade the response based on the target protocol
       case target_protocol do
         :jsonrpc ->
           {:ok, ProtocolSchema.upgrade_to_jsonrpc(response, rpc_name, schema_module)}
-          
+
         :plug ->
           {:ok, ProtocolSchema.upgrade_to_plug(response, rpc_name, schema_module)}
-          
+
         :mcp ->
           {:ok, ProtocolSchema.upgrade_to_mcp(response, rpc_name, schema_module)}
-          
+
         _ ->
           {:error, {:unknown_protocol, target_protocol}}
       end
@@ -410,7 +444,7 @@ defmodule GraphOS.Protocol.GRPC do
       {:error, :adapter_not_found}
     end
   end
-  
+
   # Handle the get_schema_module request
   @impl true
   def handle_call(:get_schema_module, _from, %State{schema_module: schema_module} = state) do
