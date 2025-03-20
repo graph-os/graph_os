@@ -1,10 +1,10 @@
-defmodule GraphOS.Graph.Transaction do
+defmodule GraphOS.GraphContext.Transaction do
   @moduledoc """
   A transaction for the graph.
   """
 
-  alias GraphOS.Graph.Operation
-  alias GraphOS.Graph.Store
+  alias GraphOS.GraphContext.Operation
+  alias GraphOS.GraphContext.Store
 
   defstruct [:store, :operations]
 

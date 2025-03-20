@@ -198,7 +198,7 @@ The GraphOS.Core component provides the central functionality of GraphOS, includ
 
 ### graph_os_graph
 
-The GraphOS.Graph component provides the core graph data structure and algorithms for GraphOS. It is a pure graph library with no dependencies on other GraphOS components except potentially MCP for serialization.
+The GraphOS.GraphContext component provides the core graph data structure and algorithms for GraphOS. It is a pure graph library with no dependencies on other GraphOS components except potentially MCP for serialization.
 
 #### Code Organization
 - `lib/graph.ex` - Main graph interface

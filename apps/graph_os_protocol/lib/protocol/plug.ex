@@ -527,7 +527,7 @@ defmodule GraphOS.Protocol.Plug do
       if msg_type do
         # Use the Protobuf module to decode the binary
         try do
-          decoded = GraphOS.Graph.Schema.Protobuf.decode(binary, msg_type)
+          decoded = GraphOS.GraphContext.Schema.Protobuf.decode(binary, msg_type)
           {:ok, decoded}
         rescue
           e -> {:error, {:decode_error, e.message}}
@@ -544,7 +544,7 @@ defmodule GraphOS.Protocol.Plug do
   defp encode_protobuf(proto_struct) do
     # Use the Protobuf module to encode the struct
     try do
-      GraphOS.Graph.Schema.Protobuf.encode(proto_struct)
+      GraphOS.GraphContext.Schema.Protobuf.encode(proto_struct)
     rescue
       _ -> raise "Failed to encode Protocol Buffer message"
     end

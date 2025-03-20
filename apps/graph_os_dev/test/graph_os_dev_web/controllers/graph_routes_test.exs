@@ -31,9 +31,9 @@ defmodule GraphOS.DevWeb.GraphRoutesTest do
     end
 
     test "GET /code-graph/module with name parameter - module graph with name loads", %{conn: conn} do
-      {:ok, _view, html} = live(conn, "/code-graph/module?name=GraphOS.Graph.Application")
+      {:ok, _view, html} = live(conn, "/code-graph/module?name=GraphOS.GraphContext.Application")
       assert html =~ "Module Graph Visualization"
-      assert html =~ "GraphOS.Graph.Application"
+      assert html =~ "GraphOS.GraphContext.Application"
     end
 
     @tag :skip
@@ -46,7 +46,7 @@ defmodule GraphOS.DevWeb.GraphRoutesTest do
 
     @tag :skip
     test "GET /api/code-graph/module - module graph API endpoint responds with success", %{conn: conn} do
-      conn = get(conn, "/api/code-graph/module?name=GraphOS.Graph.Application")
+      conn = get(conn, "/api/code-graph/module?name=GraphOS.GraphContext.Application")
       # This test will fail with the current mock implementation (returns 400)
       # But documents the expected behavior for a real implementation
       assert json_response(conn, 200)

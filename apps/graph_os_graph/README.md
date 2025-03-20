@@ -1,4 +1,4 @@
-# GraphOS.Graph
+# GraphOS.GraphContext
 
 The core graph library for GraphOS, providing data structures, algorithms, and storage capabilities. This is a pure graph library with no dependencies on other GraphOS components except potentially MCP for serialization.
 
@@ -22,17 +22,17 @@ For detailed documentation, please refer to the centralized documentation:
 
 ```elixir
 # Create a new graph
-graph = GraphOS.Graph.new()
+graph = GraphOS.GraphContext.new()
 
 # Add nodes
-graph = GraphOS.Graph.add_node(graph, "node1", %{label: "Person"})
-graph = GraphOS.Graph.add_node(graph, "node2", %{label: "Person"})
+graph = GraphOS.GraphContext.add_node(graph, "node1", %{label: "Person"})
+graph = GraphOS.GraphContext.add_node(graph, "node2", %{label: "Person"})
 
 # Add an edge
-graph = GraphOS.Graph.add_edge(graph, "node1", "node2", :knows, %{since: ~D[2023-01-01]})
+graph = GraphOS.GraphContext.add_edge(graph, "node1", "node2", :knows, %{since: ~D[2023-01-01]})
 
 # Query the graph
-neighbors = GraphOS.Graph.neighbors(graph, "node1")
+neighbors = GraphOS.GraphContext.neighbors(graph, "node1")
 ```
 
 ## Local Development

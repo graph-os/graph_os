@@ -1,11 +1,11 @@
-defmodule GraphOS.Graph.Node do
+defmodule GraphOS.GraphContext.Node do
   @moduledoc """
-  A node in a `GraphOS.Graph`.
+  A node in a `GraphOS.GraphContext`.
   """
   
   use Boundary, deps: []
   
-  alias GraphOS.Graph.Meta
+  alias GraphOS.GraphContext.Meta
 
   @typedoc "The id of the node"
   @type id() :: String.t() | integer()

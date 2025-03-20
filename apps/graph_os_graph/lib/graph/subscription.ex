@@ -1,9 +1,9 @@
-defmodule GraphOS.Graph.Subscription do
+defmodule GraphOS.GraphContext.Subscription do
   @moduledoc """
   Behaviour defining the graph subscription interface.
 
   This module defines the contract for subscription implementations that can be
-  used with GraphOS.Graph. It allows components to be notified of graph changes
+  used with GraphOS.GraphContext. It allows components to be notified of graph changes
   without coupling the graph library to a specific pub/sub implementation.
 
   ## Usage
@@ -12,7 +12,7 @@ defmodule GraphOS.Graph.Subscription do
 
   ```elixir
   defmodule MyGraphSubscription do
-    @behaviour GraphOS.Graph.Subscription
+    @behaviour GraphOS.GraphContext.Subscription
 
     @impl true
     def subscribe(topic, opts) do
@@ -53,7 +53,7 @@ defmodule GraphOS.Graph.Subscription do
     - `{:edge_matched, edge, pattern}` - When an edge matching a pattern is changed
   """
 
-  alias GraphOS.Graph.{Node, Edge, Operation}
+  alias GraphOS.GraphContext.{Node, Edge, Operation}
 
   @type topic :: String.t()
   @type subscription_id :: reference()

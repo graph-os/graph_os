@@ -1,13 +1,13 @@
-defmodule GraphOS.Graph.Store.ETS do
+defmodule GraphOS.GraphContext.Store.ETS do
   @moduledoc """
-  An ETS-based implementation of the GraphOS.Graph.Store behaviour.
+  An ETS-based implementation of the GraphOS.GraphContext.Store behaviour.
 
   This module provides an in-memory storage solution for GraphOS graphs using Erlang Term Storage (ETS).
   """
 
-  @behaviour GraphOS.Graph.Protocol
+  @behaviour GraphOS.GraphContext.Protocol
 
-  alias GraphOS.Graph.{Node, Edge, Transaction, Operation}
+  alias GraphOS.GraphContext.{Node, Edge, Transaction, Operation}
 
   @table_name :graph_os_ets_store
 

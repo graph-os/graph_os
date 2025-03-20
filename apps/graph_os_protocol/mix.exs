@@ -39,17 +39,24 @@ defmodule GraphOS.Protocol.MixProject do
       {:graph_os_core, in_umbrella: true},
       {:graph_os_graph, in_umbrella: true},
       {:mcp, in_umbrella: true},
+      {:tmux, in_umbrella: true},
 
       # Protocol-specific dependencies
       {:plug, "~> 1.14"},
       {:plug_cowboy, "~> 2.6"},
       {:jason, "~> 1.4"},
-      {:boundary, "~> 0.10", runtime: false},
+      {:boundary, "~> 0.9", runtime: false},
+
+      # gRPC specific dependencies
+      {:protobuf, "~> 0.14.1"},
+      # HTTP/2 server needed for gRPC
+      {:bandit, "~> 1.6.8"},
 
       # Development and testing
       {:dialyxir, "~> 1.3", only: [:dev], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:meck, "~> 0.9", only: :test}
+      {:meck, "~> 0.9", only: :test},
+      {:ex_doc, "~> 0.29", only: :dev, runtime: false}
     ]
   end
 
@@ -58,7 +65,7 @@ defmodule GraphOS.Protocol.MixProject do
       default: [
         check: [
           # Allow dependencies on components higher in the hierarchy
-          deps: [:graph_os_core, :graph_os_graph, :mcp, :tmux, GraphOS.Adapter],
+          deps: [:graph_os_core, :graph_os_graph, :mcp, :tmux],
           # Prevent this app from using apps lower in the hierarchy
           apps: [in: [:graph_os_core, :graph_os_graph, :mcp, :tmux]]
         ]

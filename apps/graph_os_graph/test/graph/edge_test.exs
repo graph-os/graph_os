@@ -1,7 +1,7 @@
-defmodule GraphOS.Graph.EdgeTest do
+defmodule GraphOS.GraphContext.EdgeTest do
   use ExUnit.Case
 
-  alias GraphOS.Graph.{Edge, Meta}
+  alias GraphOS.GraphContext.{Edge, Meta}
 
   test "creates a new edge" do
     edge = Edge.new("node1", "node2", [id: "edge1", key: "test", weight: 5])

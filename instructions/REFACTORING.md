@@ -70,22 +70,22 @@ Tests to be moved in Phase 3:
 
 Phase 2 of the refactoring has been completed with the following changes:
 
-1. Created a new `GraphOS.Graph.Access` behaviour in graph_os_graph:
+1. Created a new `GraphOS.GraphContext.Access` behaviour in graph_os_graph:
    - Defined a clear interface with authorization callbacks
    - Provided type specifications for operation types and contexts
    - Added comprehensive documentation with usage examples
 
 2. Implemented `GraphOS.Core.Access.GraphAccess` in graph_os_core:
-   - Created a complete implementation of the `GraphOS.Graph.Access` behaviour
+   - Created a complete implementation of the `GraphOS.GraphContext.Access` behaviour
    - Added delegation to the existing `GraphOS.Core.AccessControl` system
    - Implemented fine-grained authorization for nodes, edges, and operations
 
-3. Updated `GraphOS.Graph.Store` to support access control:
+3. Updated `GraphOS.GraphContext.Store` to support access control:
    - Added access control hooks to all graph operations
    - Implemented context-passing for all store functions
    - Created helper functions for access context creation
 
-4. Enhanced `GraphOS.Graph.Store.ETS` to work with the access system:
+4. Enhanced `GraphOS.GraphContext.Store.ETS` to work with the access system:
    - Added access control support to init function
    - Set up storage for access control configuration
 
@@ -108,14 +108,14 @@ Phase 2 of the refactoring has been completed with the following changes:
 Phase 2.5 of the refactoring has been completed with the following changes:
 
 1. Removed execution-related code from graph_os_graph:
-   - Removed GraphOS.Graph.execute_node and execute_node_by_id functions
+   - Removed GraphOS.GraphContext.execute_node and execute_node_by_id functions
    - Removed check_execute_permission helper functions
    - Removed unused extractor functions
 
 2. Added subscription system to graph_os_graph:
-   - Created GraphOS.Graph.Subscription behavior with a clear interface
-   - Added a lightweight GraphOS.Graph.Subscription.NoOp implementation
-   - Added subscription-related convenience functions to GraphOS.Graph
+   - Created GraphOS.GraphContext.Subscription behavior with a clear interface
+   - Added a lightweight GraphOS.GraphContext.Subscription.NoOp implementation
+   - Added subscription-related convenience functions to GraphOS.GraphContext
    - Added tests for the subscription system
 
 3. Updated Access interface to focus on core interfaces:
@@ -125,7 +125,7 @@ Phase 2.5 of the refactoring has been completed with the following changes:
    - Added generic filter_results function
 
 4. Removed Application module and other infrastructure:
-   - Removed GraphOS.Graph.Application module
+   - Removed GraphOS.GraphContext.Application module
    - Updated mix.exs to remove application callback
    - Removed redundant adapter tests
 
@@ -356,6 +356,29 @@ Phase 5 of the refactoring has been completed with the following changes:
 - Improved performance in data processing flows
 - Standard compliance with Plug ecosystem
 - Easier integration with external systems
+
+## Protocol Implementation Enhancements
+
+### gRPC Server Implementation
+
+**Status: NEEDS INVESTIGATION**
+
+The current gRPC implementation might not fully serve requests properly:
+
+- The gRPC adapter is initialized but may not be listening on the expected TCP port (50051)
+- Connection attempts from the Rust CLI to localhost:50051 are refused
+- The server may be missing proper HTTP/2 implementation required for gRPC
+- Need to investigate if an appropriate Elixir gRPC library is integrated
+
+Debug steps to complete:
+1. Verify if any gRPC libraries are present in dependencies
+2. Check if the gRPC server is properly configured to listen on port 50051
+3. Implement proper HTTP/2 server binding if missing
+4. Add explicit logging for gRPC server initialization 
+5. Ensure proper integration between the SystemInfo module and gRPC service
+6. Add connection diagnostics to monitor successful connections
+
+This issue currently prevents the graph_os_cli Rust client from connecting to the GraphOS system via gRPC.
 
 ## Security Enhancements
 

@@ -3,7 +3,7 @@ defmodule GraphOS.Protocol.GRPC do
   gRPC protocol adapter for GraphOS components.
 
   This adapter provides a gRPC interface to GraphOS, utilizing Protocol Buffers
-  as the canonical serialization format. It integrates with the GraphOS.Graph.Schema system
+  as the canonical serialization format. It integrates with the GraphOS.GraphContext.Schema system
   to provide strongly-typed gRPC services.
 
   The gRPC adapter serves as the foundation for the protocol upgrade system,
@@ -13,7 +13,7 @@ defmodule GraphOS.Protocol.GRPC do
 
   - `:name` - Name to register the adapter process (optional)
   - `:plugs` - List of plugs to apply to operations (optional)
-  - `:graph_module` - The Graph module to use (default: `GraphOS.Graph`)
+  - `:graph_module` - The Graph module to use (default: `GraphOS.GraphContext`)
   - `:schema_module` - The Schema module that defines Protocol Buffer messages
   - `:service_module` - The Protocol Buffer service module (default: from schema_module)
 
@@ -63,6 +63,9 @@ defmodule GraphOS.Protocol.GRPC do
   use GraphOS.Protocol.Adapter
   alias GraphOS.Adapter.{Context, GenServer}
   alias GraphOS.Protocol.Schema, as: ProtocolSchema
+  
+  # Default gRPC port
+  @default_port 50051
 
   # State for this adapter
   defmodule State do
@@ -120,7 +123,7 @@ defmodule GraphOS.Protocol.GRPC do
 
   @impl true
   def init(opts) do
-    graph_module = Keyword.get(opts, :graph_module, GraphOS.Graph)
+    graph_module = Keyword.get(opts, :graph_module, GraphOS.GraphContext)
     schema_module = Keyword.fetch!(opts, :schema_module)
 
     # Get service module from schema or options
@@ -154,12 +157,45 @@ defmodule GraphOS.Protocol.GRPC do
             [auth_plug | existing_plugs]
           end
       end
+      
+    # Get the port from config, opts, or use default
+    port = 
+      Keyword.get(opts, :port) || 
+      Application.get_env(:graph_os_protocol, :grpc, [])[:port] ||
+      @default_port
+    
+    # Log the port being used
+    if opts[:verbose] do
+      IO.puts("Starting gRPC server on port #{port}")
+    end
+    
+    # Start Bandit HTTP/2 server for gRPC using proper Bandit config
+    # Create basic HTTP2-enabled server config
+    server_config = %{
+      plug: GraphOS.Protocol.Router,
+      scheme: :http,
+      port: port
+    }
+    
+    # Start the HTTP/2 server for gRPC
+    case Bandit.start_link(server_config) do
+      {:ok, _pid} ->
+        if opts[:verbose] do
+          IO.puts("HTTP/2 server for gRPC started successfully on port #{port}")
+        end
+        
+      {:error, reason} ->
+        IO.puts("Failed to start HTTP/2 server for gRPC: #{inspect(reason)}")
+        # Return error instead of continuing
+        {:error, {:http2_server_failed, reason}}
+    end
 
     # Start the GenServer adapter as a child
     gen_server_opts =
       Keyword.merge(opts,
         adapter: Keyword.get(opts, :gen_server_adapter, GenServer),
         graph_module: graph_module,
+        port: port,
         plugs: plugs
       )
 
@@ -172,6 +208,17 @@ defmodule GraphOS.Protocol.GRPC do
           service_module: service_module
         }
 
+        {:ok, state}
+        
+      {:error, {:already_started, pid}} ->
+        # If it's already started, use the existing process
+        state = %State{
+          graph_module: graph_module,
+          gen_server_adapter: pid,
+          schema_module: schema_module,
+          service_module: service_module
+        }
+        
         {:ok, state}
 
       {:error, reason} ->
@@ -241,10 +288,10 @@ defmodule GraphOS.Protocol.GRPC do
     else
       # Get the protobuf definition for this request type
       proto_def =
-        GraphOS.Graph.Schema.Protobuf.get_proto_definition(schema_module, request.__struct__)
+        GraphOS.GraphContext.Schema.Protobuf.get_proto_definition(schema_module, request.__struct__)
 
       # Convert the request to a map using the protobuf utilities
-      params = GraphOS.Graph.Schema.Protobuf.proto_to_map(request, proto_def)
+      params = GraphOS.GraphContext.Schema.Protobuf.proto_to_map(request, proto_def)
 
       # Default mapping based on method name conventions
       cond do
@@ -293,10 +340,10 @@ defmodule GraphOS.Protocol.GRPC do
       if response_type do
         # Get the protobuf definition for this message type
         proto_def =
-          GraphOS.Graph.Schema.Protobuf.get_proto_definition(schema_module, response_type)
+          GraphOS.GraphContext.Schema.Protobuf.get_proto_definition(schema_module, response_type)
 
         # Convert the result to a Protocol Buffer message
-        GraphOS.Graph.Schema.Protobuf.map_to_proto(result, proto_def, response_type)
+        GraphOS.GraphContext.Schema.Protobuf.map_to_proto(result, proto_def, response_type)
       else
         raise "Unable to determine response type for RPC: #{rpc_name}"
       end

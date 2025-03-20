@@ -3,7 +3,7 @@ defmodule GraphOS.Protocol.Schema do
   Protocol schema utilities for the upgradable protocol system.
 
   This module provides utilities for working with protocol schemas based on Protocol Buffers.
-  It integrates with the GraphOS.Graph.Schema system, using protobuf as the canonical
+  It integrates with the GraphOS.GraphContext.Schema system, using protobuf as the canonical
   schema definition.
 
   The Protocol Schema system allows upgrading between different protocols:
@@ -12,9 +12,9 @@ defmodule GraphOS.Protocol.Schema do
   - Plug/HTTP (upgraded from protobuf)
   - Model Context Protocol (upgraded from protobuf)
 
-  ## Integration with GraphOS.Graph.Schema
+  ## Integration with GraphOS.GraphContext.Schema
 
-  The Protocol Schema system uses GraphOS.Graph.Schema as the canonical source of
+  The Protocol Schema system uses GraphOS.GraphContext.Schema as the canonical source of
   schema definitions. The schema system uses protobuf definitions directly
   as the source of truth for all protocol formats.
 
@@ -33,7 +33,7 @@ defmodule GraphOS.Protocol.Schema do
 
   use Boundary, deps: [:graph_os_graph]
 
-  alias GraphOS.Graph.Schema.Protobuf
+  alias GraphOS.GraphContext.Schema.Protobuf
 
   @doc """
   Upgrades a Protocol Buffer message to JSON-RPC format.

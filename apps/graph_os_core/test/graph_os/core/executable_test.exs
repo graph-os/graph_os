@@ -2,18 +2,18 @@ defmodule GraphOS.Core.ExecutableTest do
   use ExUnit.Case, async: true
   @moduletag :code_graph
 
-  alias GraphOS.Graph.Node
+  alias GraphOS.GraphContext.Node
   alias GraphOS.Core.Executable
 
   setup do
-    # Initialize the ETS store directly to avoid dependency on GraphOS.Graph.init
-    GraphOS.Graph.Store.ETS.init([])
+    # Initialize the ETS store directly to avoid dependency on GraphOS.GraphContext.init
+    GraphOS.GraphContext.Store.ETS.init([])
     :ok
   end
 
   describe "GraphOS.Core.Executable protocol" do
 
-    test "GraphOS.Graph.Node implementation returns not_executable for regular nodes" do
+    test "GraphOS.GraphContext.Node implementation returns not_executable for regular nodes" do
       # Create a regular node without executable properties
       node = Node.new(%{name: "test_node"}, id: "test_node")
 
@@ -22,7 +22,7 @@ defmodule GraphOS.Core.ExecutableTest do
       assert result == {:error, :not_executable}
     end
 
-    test "GraphOS.Graph.Node implementation executes code from executable property" do
+    test "GraphOS.GraphContext.Node implementation executes code from executable property" do
       # Create a node with executable code
       node =
         Node.new(
@@ -38,7 +38,7 @@ defmodule GraphOS.Core.ExecutableTest do
       assert result == {:ok, 42}
     end
 
-    test "GraphOS.Graph.Node implementation executes code by type" do
+    test "GraphOS.GraphContext.Node implementation executes code by type" do
       # Create a node with executable type and code
       node =
         Node.new(
@@ -55,7 +55,7 @@ defmodule GraphOS.Core.ExecutableTest do
       assert result == {:ok, 42}
     end
 
-    test "GraphOS.Graph.Node implementation returns error for unknown executable type" do
+    test "GraphOS.GraphContext.Node implementation returns error for unknown executable type" do
       # Create a node with unknown executable type
       node =
         Node.new(

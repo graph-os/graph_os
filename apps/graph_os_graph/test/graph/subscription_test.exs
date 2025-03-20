@@ -1,14 +1,14 @@
-defmodule GraphOS.Graph.SubscriptionTest do
+defmodule GraphOS.GraphContext.SubscriptionTest do
   @moduledoc """
-  Tests for the GraphOS.Graph.Subscription behavior interface.
+  Tests for the GraphOS.GraphContext.Subscription behavior interface.
   
   These tests verify that the subscription interface is properly defined
   and that the NoOp implementation functions correctly.
   """
   use ExUnit.Case
 
-  alias GraphOS.Graph.Node
-  alias GraphOS.Graph.Subscription.NoOp
+  alias GraphOS.GraphContext.Node
+  alias GraphOS.GraphContext.Subscription.NoOp
 
   describe "Subscription interface" do
     test "NoOp module implements expected functions" do
@@ -35,7 +35,7 @@ defmodule GraphOS.Graph.SubscriptionTest do
     end
     
     test "broadcast always returns :ok" do
-      event = {:node_created, %Node{id: "test", key: nil, data: %{}, meta: GraphOS.Graph.Meta.new()}}
+      event = {:node_created, %Node{id: "test", key: nil, data: %{}, meta: GraphOS.GraphContext.Meta.new()}}
       assert :ok = NoOp.broadcast("test:topic", event)
     end
     

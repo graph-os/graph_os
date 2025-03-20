@@ -3,23 +3,30 @@ defmodule GraphOS.DevWeb.CodeGraphController do
   Controller for code graph data API endpoints.
 
   Provides JSON endpoints for code graph visualization data.
+  Note: Currently disabled during refactoring.
   """
   use GraphOS.DevWeb, :controller
   require Logger
 
   @query_module Application.compile_env(:graph_os_dev, :query_module, GraphOS.Graph.Query)
+  @code_graph_enabled Application.compile_env(:graph_os_dev, :enable_code_graph, false)
+
+  # Message shown when CodeGraph is disabled
+  @disabled_message "CodeGraph functionality is currently disabled during refactoring."
 
   @doc """
   Get graph data for a specific file
   """
-  def file_data(conn, %{"path" => file_path}) do
-    case get_graph_data_for_file(file_path) do
-      {:ok, data} ->
-        json(conn, data)
-      {:error, error} ->
-        conn
-        |> put_status(400)
-        |> json(%{error: format_error_message(error)})
+  def file_data(conn, %{"path" => _file_path}) do
+    if @code_graph_enabled do
+      # Original implementation here (not called when disabled)
+      conn
+      |> put_status(503)
+      |> json(%{error: %{message: @disabled_message}})
+    else
+      conn
+      |> put_status(503)
+      |> json(%{error: %{message: @disabled_message}})
     end
   end
 
@@ -32,14 +39,16 @@ defmodule GraphOS.DevWeb.CodeGraphController do
   @doc """
   Get graph data for a specific module
   """
-  def module_data(conn, %{"name" => module_name}) do
-    case get_graph_data_for_module(module_name) do
-      {:ok, data} ->
-        json(conn, data)
-      {:error, error} ->
-        conn
-        |> put_status(400)
-        |> json(%{error: format_error_message(error)})
+  def module_data(conn, %{"name" => _module_name}) do
+    if @code_graph_enabled do
+      # Original implementation here (not called when disabled)
+      conn
+      |> put_status(503)
+      |> json(%{error: %{message: @disabled_message}})
+    else
+      conn
+      |> put_status(503)
+      |> json(%{error: %{message: @disabled_message}})
     end
   end
 
@@ -53,255 +62,31 @@ defmodule GraphOS.DevWeb.CodeGraphController do
   Get lists of files and modules
   """
   def list_data(conn, _params) do
-    case get_files_and_modules() do
-      {:ok, data} ->
-        json(conn, data)
-      {:error, error} ->
-        conn
-        |> put_status(500)
-        |> json(%{error: format_error_message(error)})
+    if @code_graph_enabled do
+      # Original implementation here (not called when disabled)
+      conn
+      |> put_status(503)
+      |> json(%{error: %{message: @disabled_message}})
+    else
+      # Return a placeholder response when disabled
+      watch_dirs = Application.get_env(:graph_os_core, :watch_directories, ["lib"])
+      file_pattern = Application.get_env(:graph_os_core, :file_pattern, "**/*.ex")
+      
+      # Just return empty data with a note that it's disabled
+      json(conn, %{
+        files: [],
+        modules: [],
+        stats: %{
+          indexed_modules: 0,
+          indexed_functions: 0,
+          indexed_files: 0,
+          disabled: true,
+          watched_dirs: watch_dirs,
+          file_pattern: file_pattern
+        },
+        notice: @disabled_message
+      })
     end
-  end
-
-  # Private helper functions
-
-  defp get_files_and_modules do
-    try do
-      # Check if the CodeGraph service is running
-      case check_service_running() do
-        {:error, reason} -> {:error, reason}
-        :ok ->
-          case get_service_status() do
-            {:error, reason} -> {:error, reason}
-            {:ok, status} ->
-              combine_files_and_modules(status)
-          end
-      end
-    rescue
-      e ->
-        Logger.error("Error in get_files_and_modules: #{inspect(e)}")
-        {:error, Exception.message(e)}
-    end
-  end
-
-  defp check_service_running do
-    case Process.whereis(GraphOS.Core.CodeGraph.Service) do
-      nil ->
-        Logger.warning("CodeGraph.Service is not running. Unable to fetch files and modules list.")
-        {:error, "CodeGraph service not available. Please ensure it's enabled in your configuration."}
-      _pid -> :ok
-    end
-  end
-
-  defp get_service_status do
-    case GraphOS.Core.CodeGraph.Service.status() do
-      {:ok, status} -> {:ok, status}
-      {:error, reason} ->
-        Logger.error("Failed to get CodeGraph service status: #{inspect(reason)}")
-        {:error, "Failed to communicate with CodeGraph service"}
-    end
-  end
-
-  defp combine_files_and_modules(status) do
-    # Get files using FileWatcher functionality
-    # We'll use the same directories configured for CodeGraph
-    watch_dirs = Application.get_env(:graph_os_core, :watch_directories, ["lib"])
-    file_pattern = Application.get_env(:graph_os_core, :file_pattern, "**/*.ex")
-    exclude_pattern = Application.get_env(:graph_os_core, :exclude_pattern)
-
-    # Get all files matching the pattern in all directories
-    files = get_files_from_directories(watch_dirs, file_pattern, exclude_pattern)
-
-    # Get modules from the code graph
-    case GraphOS.Graph.Query.find_nodes_by_properties(%{}) do
-      {:ok, nodes} ->
-        # Extract modules from nodes
-        modules = extract_modules_from_nodes(nodes)
-
-        # Return unique sorted lists
-        {:ok, %{
-          files: Enum.uniq(files) |> Enum.sort(),
-          modules: Enum.uniq(modules) |> Enum.sort(),
-          stats: %{
-            indexed_modules: status[:modules] || 0,
-            indexed_functions: status[:functions] || 0,
-            indexed_files: status[:files] || 0
-          }
-        }}
-
-      {:error, reason} ->
-        Logger.error("Failed to query graph nodes: #{inspect(reason)}")
-        {:error, "Failed to retrieve modules from graph"}
-    end
-  end
-
-  defp extract_modules_from_nodes(nodes) do
-    Enum.reduce(nodes, [], fn node, modules_acc ->
-      if node.id =~ ~r/^[A-Z].*\..*/ do
-        [node.id | modules_acc]
-      else
-        modules_acc
-      end
-    end)
-  end
-
-  # Helper function to get files from directories respecting .gitignore
-  defp get_files_from_directories(directories, file_pattern, exclude_pattern) do
-    # Get all files matching the pattern in all directories
-    all_files =
-      Enum.flat_map(directories, fn dir ->
-        pattern = Path.join(dir, file_pattern)
-        Path.wildcard(pattern)
-      end)
-      |> Enum.map(&normalize_path/1) # Normalize paths for consistency
-
-    # Filter out excluded files and respect .gitignore
-    filtered_files =
-      if exclude_pattern do
-        exclude_paths = Path.wildcard(exclude_pattern) |> Enum.map(&normalize_path/1)
-        Enum.reject(all_files, & &1 in exclude_paths)
-      else
-        all_files
-      end
-
-    # Further filter to respect .gitignore patterns
-    # First find all .gitignore files in project
-    gitignore_files = find_gitignore_files(directories)
-
-    # Parse gitignore patterns
-    gitignore_patterns = parse_gitignore_files(gitignore_files)
-
-    # Filter out files matching gitignore patterns
-    Enum.reject(filtered_files, fn file ->
-      matches_gitignore?(file, gitignore_patterns)
-    end)
-  end
-
-  # Normalize file paths to ensure consistency
-  defp normalize_path(path) do
-    # Convert absolute paths to relative from project root
-    case Path.type(path) do
-      :absolute ->
-        # Try to make it relative to the application root
-        project_root = Application.app_dir(:graph_os_dev) |> Path.dirname() |> Path.dirname()
-        case Path.relative_to(path, project_root) do
-          ^path -> path # If unchanged, it wasn't under project_root
-          relative_path -> relative_path
-        end
-      _ -> path # Already relative, return as is
-    end
-    |> String.replace("\\", "/") # Normalize separators for cross-platform consistency
-  end
-
-  # Find all .gitignore files in the project
-  defp find_gitignore_files(directories) do
-    Enum.flat_map(directories, fn dir ->
-      base_dir = Path.join([dir, ".."])
-      Path.wildcard(Path.join([base_dir, "**/.gitignore"]))
-    end)
-  end
-
-  # Parse gitignore files into a list of patterns
-  defp parse_gitignore_files(gitignore_files) do
-    Enum.flat_map(gitignore_files, fn file ->
-      case File.read(file) do
-        {:ok, content} ->
-          process_gitignore_content(content, Path.dirname(file))
-        {:error, _} ->
-          []
-      end
-    end)
-  end
-
-  # Process the content of a gitignore file
-  defp process_gitignore_content(content, base_dir) do
-    content
-    |> String.split("\n")
-    |> Enum.map(&String.trim/1)
-    |> Enum.reject(fn line -> line == "" or String.starts_with?(line, "#") end)
-    |> Enum.map(fn pattern -> {Path.join(base_dir, pattern), pattern} end)
-  end
-
-  # Check if a file matches any gitignore pattern
-  defp matches_gitignore?(file, gitignore_patterns) do
-    Enum.any?(gitignore_patterns, fn {full_pattern, pattern} ->
-      # Handle different pattern types (exact, directory, wildcard)
-      cond do
-        # Exact file match
-        Path.wildcard(full_pattern) |> Enum.member?(file) -> true
-
-        # Directory match (pattern ends with /)
-        String.ends_with?(pattern, "/") and String.starts_with?(file, String.trim_trailing(full_pattern, "/")) -> true
-
-        # Wildcard pattern
-        String.contains?(pattern, "*") and Path.wildcard(full_pattern) |> Enum.member?(file) -> true
-
-        # No match
-        true -> false
-      end
-    end)
-  end
-
-  defp get_graph_data_for_file(file_path) do
-    try do
-      # Fetch nodes and edges associated with this file
-      case @query_module.execute(start_node_id: file_path, depth: 2) do
-        {:ok, results} ->
-          {:ok, %{nodes: results}}
-        {:error, reason} ->
-          # Format the error message for JSON encoding
-          error_message = format_error_message(reason)
-          {:error, error_message}
-      end
-    rescue
-      e -> {:error, Exception.message(e)}
-    end
-  end
-
-  defp get_graph_data_for_module(module_name) do
-    try do
-      # Check if the CodeGraph service is running
-      case Process.whereis(GraphOS.Core.CodeGraph.Service) do
-        nil ->
-          # Service is not running
-          Logger.warning("CodeGraph.Service is not running. Unable to fetch module data.")
-          {:error, "CodeGraph service not available. Please ensure it's enabled in your configuration."}
-
-        _pid ->
-          # Service is running, try to query it
-          case GraphOS.Core.CodeGraph.Service.query_module(module_name) do
-            {:ok, module_info} ->
-              # Transform the module info into a format suitable for visualization
-              {:ok, transform_module_info_for_visualization(module_info)}
-            {:error, reason} ->
-              # Format the error message for JSON encoding
-              error_message = format_error_message(reason)
-              {:error, error_message}
-          end
-      end
-    rescue
-      e ->
-        Logger.error("Error getting graph data for module #{module_name}: #{inspect(e)}")
-        {:error, "Failed to get graph data for module: #{Exception.message(e)}"}
-    end
-  end
-
-  # Transform module info from CodeGraph.Service into visualization format
-  defp transform_module_info_for_visualization(module_info) do
-    # Extract nodes and edges from the module info
-    # This is a simplified implementation - you may need to adjust based on your actual data structure
-    module_node = module_info[:module]
-    function_nodes = module_info[:functions] || []
-    dependency_nodes = module_info[:dependencies] || []
-
-    # Combine all nodes
-    nodes = [module_node] ++ function_nodes ++ dependency_nodes
-
-    # Return in format expected by the visualization
-    %{
-      nodes: nodes,
-      module: module_node
-    }
   end
 
   # Format error messages for JSON encoding

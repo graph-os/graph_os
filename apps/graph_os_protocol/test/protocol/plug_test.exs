@@ -3,7 +3,7 @@ defmodule GraphOS.Protocol.PlugTest do
   use Plug.Test
 
   alias GraphOS.Protocol.Plug
-  alias GraphOS.Graph.Schema.TestPersonSchema
+  alias GraphOS.GraphContext.Schema.TestPersonSchema
 
   # Create a real adapter implementation for testing
   defmodule TestAdapter do

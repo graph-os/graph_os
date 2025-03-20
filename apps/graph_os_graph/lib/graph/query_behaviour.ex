@@ -1,4 +1,4 @@
-defmodule GraphOS.Graph.QueryBehaviour do
+defmodule GraphOS.GraphContext.QueryBehaviour do
   @moduledoc """
   Defines the behaviour for graph query implementations.
 

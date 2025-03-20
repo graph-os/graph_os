@@ -1,4 +1,4 @@
-defmodule GraphOS.Graph.Meta do
+defmodule GraphOS.GraphContext.Meta do
   @moduledoc """
   A module for managing metadata for the graph.
   """

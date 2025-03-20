@@ -67,30 +67,60 @@ defmodule Mix.Tasks.Protocol.Server do
   defp start_protocol_adapters do
     Mix.shell().info("Starting protocol adapters...")
 
-    # Start JSONRPC adapter
-    case GraphOS.Protocol.JSONRPC.start_link(
-      name: GraphOS.Protocol.JSONRPCAdapter,
-      plugs: [
-        # Default auth plug is automatically included unless explicitly disabled
-      ]
-    ) do
-      {:ok, pid} ->
-        Mix.shell().info("✅ JSONRPC adapter started (#{inspect pid})")
-      {:error, reason} ->
-        Mix.shell().error("❌ Failed to start JSONRPC adapter: #{inspect reason}")
+    # Try to start the GRPC adapter, or reconnect to existing one
+    adapter_name = :"GraphOS.Protocol.GRPCAdapter_#{System.system_time(:millisecond)}"
+    
+    # Import system info schema
+    system_info_schema = GraphOS.Core.SystemInfo.Schema
+    
+    grpc_result = try do
+      case GraphOS.Protocol.GRPC.start_link(
+        name: adapter_name,
+        schema_module: system_info_schema,
+        plugs: [
+          # Default auth plug is automatically included unless explicitly disabled
+        ]
+      ) do
+        {:ok, pid} ->
+          Mix.shell().info("✅ GRPC adapter started (#{inspect pid}) with name #{inspect adapter_name}")
+        {:error, {:already_started, pid}} ->
+          Mix.shell().info("✅ GRPC adapter already running (#{inspect pid})")
+        {:error, reason} ->
+          Mix.shell().error("❌ Failed to start GRPC adapter: #{inspect reason}")
+          {:error, reason}
+      end
+    rescue
+      e -> 
+        Mix.shell().error("❌ Exception while starting GRPC adapter: #{inspect e}")
+        {:error, e}
     end
 
-    # Start GRPC adapter
-    case GraphOS.Protocol.GRPC.start_link(
-      name: GraphOS.Protocol.GRPCAdapter
-    ) do
-      {:ok, pid} ->
-        Mix.shell().info("✅ GRPC adapter started (#{inspect pid})")
-      {:error, reason} ->
-        Mix.shell().error("❌ Failed to start GRPC adapter: #{inspect reason}")
+    # Also start JSONRPC adapter as a fallback
+    adapter_name = :"GraphOS.Protocol.JSONRPCAdapter_#{System.system_time(:millisecond)}"
+    
+    jsonrpc_result = try do
+      case GraphOS.Protocol.JSONRPC.start_link(
+        name: adapter_name,
+        plugs: [
+          # Default auth plug is automatically included unless explicitly disabled
+        ]
+      ) do
+        {:ok, pid} ->
+          Mix.shell().info("✅ JSONRPC adapter started (#{inspect pid}) with name #{inspect adapter_name}")
+        {:error, {:already_started, pid}} ->
+          Mix.shell().info("✅ JSONRPC adapter already running (#{inspect pid})")
+        {:error, reason} ->
+          Mix.shell().error("❌ Failed to start JSONRPC adapter: #{inspect reason}")
+          {:error, reason}
+      end
+    rescue
+      e -> 
+        Mix.shell().error("❌ Exception while starting JSONRPC adapter: #{inspect e}")
+        {:error, e}
     end
 
-    # Add any other protocol adapters here as needed
+    # Return results, mainly for debugging
+    {grpc_result, jsonrpc_result}
   end
 
   # Override the standard run method to add our custom commands

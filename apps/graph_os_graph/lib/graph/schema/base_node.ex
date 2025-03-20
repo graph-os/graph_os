@@ -1,4 +1,4 @@
-defmodule GraphOS.Graph.Schema.BaseNode do
+defmodule GraphOS.GraphContext.Schema.BaseNode do
   @moduledoc """
   Base schema for nodes in the graph.
   
@@ -7,7 +7,7 @@ defmodule GraphOS.Graph.Schema.BaseNode do
   fields in their own definitions.
   """
   
-  @behaviour GraphOS.Graph.SchemaBehaviour
+  @behaviour GraphOS.GraphContext.SchemaBehaviour
   
   @doc """
   Returns the base fields for a node.

@@ -1,4 +1,4 @@
-defmodule GraphOS.Graph.Schema.Adapter do
+defmodule GraphOS.GraphContext.Schema.Adapter do
   @moduledoc """
   Utilities for adapting GraphOS schemas to different formats.
   
@@ -12,7 +12,7 @@ defmodule GraphOS.Graph.Schema.Adapter do
   can be used by those adapters.
   """
   
-  alias GraphOS.Graph.Schema
+  alias GraphOS.GraphContext.Schema
   
   @doc """
   Maps GraphOS schema types to Protobuf types.
@@ -21,10 +21,10 @@ defmodule GraphOS.Graph.Schema.Adapter do
   corresponding Protobuf types.
   
   ## Examples
-      iex> GraphOS.Graph.Schema.Adapter.to_protobuf_type(:string)
+      iex> GraphOS.GraphContext.Schema.Adapter.to_protobuf_type(:string)
       :string
       
-      iex> GraphOS.Graph.Schema.Adapter.to_protobuf_type(:integer)
+      iex> GraphOS.GraphContext.Schema.Adapter.to_protobuf_type(:integer)
       :int32
   """
   @spec to_protobuf_type(Schema.field_type()) :: atom()
@@ -45,10 +45,10 @@ defmodule GraphOS.Graph.Schema.Adapter do
   corresponding GraphOS schema types.
   
   ## Examples
-      iex> GraphOS.Graph.Schema.Adapter.from_protobuf_type(:string)
+      iex> GraphOS.GraphContext.Schema.Adapter.from_protobuf_type(:string)
       :string
       
-      iex> GraphOS.Graph.Schema.Adapter.from_protobuf_type(:int32)
+      iex> GraphOS.GraphContext.Schema.Adapter.from_protobuf_type(:int32)
       :integer
   """
   @spec from_protobuf_type(atom()) :: Schema.field_type()
@@ -78,10 +78,10 @@ defmodule GraphOS.Graph.Schema.Adapter do
   corresponding JSONSchema types.
   
   ## Examples
-      iex> GraphOS.Graph.Schema.Adapter.to_json_schema_type(:string)
+      iex> GraphOS.GraphContext.Schema.Adapter.to_json_schema_type(:string)
       "string"
       
-      iex> GraphOS.Graph.Schema.Adapter.to_json_schema_type(:integer)
+      iex> GraphOS.GraphContext.Schema.Adapter.to_json_schema_type(:integer)
       "integer"
   """
   @spec to_json_schema_type(Schema.field_type()) :: String.t() | map()
@@ -112,13 +112,13 @@ defmodule GraphOS.Graph.Schema.Adapter do
   from GraphOS schema modules.
   
   ## Parameters
-    * `schema_module` - Module implementing the GraphOS.Graph.SchemaBehaviour
+    * `schema_module` - Module implementing the GraphOS.GraphContext.SchemaBehaviour
     
   ## Returns
     * String containing the Protobuf message definition
     
   ## Examples
-      iex> GraphOS.Graph.Schema.Adapter.generate_proto_message(MyApp.PersonSchema)
+      iex> GraphOS.GraphContext.Schema.Adapter.generate_proto_message(MyApp.PersonSchema)
       \"\"\"
       message Person {
         string name = 1;
@@ -193,13 +193,13 @@ defmodule GraphOS.Graph.Schema.Adapter do
   Protobuf field names and GraphOS schema field names.
   
   ## Parameters
-    * `schema_module` - Module implementing the GraphOS.Graph.SchemaBehaviour
+    * `schema_module` - Module implementing the GraphOS.GraphContext.SchemaBehaviour
     
   ## Returns
     * Map with Protobuf field names as keys and GraphOS field names as values
     
   ## Examples
-      iex> GraphOS.Graph.Schema.Adapter.generate_field_mapping(MyApp.PersonSchema)
+      iex> GraphOS.GraphContext.Schema.Adapter.generate_field_mapping(MyApp.PersonSchema)
       %{
         "name" => :name,
         "age" => :age

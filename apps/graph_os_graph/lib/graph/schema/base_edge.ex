@@ -1,4 +1,4 @@
-defmodule GraphOS.Graph.Schema.BaseEdge do
+defmodule GraphOS.GraphContext.Schema.BaseEdge do
   @moduledoc """
   Base schema for edges in the graph.
   
@@ -7,7 +7,7 @@ defmodule GraphOS.Graph.Schema.BaseEdge do
   fields in their own definitions.
   """
   
-  @behaviour GraphOS.Graph.SchemaBehaviour
+  @behaviour GraphOS.GraphContext.SchemaBehaviour
   
   @doc """
   Returns the base fields for an edge.

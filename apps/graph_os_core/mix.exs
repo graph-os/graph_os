@@ -41,6 +41,7 @@ defmodule GraphOS.Core.MixProject do
       {:mcp, in_umbrella: true},
       {:boundary, "~> 0.9", runtime: false},
       {:gen_stage, "~> 1.2"},
+      {:uuid, "~> 1.1"},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false}
     ]
   end
@@ -88,13 +89,14 @@ defmodule GraphOS.Core.MixProject do
         GraphOS.Core.Executable,
         GraphOS.Core.AccessControl,
         GraphOS.Core.GitIntegration,
-        # Adapter system
-        GraphOS.Adapter,
-        GraphOS.Adapter.GraphAdapter,
-        GraphOS.Adapter.Context,
-        GraphOS.Adapter.Server,
-        GraphOS.Adapter.PlugAdapter,
-        GraphOS.Adapter.GenServer
+        GraphOS.Core.SystemInfo,
+        # Connection and Graph functionality
+        GraphOS.Conn,
+        GraphOS.ConnSupervisor,
+        GraphOS.Graph,
+        GraphOS.Graph.Subscription,
+        GraphOS.Registry,
+        GraphOS.Server
       ]
     ]
   end

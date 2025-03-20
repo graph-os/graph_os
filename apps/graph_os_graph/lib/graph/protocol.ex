@@ -1,4 +1,4 @@
-defmodule GraphOS.Graph.Protocol do
+defmodule GraphOS.GraphContext.Protocol do
   @moduledoc """
   Protocol for graph operations.
   
@@ -15,7 +15,7 @@ defmodule GraphOS.Graph.Protocol do
   
   use Boundary, deps: []
 
-  alias GraphOS.Graph.{Transaction, Operation, Node, Edge, Query}
+  alias GraphOS.GraphContext.{Transaction, Operation, Node, Edge, Query}
 
   # Core protocol callbacks
   @callback init(opts :: keyword()) :: {:ok, map()} | :ok | {:error, term()}

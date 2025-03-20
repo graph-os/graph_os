@@ -1,11 +1,11 @@
-defmodule GraphOS.Graph.Edge do
+defmodule GraphOS.GraphContext.Edge do
   @moduledoc """
   A module for managing edges in a graph.
   """
   
   use Boundary, deps: []
 
-  alias GraphOS.Graph.Meta
+  alias GraphOS.GraphContext.Meta
 
   @typedoc "The id of the edge"
   @type id() :: String.t() | integer()

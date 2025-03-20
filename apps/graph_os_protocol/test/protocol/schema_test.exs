@@ -2,7 +2,7 @@ defmodule GraphOS.Protocol.SchemaTest do
   use ExUnit.Case, async: true
 
   alias GraphOS.Protocol.Schema
-  alias GraphOS.Graph.Schema.TestPersonSchema
+  alias GraphOS.GraphContext.Schema.TestPersonSchema
 
   # Create struct modules to match the test expectations
   defmodule GetNodeRequest do

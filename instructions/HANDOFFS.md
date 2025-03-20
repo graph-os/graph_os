@@ -39,23 +39,23 @@ Each handoff should include:
 
 **Context**:
 
-We're building an upgradable protocol system based on Protocol Buffers. The current implementation plan requires changes to the GraphOS.Graph schema system to use protobuf types as the canonical representation.
+We're building an upgradable protocol system based on Protocol Buffers. The current implementation plan requires changes to the GraphOS.GraphContext schema system to use protobuf types as the canonical representation.
 
 **Requirements**:
 
-1. Extend `GraphOS.Graph.SchemaBehaviour` to support protobuf as the primary schema definition:
+1. Extend `GraphOS.GraphContext.SchemaBehaviour` to support protobuf as the primary schema definition:
    - Add `proto_definition/0` callback that returns a protobuf schema definition
    - Add `proto_field_mapping/0` callback that maps protobuf fields to graph fields
    - Support all standard protobuf types (int32, int64, string, bool, bytes, etc.)
    - Support message composition and nesting
 
-2. Enhance `GraphOS.Graph.Schema` module to:
+2. Enhance `GraphOS.GraphContext.Schema` module to:
    - Generate schema validations directly from protobuf definitions
    - Handle protobuf enum definitions
    - Support repeated fields (lists)
    - Support map fields
 
-3. Create `GraphOS.Graph.Schema.Protobuf` module that:
+3. Create `GraphOS.GraphContext.Schema.Protobuf` module that:
    - Provides utilities to work with protobuf definitions
    - Includes functions to validate data against protobuf schemas
    - Has helpers to convert between protobuf and Elixir data structures
@@ -76,7 +76,7 @@ The protocol adapters will use this enhanced schema system as the canonical sour
 
 **Completion Notes**:
 - Implementation added two new callbacks to SchemaBehaviour: `proto_definition/0` and `proto_field_mapping/0`
-- Created GraphOS.Graph.Schema.Protobuf with utilities for parsing and validating protobuf schemas
+- Created GraphOS.GraphContext.Schema.Protobuf with utilities for parsing and validating protobuf schemas
 - Enhanced Schema.Adapter with improved support for protobuf type mappings
 - Added support for all required protobuf types including nested messages, enums, maps, and repeated fields
 - Updated existing base schemas (BaseNode, BaseEdge) to use protobuf

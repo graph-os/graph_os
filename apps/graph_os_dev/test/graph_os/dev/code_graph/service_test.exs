@@ -243,13 +243,13 @@ defmodule GraphOS.Dev.CodeGraph.ServiceTest do
 
   defp start_registry_and_supervisor do
     # Start the registry
-    case Registry.start_link(keys: :unique, name: GraphOS.Graph.StoreRegistry) do
+    case Registry.start_link(keys: :unique, name: GraphOS.GraphContext.StoreRegistry) do
       {:ok, _} -> :ok
       {:error, {:already_started, _}} -> :ok
     end
 
     # Start the supervisor
-    case DynamicSupervisor.start_link(name: GraphOS.Graph.StoreSupervisor, strategy: :one_for_one) do
+    case DynamicSupervisor.start_link(name: GraphOS.GraphContext.StoreSupervisor, strategy: :one_for_one) do
       {:ok, _} -> :ok
       {:error, {:already_started, _}} -> :ok
     end

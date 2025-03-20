@@ -1,7 +1,7 @@
 defmodule GraphOS.Core.AccessControlTest do
   use ExUnit.Case, async: false
 
-  alias GraphOS.Graph
+  alias GraphOS.GraphContext
   alias GraphOS.Core.AccessControl
   alias GraphOS.Core.Access.GraphAccess
 

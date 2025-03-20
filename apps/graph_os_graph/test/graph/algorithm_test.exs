@@ -1,14 +1,14 @@
-defmodule GraphOS.Graph.AlgorithmTest do
+defmodule GraphOS.GraphContext.AlgorithmTest do
   @moduledoc """
-  Tests for GraphOS.Graph.Algorithm - focusing on high-level algorithm functions.
+  Tests for GraphOS.GraphContext.Algorithm - focusing on high-level algorithm functions.
   
   Note: Several tests are currently skipped (@tag :skip) as they depend on 
   algorithm implementations that are not yet fully functional.
   """
   use ExUnit.Case
 
-  alias GraphOS.Graph.{Node, Edge, Operation, Algorithm, Meta}
-  alias GraphOS.Graph.Store.ETS, as: ETSStore
+  alias GraphOS.GraphContext.{Node, Edge, Operation, Algorithm, Meta}
+  alias GraphOS.GraphContext.Store.ETS, as: ETSStore
 
   setup do
     # Initialize the store before each test

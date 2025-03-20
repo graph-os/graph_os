@@ -12,7 +12,10 @@ defmodule GraphOS.Core.Application do
       {GraphOS.Core.Access.Supervisor, []},
 
       # Component Registry
-      {GraphOS.Component.Registry, []}
+      {GraphOS.Component.Registry, []},
+      
+      # System Info Service
+      {GraphOS.Core.SystemInfo, []}
     ]
 
     # Add CodeGraph Service if enabled

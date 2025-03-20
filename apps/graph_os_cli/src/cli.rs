@@ -23,6 +23,10 @@ pub struct Cli {
     #[arg(long)]
     pub use_https: bool,
     
+    /// gRPC port (for gRPC-specific commands)
+    #[arg(long, default_value_t = 50051)]
+    pub grpc_port: u16,
+    
     /// API provider (openai, anthropic, gemini, custom)
     #[arg(long)]
     pub provider: Option<String>,
@@ -47,6 +51,12 @@ pub enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigCommands,
+    },
+    
+    /// System information commands
+    SystemInfo {
+        #[command(subcommand)]
+        action: Option<SystemInfoCommands>,
     },
 }
 
@@ -93,4 +103,21 @@ pub enum ConfigCommands {
     
     /// Show the current configuration
     Show,
+}
+
+#[derive(Subcommand)]
+pub enum SystemInfoCommands {
+    /// Get current system information
+    Current,
+    
+    /// Get historical system information
+    History {
+        /// Maximum number of records to return
+        #[arg(short, long)]
+        limit: Option<i32>,
+        
+        /// Get records since this Unix timestamp
+        #[arg(short, long)]
+        since: Option<i64>,
+    },
 }

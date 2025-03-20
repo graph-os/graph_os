@@ -1,25 +1,25 @@
-defmodule GraphOS.Graph.Store do
+defmodule GraphOS.GraphContext.Store do
   @moduledoc """
-  Context for `GraphOS.Graph` stores.
+  Context for `GraphOS.GraphContext` stores.
 
   ## Storage drivers
 
-  - `GraphOS.Graph.Store.ETS` - An ETS-based store.
+  - `GraphOS.GraphContext.Store.ETS` - An ETS-based store.
 
   ## Access Control
 
-  The store supports access control through the `GraphOS.Graph.Access` behaviour.
+  The store supports access control through the `GraphOS.GraphContext.Access` behaviour.
   Pass an access control module to store operations to enforce permissions:
 
   ```elixir
   # Initialize with access control
-  GraphOS.Graph.Store.init(GraphOS.Graph.Store.ETS, 
+  GraphOS.GraphContext.Store.init(GraphOS.GraphContext.Store.ETS, 
     access_control: MyAccessControl,
     access_context: %{actor_id: "user:alice", graph: graph}
   )
 
   # Query with access control
-  GraphOS.Graph.Store.query(params, GraphOS.Graph.Store.ETS,
+  GraphOS.GraphContext.Store.query(params, GraphOS.GraphContext.Store.ETS,
     access_control: MyAccessControl,
     access_context: %{actor_id: "user:alice", graph: graph}
   )
@@ -28,7 +28,7 @@ defmodule GraphOS.Graph.Store do
   
   use Boundary, deps: []
 
-  alias GraphOS.Graph.{Transaction, Operation, Node, Edge, Query}
+  alias GraphOS.GraphContext.{Transaction, Operation, Node, Edge, Query}
 
   @type t() :: module()
   @type access_control_module :: module() | nil
@@ -39,20 +39,20 @@ defmodule GraphOS.Graph.Store do
 
   ## Options
 
-  - `access_control` - Module implementing the `GraphOS.Graph.Access` behaviour
+  - `access_control` - Module implementing the `GraphOS.GraphContext.Access` behaviour
   - `access_context` - Map with context for access control decisions
   - Other options are passed to the store implementation
 
   ## Examples
 
-      iex> GraphOS.Graph.Store.init(GraphOS.Graph.Store.ETS)
+      iex> GraphOS.GraphContext.Store.init(GraphOS.GraphContext.Store.ETS)
       {:ok, %{table: :graph_os_ets_store}}
       
-      iex> GraphOS.Graph.Store.init(GraphOS.Graph.Store.ETS, access_control: MyAccessControl)
+      iex> GraphOS.GraphContext.Store.init(GraphOS.GraphContext.Store.ETS, access_control: MyAccessControl)
       {:ok, %{table: :graph_os_ets_store}}
   """
   @spec init(module(), keyword()) :: {:ok, term()} | {:error, term()}
-  def init(module \\ GraphOS.Graph.Store.ETS, opts \\ []) do
+  def init(module \\ GraphOS.GraphContext.Store.ETS, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
     _access_context = Keyword.get(opts, :access_context)
     
@@ -89,15 +89,15 @@ defmodule GraphOS.Graph.Store do
 
   ## Options
 
-  - `access_control` - Module implementing the `GraphOS.Graph.Access` behaviour
+  - `access_control` - Module implementing the `GraphOS.GraphContext.Access` behaviour
   - `access_context` - Map with context for access control decisions
 
   ## Examples
 
-      iex> GraphOS.Graph.Store.execute(transaction)
+      iex> GraphOS.GraphContext.Store.execute(transaction)
       {:ok, %{results: [...]}}
       
-      iex> GraphOS.Graph.Store.execute(transaction, access_control: MyAccessControl, access_context: %{actor_id: "user1"})
+      iex> GraphOS.GraphContext.Store.execute(transaction, access_control: MyAccessControl, access_context: %{actor_id: "user1"})
       {:ok, %{results: [...]}}
   """
   @spec execute(Transaction.t(), keyword()) :: Transaction.result()
@@ -137,7 +137,7 @@ defmodule GraphOS.Graph.Store do
 
   ## Options
 
-  - `access_control` - Module implementing the `GraphOS.Graph.Access` behaviour
+  - `access_control` - Module implementing the `GraphOS.GraphContext.Access` behaviour
   - `access_context` - Map with context for access control decisions
   """
   @spec rollback(Transaction.t(), keyword()) :: :ok | {:error, term()}
@@ -155,14 +155,14 @@ defmodule GraphOS.Graph.Store do
 
   ## Options
 
-  - `access_control` - Module implementing the `GraphOS.Graph.Access` behaviour
+  - `access_control` - Module implementing the `GraphOS.GraphContext.Access` behaviour
   - `access_context` - Map with context for access control decisions
   """
   @spec handle(Operation.message(), keyword()) :: :ok | {:error, term()}
   def handle(operation, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
     access_context = Keyword.get(opts, :access_context, %{})
-    store_module = Keyword.get(opts, :store, GraphOS.Graph.Store.ETS)
+    store_module = Keyword.get(opts, :store, GraphOS.GraphContext.Store.ETS)
     
     # Convert to structured operation if it's a message tuple
     op = if is_tuple(operation), do: Operation.from_message(operation), else: operation
@@ -188,7 +188,7 @@ defmodule GraphOS.Graph.Store do
   Close the store.
   """
   @spec close(module(), keyword()) :: :ok | {:error, term()}
-  def close(module \\ GraphOS.Graph.Store.ETS, _opts \\ []) do
+  def close(module \\ GraphOS.GraphContext.Store.ETS, _opts \\ []) do
     module.close()
   end
 
@@ -199,19 +199,19 @@ defmodule GraphOS.Graph.Store do
 
   ## Options
 
-  - `access_control` - Module implementing the `GraphOS.Graph.Access` behaviour
+  - `access_control` - Module implementing the `GraphOS.GraphContext.Access` behaviour
   - `access_context` - Map with context for access control decisions
 
   ## Examples
 
-      iex> GraphOS.Graph.Store.query(params, GraphOS.Graph.Store.ETS)
+      iex> GraphOS.GraphContext.Store.query(params, GraphOS.GraphContext.Store.ETS)
       {:ok, [%Node{}, ...]}
       
-      iex> GraphOS.Graph.Store.query(params, GraphOS.Graph.Store.ETS, access_control: MyAccessControl)
+      iex> GraphOS.GraphContext.Store.query(params, GraphOS.GraphContext.Store.ETS, access_control: MyAccessControl)
       {:ok, [%Node{}, ...]}
   """
   @spec query(Query.query_params(), module(), keyword()) :: Query.query_result()
-  def query(params, module \\ GraphOS.Graph.Store.ETS, opts \\ []) do
+  def query(params, module \\ GraphOS.GraphContext.Store.ETS, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
     access_context = Keyword.get(opts, :access_context, %{})
     
@@ -237,16 +237,16 @@ defmodule GraphOS.Graph.Store do
 
   ## Options
 
-  - `access_control` - Module implementing the `GraphOS.Graph.Access` behaviour
+  - `access_control` - Module implementing the `GraphOS.GraphContext.Access` behaviour
   - `access_context` - Map with context for access control decisions
 
   ## Examples
 
-      iex> GraphOS.Graph.Store.get_node("node1", GraphOS.Graph.Store.ETS)
+      iex> GraphOS.GraphContext.Store.get_node("node1", GraphOS.GraphContext.Store.ETS)
       {:ok, %Node{id: "node1", ...}}
   """
   @spec get_node(Node.id(), module(), keyword()) :: {:ok, Node.t()} | {:error, term()}
-  def get_node(node_id, module \\ GraphOS.Graph.Store.ETS, opts \\ []) do
+  def get_node(node_id, module \\ GraphOS.GraphContext.Store.ETS, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
     access_context = Keyword.get(opts, :access_context, %{})
     
@@ -271,16 +271,16 @@ defmodule GraphOS.Graph.Store do
 
   ## Options
 
-  - `access_control` - Module implementing the `GraphOS.Graph.Access` behaviour
+  - `access_control` - Module implementing the `GraphOS.GraphContext.Access` behaviour
   - `access_context` - Map with context for access control decisions
 
   ## Examples
 
-      iex> GraphOS.Graph.Store.get_edge("edge1", GraphOS.Graph.Store.ETS)
+      iex> GraphOS.GraphContext.Store.get_edge("edge1", GraphOS.GraphContext.Store.ETS)
       {:ok, %Edge{id: "edge1", ...}}
   """
   @spec get_edge(Edge.id(), module(), keyword()) :: {:ok, Edge.t()} | {:error, term()}
-  def get_edge(edge_id, module \\ GraphOS.Graph.Store.ETS, opts \\ []) do
+  def get_edge(edge_id, module \\ GraphOS.GraphContext.Store.ETS, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
     access_context = Keyword.get(opts, :access_context, %{})
     
@@ -305,16 +305,16 @@ defmodule GraphOS.Graph.Store do
 
   ## Options
 
-  - `access_control` - Module implementing the `GraphOS.Graph.Access` behaviour
+  - `access_control` - Module implementing the `GraphOS.GraphContext.Access` behaviour
   - `access_context` - Map with context for access control decisions
 
   ## Examples
 
-      iex> GraphOS.Graph.Store.find_nodes_by_properties(%{name: "John"}, GraphOS.Graph.Store.ETS)
+      iex> GraphOS.GraphContext.Store.find_nodes_by_properties(%{name: "John"}, GraphOS.GraphContext.Store.ETS)
       {:ok, [%Node{...}, ...]}
   """
   @spec find_nodes_by_properties(map(), module(), keyword()) :: {:ok, list(Node.t())} | {:error, term()}
-  def find_nodes_by_properties(properties, module \\ GraphOS.Graph.Store.ETS, opts \\ []) do
+  def find_nodes_by_properties(properties, module \\ GraphOS.GraphContext.Store.ETS, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
     access_context = Keyword.get(opts, :access_context, %{})
     
@@ -341,7 +341,7 @@ defmodule GraphOS.Graph.Store do
   def get_store_module do
     # In a real implementation, this would be configurable or determined from context
     # For now, we'll just use ETS as the default store
-    GraphOS.Graph.Store.ETS
+    GraphOS.GraphContext.Store.ETS
   end
   
   @doc """

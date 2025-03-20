@@ -1,4 +1,4 @@
-defmodule GraphOS.Graph.Schema.Protobuf do
+defmodule GraphOS.GraphContext.Schema.Protobuf do
   @moduledoc """
   Utilities for working with Protocol Buffer schemas in GraphOS.
   
@@ -11,7 +11,7 @@ defmodule GraphOS.Graph.Schema.Protobuf do
   and type safety.
   """
   
-  alias GraphOS.Graph.Schema
+  alias GraphOS.GraphContext.Schema
   
   @doc """
   Validates data against a protobuf schema definition.
@@ -28,7 +28,7 @@ defmodule GraphOS.Graph.Schema.Protobuf do
     * `{:error, reason}` - If validation fails
   
   ## Examples
-      iex> GraphOS.Graph.Schema.Protobuf.validate(%{name: "Alice", age: 30}, MyApp.PersonSchema)
+      iex> GraphOS.GraphContext.Schema.Protobuf.validate(%{name: "Alice", age: 30}, MyApp.PersonSchema)
       {:ok, %{name: "Alice", age: 30}}
   """
   @spec validate(map(), module()) :: {:ok, map()} | {:error, term()}
@@ -62,7 +62,7 @@ defmodule GraphOS.Graph.Schema.Protobuf do
       ...>   int32 age = 2;
       ...> }
       ...> \"\"\"
-      iex> GraphOS.Graph.Schema.Protobuf.extract_fields_from_proto(proto_def)
+      iex> GraphOS.GraphContext.Schema.Protobuf.extract_fields_from_proto(proto_def)
       [{:name, :string, [required: false]}, {:age, :integer, [required: false]}]
   """
   @spec extract_fields_from_proto(String.t()) :: [Schema.field_definition()]
@@ -101,7 +101,7 @@ defmodule GraphOS.Graph.Schema.Protobuf do
       ...>   BLUE = 2;
       ...> }
       ...> \"\"\"
-      iex> GraphOS.Graph.Schema.Protobuf.extract_enum_values(proto_def, "Color")
+      iex> GraphOS.GraphContext.Schema.Protobuf.extract_enum_values(proto_def, "Color")
       [:RED, :GREEN, :BLUE]
   """
   @spec extract_enum_values(String.t(), String.t()) :: [atom()]
@@ -132,7 +132,7 @@ defmodule GraphOS.Graph.Schema.Protobuf do
   ## Examples
       iex> proto_message = %{"name" => "Alice", "age" => 30}
       iex> field_mapping = %{"name" => :name, "age" => :age}
-      iex> GraphOS.Graph.Schema.Protobuf.proto_to_map(proto_message, field_mapping)
+      iex> GraphOS.GraphContext.Schema.Protobuf.proto_to_map(proto_message, field_mapping)
       %{name: "Alice", age: 30}
   """
   @spec proto_to_map(map(), map()) :: map()
@@ -158,7 +158,7 @@ defmodule GraphOS.Graph.Schema.Protobuf do
   ## Examples
       iex> map = %{name: "Alice", age: 30}
       iex> field_mapping = %{"name" => :name, "age" => :age}
-      iex> GraphOS.Graph.Schema.Protobuf.map_to_proto(map, field_mapping)
+      iex> GraphOS.GraphContext.Schema.Protobuf.map_to_proto(map, field_mapping)
       %{"name" => "Alice", "age" => 30}
   """
   @spec map_to_proto(map(), map()) :: map()

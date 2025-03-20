@@ -6,7 +6,7 @@ GraphOS is a modular, distributed graph operating system built with Elixir.
 
 GraphOS is organized as an umbrella application with multiple independent components:
 
-* **GraphOS.Graph** (`graph_os_graph`): Core graph library providing data structures, algorithms, and storage
+* **GraphOS.GraphContext** (`graph_os_graph`): Core graph library providing data structures, algorithms, and storage
 * **GraphOS.Core** (`graph_os_core`): OS functions such as access control and security
 * **GraphOS.MCP** (`graph_os_mcp`): Model Context Protocol implementation for AI/LLM integration
 * **GraphOS.Livebook** (`graph_os_livebook`): Livebook integration for interactive graph analysis
@@ -54,7 +54,7 @@ iex -S mix
 
 Each component can be started independently:
 
-#### GraphOS.Graph
+#### GraphOS.GraphContext
 
 ```bash
 cd graph_os/apps/graph_os_graph

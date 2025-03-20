@@ -1,4 +1,4 @@
-defmodule GraphOS.Graph.Algorithm.Weights do
+defmodule GraphOS.GraphContext.Algorithm.Weights do
   @moduledoc """
   Utility functions for handling edge weights in graph algorithms.
   """
@@ -9,7 +9,7 @@ defmodule GraphOS.Graph.Algorithm.Weights do
   If the edge is nil, returns the default_weight.
   If the edge has a weight, returns that weight.
   """
-  @spec get_edge_weight(GraphOS.Graph.Edge.t() | nil, any(), number() | nil) :: number()
+  @spec get_edge_weight(GraphOS.GraphContext.Edge.t() | nil, any(), number() | nil) :: number()
   def get_edge_weight(nil, _property_name, default_weight), do: default_weight
   def get_edge_weight(edge, _property_name, default_weight) do
     case edge.weight do
@@ -24,7 +24,7 @@ defmodule GraphOS.Graph.Algorithm.Weights do
   ## Examples
 
       iex> weights = %{"edge1" => 10, "edge2" => 20, "edge3" => 30}
-      iex> GraphOS.Graph.Algorithm.Weights.normalize_weights(weights)
+      iex> GraphOS.GraphContext.Algorithm.Weights.normalize_weights(weights)
       %{"edge1" => 0.0, "edge2" => 0.5, "edge3" => 1.0}
   """
   @spec normalize_weights(map()) :: map()
@@ -53,11 +53,11 @@ defmodule GraphOS.Graph.Algorithm.Weights do
   ## Examples
 
       iex> weights = %{"edge1" => 1, "edge2" => 2, "edge3" => 4}
-      iex> GraphOS.Graph.Algorithm.Weights.invert_weights(weights, :reciprocal)
+      iex> GraphOS.GraphContext.Algorithm.Weights.invert_weights(weights, :reciprocal)
       %{"edge1" => 1.0, "edge2" => 0.5, "edge3" => 0.25}
 
       iex> weights = %{"edge1" => 1, "edge2" => 2, "edge3" => 4}
-      iex> GraphOS.Graph.Algorithm.Weights.invert_weights(weights, :subtract)
+      iex> GraphOS.GraphContext.Algorithm.Weights.invert_weights(weights, :subtract)
       %{"edge1" => 3.0, "edge2" => 2.0, "edge3" => 0.0}
   """
   @spec invert_weights(map(), atom(), number() | nil) :: map()

@@ -114,10 +114,10 @@ Nodes can then be executed through the Graph API:
 
 ```elixir
 # Execute a node by ID
-GraphOS.Graph.execute_node(node_id, context, access_context)
+GraphOS.GraphContext.execute_node(node_id, context, access_context)
 
 # Execute a node directly
-GraphOS.Graph.execute(node, context, access_context)
+GraphOS.GraphContext.execute(node, context, access_context)
 ```
 
 ### 2. MCP Integration
@@ -200,17 +200,17 @@ Each graph instance maintains its own access control subgraph:
 
 ```elixir
 # Initialize a graph with access control
-GraphOS.Graph.init(name: "code_graph", access_control: true)
+GraphOS.GraphContext.init(name: "code_graph", access_control: true)
 
 # Access control is scoped to this specific graph
-GraphOS.Graph.grant_permission("code_graph", "user:alice", "filesystem", [:read])
+GraphOS.GraphContext.grant_permission("code_graph", "user:alice", "filesystem", [:read])
 ```
 
 ## Interface Consolidation
 
 To avoid duplication across Graph, MCP, and host interface APIs:
 
-1. **Primary API**: GraphOS.Graph is the primary API
+1. **Primary API**: GraphOS.GraphContext is the primary API
 2. **Protocol Adapters**: MCP automatically maps to Graph operations
 3. **Interface Bindings**: 
    - **GraphOS.Core**: Core system interfaces (filesystem, git, network)

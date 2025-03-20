@@ -1,6 +1,6 @@
-defmodule GraphOS.Graph.Store.ETSAlgorithmTest do
+defmodule GraphOS.GraphContext.Store.ETSAlgorithmTest do
   @moduledoc """
-  Tests for GraphOS.Graph.Store.ETS algorithm implementations.
+  Tests for GraphOS.GraphContext.Store.ETS algorithm implementations.
   
   These tests focus on the algorithm callbacks implemented by the ETS store.
   Some of these may return incomplete or partial results as the implementations
@@ -8,8 +8,8 @@ defmodule GraphOS.Graph.Store.ETSAlgorithmTest do
   """
   use ExUnit.Case
 
-  alias GraphOS.Graph.Operation
-  alias GraphOS.Graph.Store.ETS, as: ETSStore
+  alias GraphOS.GraphContext.Operation
+  alias GraphOS.GraphContext.Store.ETS, as: ETSStore
 
   setup do
     # Initialize the store before each test

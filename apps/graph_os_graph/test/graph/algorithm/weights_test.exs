@@ -1,8 +1,8 @@
-defmodule GraphOS.Graph.Algorithm.WeightsTest do
+defmodule GraphOS.GraphContext.Algorithm.WeightsTest do
   use ExUnit.Case
 
-  alias GraphOS.Graph.{Edge}
-  alias GraphOS.Graph.Algorithm.Weights
+  alias GraphOS.GraphContext.{Edge}
+  alias GraphOS.GraphContext.Algorithm.Weights
 
   test "get_edge_weight/3" do
     # Create an edge with a weight

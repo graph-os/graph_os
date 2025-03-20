@@ -1,4 +1,4 @@
-defmodule GraphOS.Graph.Schema do
+defmodule GraphOS.GraphContext.Schema do
   @moduledoc """
   Schema definitions for graph elements.
   
@@ -22,7 +22,7 @@ defmodule GraphOS.Graph.Schema do
   
   ```elixir
   defmodule MyApp.UserSchema do
-    @behaviour GraphOS.Graph.SchemaBehaviour
+    @behaviour GraphOS.GraphContext.SchemaBehaviour
     
     @impl true
     def fields do
@@ -39,7 +39,7 @@ defmodule GraphOS.Graph.Schema do
   
   ```elixir
   defmodule MyApp.UserSchema do
-    @behaviour GraphOS.Graph.SchemaBehaviour
+    @behaviour GraphOS.GraphContext.SchemaBehaviour
     
     @impl true
     def proto_definition do
@@ -70,7 +70,7 @@ defmodule GraphOS.Graph.Schema do
   ```elixir
   user_data = %{name: "Alice", email: "alice@example.com", age: 30}
   
-  case GraphOS.Graph.Schema.validate(user_data, MyApp.UserSchema) do
+  case GraphOS.GraphContext.Schema.validate(user_data, MyApp.UserSchema) do
     {:ok, valid_data} -> 
       # Data is valid, proceed
       do_something_with(valid_data)
@@ -94,14 +94,14 @@ defmodule GraphOS.Graph.Schema do
   
   ## Parameters
     * `data` - The data to validate
-    * `schema_module` - Module implementing the GraphOS.Graph.SchemaBehaviour
+    * `schema_module` - Module implementing the GraphOS.GraphContext.SchemaBehaviour
   
   ## Returns
     * `{:ok, data}` - If validation passes
     * `{:error, reason}` - If validation fails
   
   ## Examples
-      iex> GraphOS.Graph.Schema.validate(%{name: "Alice"}, MyApp.PersonSchema)
+      iex> GraphOS.GraphContext.Schema.validate(%{name: "Alice"}, MyApp.PersonSchema)
       {:ok, %{name: "Alice"}}
   """
   @spec validate(map(), module()) :: {:ok, map()} | {:error, term()}
@@ -114,7 +114,7 @@ defmodule GraphOS.Graph.Schema do
         
       function_exported?(schema_module, :proto_definition, 0) ->
         # Use protobuf validation if it has a proto definition
-        apply(GraphOS.Graph.Schema.Protobuf, :validate, [data, schema_module])
+        apply(GraphOS.GraphContext.Schema.Protobuf, :validate, [data, schema_module])
         
       true ->
         # Fallback to standard field validation
@@ -126,13 +126,13 @@ defmodule GraphOS.Graph.Schema do
   Gets field definitions from a schema module.
   
   ## Parameters
-    * `schema_module` - Module implementing the GraphOS.Graph.SchemaBehaviour
+    * `schema_module` - Module implementing the GraphOS.GraphContext.SchemaBehaviour
   
   ## Returns
     * List of field definitions `{name, type, opts}`
   
   ## Examples
-      iex> GraphOS.Graph.Schema.get_fields(MyApp.PersonSchema)
+      iex> GraphOS.GraphContext.Schema.get_fields(MyApp.PersonSchema)
       [{:name, :string, [required: true]}, {:age, :integer, [required: true]}]
   """
   @spec get_fields(module()) :: [field_definition()]
@@ -143,7 +143,7 @@ defmodule GraphOS.Graph.Schema do
         
       function_exported?(schema_module, :proto_definition, 0) ->
         # Generate fields from protobuf definition
-        apply(GraphOS.Graph.Schema.Protobuf, :extract_fields_from_proto, [schema_module.proto_definition()])
+        apply(GraphOS.GraphContext.Schema.Protobuf, :extract_fields_from_proto, [schema_module.proto_definition()])
         
       true -> 
         []
@@ -157,13 +157,13 @@ defmodule GraphOS.Graph.Schema do
   can transform into protocol-specific formats (Protobuf, JSONSchema, etc).
   
   ## Parameters
-    * `schema_module` - Module implementing the GraphOS.Graph.SchemaBehaviour
+    * `schema_module` - Module implementing the GraphOS.GraphContext.SchemaBehaviour
   
   ## Returns
     * Schema definition map with standard fields
   
   ## Examples
-      iex> GraphOS.Graph.Schema.introspect(MyApp.PersonSchema)
+      iex> GraphOS.GraphContext.Schema.introspect(MyApp.PersonSchema)
       %{
         name: "Person",
         fields: [{:name, :string, [required: true]}, ...],
@@ -208,7 +208,7 @@ defmodule GraphOS.Graph.Schema do
   
   ## Examples
       iex> fields = [{:name, :string, [required: true]}, {:age, :integer, [required: false]}]
-      iex> GraphOS.Graph.Schema.validate_with_fields(%{name: "Alice"}, fields)
+      iex> GraphOS.GraphContext.Schema.validate_with_fields(%{name: "Alice"}, fields)
       {:ok, %{name: "Alice"}}
   """
   @spec validate_with_fields(map(), [field_definition()]) :: {:ok, map()} | {:error, term()}

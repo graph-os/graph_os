@@ -3,14 +3,14 @@ defmodule GraphOS.Protocol.JSONRPC do
   JSON-RPC 2.0 protocol adapter for GraphOS components.
 
   This adapter provides a JSON-RPC 2.0 interface to GraphOS components. It maps
-  JSON-RPC methods to Graph operations and handles request batching, error 
+  JSON-RPC methods to Graph operations and handles request batching, error
   standardization, and other protocol-specific behaviors.
 
   ## Configuration
 
   - `:name` - Name to register the adapter process (optional)
   - `:plugs` - List of plugs to apply to operations (optional)
-  - `:graph_module` - The Graph module to use (default: `GraphOS.Graph`)
+  - `:graph_module` - The Graph module to use (default: `GraphOS.GraphContext`)
   - `:version` - JSON-RPC version to use (default: "2.0")
   - `:method_prefix` - Prefix for method names (default: "graph.")
 
@@ -95,7 +95,7 @@ defmodule GraphOS.Protocol.JSONRPC do
     * `adapter` - The adapter module or pid
     * `request` - The JSON-RPC request (map or list of maps for batch requests)
     * `context` - Optional custom context for the request
-    
+
   ## Returns
 
     * `{:ok, response}` - Successfully processed the request
@@ -122,7 +122,7 @@ defmodule GraphOS.Protocol.JSONRPC do
 
   @impl true
   def init(opts) do
-    graph_module = Keyword.get(opts, :graph_module, GraphOS.Graph)
+    graph_module = Keyword.get(opts, :graph_module, GraphOS.GraphContext)
     version = Keyword.get(opts, :version, "2.0")
     method_prefix = Keyword.get(opts, :method_prefix, "graph.")
 
@@ -167,6 +167,17 @@ defmodule GraphOS.Protocol.JSONRPC do
 
         {:ok, state}
 
+      {:error, {:already_started, pid}} ->
+        # If it's already started, use the existing process
+        state = %State{
+          graph_module: graph_module,
+          gen_server_adapter: pid,
+          version: version,
+          method_prefix: method_prefix
+        }
+
+        {:ok, state}
+
       {:error, reason} ->
         {:error, reason}
     end
@@ -196,7 +207,7 @@ defmodule GraphOS.Protocol.JSONRPC do
     * `request` - The JSON-RPC request (map or list of maps for batch requests)
     * `context` - The request context
     * `state` - The adapter state
-    
+
   ## Returns
 
     * `{:reply, response, context, state}` - Reply with result and updated context/state

@@ -2,7 +2,7 @@ defmodule GraphOS.ExecutableIntegrationTest do
   use ExUnit.Case, async: false
   @moduletag :code_graph
   
-  alias GraphOS.Graph
+  alias GraphOS.GraphContext
   
   @tag :integration
   @tag :skip

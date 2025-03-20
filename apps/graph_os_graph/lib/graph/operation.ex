@@ -1,10 +1,10 @@
-defmodule GraphOS.Graph.Operation do
+defmodule GraphOS.GraphContext.Operation do
   @moduledoc """
   A module for managing operations on a graph.
   """
 
-  alias GraphOS.Graph.Node
-  alias GraphOS.Graph.Edge
+  alias GraphOS.GraphContext.Node
+  alias GraphOS.GraphContext.Edge
 
   @typedoc "The entity to perform the operation on"
   @type entity() :: :node | :edge

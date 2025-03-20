@@ -49,4 +49,5 @@ config :phoenix_live_view,
 
 # GraphOS query module configuration
 config :graph_os_dev,
-  query_module: GraphOS.Graph.Query
+  query_module: GraphOS.Graph.Query,
+  enable_code_graph: false

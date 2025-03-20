@@ -1,6 +1,6 @@
-defmodule GraphOS.Graph.Subscription.NoOp do
+defmodule GraphOS.GraphContext.Subscription.NoOp do
   @moduledoc """
-  A no-operation implementation of the GraphOS.Graph.Subscription behaviour.
+  A no-operation implementation of the GraphOS.GraphContext.Subscription behaviour.
   
   This module provides a minimal implementation of the Subscription interface
   that performs no actual subscription or broadcasting. It's useful for:
@@ -12,7 +12,7 @@ defmodule GraphOS.Graph.Subscription.NoOp do
   All operations succeed but do nothing.
   """
   
-  @behaviour GraphOS.Graph.Subscription
+  @behaviour GraphOS.GraphContext.Subscription
   
   @impl true
   def subscribe(_topic, _opts \\ [])

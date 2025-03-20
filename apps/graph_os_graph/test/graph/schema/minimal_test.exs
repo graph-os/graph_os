@@ -1,8 +1,8 @@
-defmodule GraphOS.Graph.Schema.MinimalTest do
+defmodule GraphOS.GraphContext.Schema.MinimalTest do
   use ExUnit.Case, async: false
   
   defmodule SimpleSchema do
-    @behaviour GraphOS.Graph.SchemaBehaviour
+    @behaviour GraphOS.GraphContext.SchemaBehaviour
     
     @impl true
     def fields do
@@ -51,7 +51,7 @@ defmodule GraphOS.Graph.Schema.MinimalTest do
     end
   end
   
-  alias GraphOS.Graph.Schema
+  alias GraphOS.GraphContext.Schema
   
   test "schema validation works" do
     # Test valid data

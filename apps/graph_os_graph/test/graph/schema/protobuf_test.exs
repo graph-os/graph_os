@@ -1,9 +1,9 @@
-defmodule GraphOS.Graph.Schema.ProtobufTest do
+defmodule GraphOS.GraphContext.Schema.ProtobufTest do
   use ExUnit.Case, async: false
   
   # Define the test schema directly in the test to ensure isolation
   defmodule TestSchema do
-    @behaviour GraphOS.Graph.SchemaBehaviour
+    @behaviour GraphOS.GraphContext.SchemaBehaviour
     
     @impl true
     def fields do
@@ -58,8 +58,8 @@ defmodule GraphOS.Graph.Schema.ProtobufTest do
     end
   end
   
-  alias GraphOS.Graph.Schema
-  alias GraphOS.Graph.Schema.Protobuf
+  alias GraphOS.GraphContext.Schema
+  alias GraphOS.GraphContext.Schema.Protobuf
   
   describe "Protobuf schema validation" do
     test "validates data against protobuf schema definition" do

@@ -1,8 +1,8 @@
-defmodule GraphOS.Graph.Store.ETSTest do
+defmodule GraphOS.GraphContext.Store.ETSTest do
   use ExUnit.Case
 
-  alias GraphOS.Graph.{Transaction, Operation}
-  alias GraphOS.Graph.Store.ETS, as: ETSStore
+  alias GraphOS.GraphContext.{Transaction, Operation}
+  alias GraphOS.GraphContext.Store.ETS, as: ETSStore
 
   setup do
     # Initialize the store before each test

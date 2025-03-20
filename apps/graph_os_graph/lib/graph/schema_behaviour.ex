@@ -1,9 +1,9 @@
-defmodule GraphOS.Graph.SchemaBehaviour do
+defmodule GraphOS.GraphContext.SchemaBehaviour do
   @moduledoc """
   Behaviour for schema modules in GraphOS.
   
   This behaviour defines the interface that schema modules should implement
-  to be compatible with the GraphOS.Graph schema system. Schema modules can be
+  to be compatible with the GraphOS.GraphContext schema system. Schema modules can be
   defined in any component, as long as they implement this behaviour.
   
   The schema system is designed to:
@@ -16,7 +16,7 @@ defmodule GraphOS.Graph.SchemaBehaviour do
   compatibility.
   """
   
-  alias GraphOS.Graph.Schema
+  alias GraphOS.GraphContext.Schema
   
   @doc """
   Returns the fields defined by the schema.
@@ -44,7 +44,7 @@ defmodule GraphOS.Graph.SchemaBehaviour do
   Returns `{:ok, data}` if the data is valid, or `{:error, reason}` if it's invalid.
   
   This function is optional. If not implemented, the default implementation from
-  GraphOS.Graph.Schema will be used, which validates based on the field definitions.
+  GraphOS.GraphContext.Schema will be used, which validates based on the field definitions.
   
   ## Example
       def validate(data) do
@@ -65,7 +65,7 @@ defmodule GraphOS.Graph.SchemaBehaviour do
   to generate protocol-specific schemas (Protobuf, JSONSchema, etc.).
   
   This function is optional. If not implemented, the default implementation from
-  GraphOS.Graph.Schema will be used, which builds introspection data from the fields.
+  GraphOS.GraphContext.Schema will be used, which builds introspection data from the fields.
   
   ## Example
       def introspect do
@@ -121,5 +121,18 @@ defmodule GraphOS.Graph.SchemaBehaviour do
   """
   @callback proto_field_mapping() :: map()
   
-  @optional_callbacks [validate: 1, introspect: 0, proto_definition: 0, proto_field_mapping: 0]
+  @doc """
+  Returns the service module for gRPC.
+  
+  This function is used by the gRPC adapter to determine the service module
+  for handling gRPC requests.
+  
+  ## Example
+      def service_module do
+        MyApp.Proto.MyService
+      end
+  """
+  @callback service_module() :: module()
+  
+  @optional_callbacks [validate: 1, introspect: 0, proto_definition: 0, proto_field_mapping: 0, service_module: 0]
 end

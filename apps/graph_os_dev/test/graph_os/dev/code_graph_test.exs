@@ -4,7 +4,7 @@ defmodule GraphOS.Dev.CodeGraphTest do
 
   alias GraphOS.Dev.CodeGraph
   alias GraphOS.Dev.CodeParser
-  alias GraphOS.Graph
+  alias GraphOS.GraphContext
 
   setup do
     # Initialize the graph store before each test
@@ -142,7 +142,7 @@ defmodule GraphOS.Dev.CodeGraphTest do
       IO.puts("Build stats: #{inspect(stats)}")
 
       # Debug: Check what nodes are in the graph
-      {:ok, all_nodes} = GraphOS.Graph.Query.find_nodes_by_properties(%{})
+      {:ok, all_nodes} = GraphOS.GraphContext.Query.find_nodes_by_properties(%{})
       IO.puts("All nodes: #{inspect(Enum.map(all_nodes, & &1.id))}")
 
       # Debug: Check if the file exists

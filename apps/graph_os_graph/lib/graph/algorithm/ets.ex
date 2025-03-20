@@ -1,4 +1,4 @@
-defmodule GraphOS.Graph.Algorithm.ETS do
+defmodule GraphOS.GraphContext.Algorithm.ETS do
   @moduledoc """
   Optimized graph algorithm implementations for the ETS storage backend.
 
@@ -6,7 +6,7 @@ defmodule GraphOS.Graph.Algorithm.ETS do
   that take advantage of ETS-specific optimizations for better performance.
   """
 
-  alias GraphOS.Graph.Algorithm.Weights
+  alias GraphOS.GraphContext.Algorithm.Weights
 
   @doc """
   Performs a specialized BFS traversal using ETS-specific optimizations.
@@ -25,10 +25,10 @@ defmodule GraphOS.Graph.Algorithm.ETS do
 
   ## Examples
 
-      iex> GraphOS.Graph.Algorithm.ETS.optimized_bfs("person1", max_depth: 3)
+      iex> GraphOS.GraphContext.Algorithm.ETS.optimized_bfs("person1", max_depth: 3)
       {:ok, [%Node{id: "person1"}, ...]}
 
-      iex> GraphOS.Graph.Algorithm.ETS.optimized_bfs("person1", weighted: true, weight_property: "importance")
+      iex> GraphOS.GraphContext.Algorithm.ETS.optimized_bfs("person1", weighted: true, weight_property: "importance")
       {:ok, [%Node{id: "person1"}, ...]}
   """
   def optimized_bfs(start_node_id, opts \\ []) do
@@ -124,10 +124,10 @@ defmodule GraphOS.Graph.Algorithm.ETS do
 
   ## Examples
 
-      iex> GraphOS.Graph.Algorithm.ETS.pagerank(iterations: 30)
+      iex> GraphOS.GraphContext.Algorithm.ETS.pagerank(iterations: 30)
       {:ok, %{"node1" => 0.25, "node2" => 0.15, ...}}
 
-      iex> GraphOS.Graph.Algorithm.ETS.pagerank(weighted: true, weight_property: "importance")
+      iex> GraphOS.GraphContext.Algorithm.ETS.pagerank(weighted: true, weight_property: "importance")
       {:ok, %{"node1" => 0.28, "node2" => 0.12, ...}}
   """
   def pagerank(opts \\ []) do
@@ -228,7 +228,7 @@ defmodule GraphOS.Graph.Algorithm.ETS do
 
   ## Examples
 
-      iex> GraphOS.Graph.Algorithm.ETS.minimum_spanning_tree()
+      iex> GraphOS.GraphContext.Algorithm.ETS.minimum_spanning_tree()
       {:ok, [%Edge{id: "edge1", ...}, ...], 42.5}
   """
   def minimum_spanning_tree(opts \\ []) do

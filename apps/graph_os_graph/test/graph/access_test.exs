@@ -1,20 +1,20 @@
-defmodule GraphOS.Graph.AccessTest do
+defmodule GraphOS.GraphContext.AccessTest do
   @moduledoc """
-  Tests for GraphOS.Graph.Access behavior.
+  Tests for GraphOS.GraphContext.Access behavior.
   
   This file contains tests that verify the interface definition for the Access behavior.
   The actual implementation of the access control functionality should be in GraphOS.Core.
   """
   use ExUnit.Case
 
-  alias GraphOS.Graph.{Operation, Transaction, Access}
+  alias GraphOS.GraphContext.{Operation, Transaction, Access}
 
   describe "Access behavior" do
     test "defines required callbacks" do
       _callbacks = Access.__info__(:functions)
       
       # Verify the module is a behavior/behaviour
-      assert function_exported?(GraphOS.Graph.Access, :behaviour_info, 1)
+      assert function_exported?(GraphOS.GraphContext.Access, :behaviour_info, 1)
 
       # Verify callbacks are defined
       callback_names = Access.behaviour_info(:callbacks) |> Enum.map(&elem(&1, 0))
@@ -31,7 +31,7 @@ defmodule GraphOS.Graph.AccessTest do
   describe "Mock implementation" do
     # Define a mock implementation for testing interface compliance
     defmodule MockAccess do
-      @behaviour GraphOS.Graph.Access
+      @behaviour GraphOS.GraphContext.Access
       
       @impl true
       def authorize_query(_query, _context), do: {:ok, true}
@@ -60,7 +60,7 @@ defmodule GraphOS.Graph.AccessTest do
       entity_id = "test-entity"
       query_params = %{start_node_id: "node1", edge_type: "test"}
       operation = %Operation{action: :get, entity: :node, data: %{}, opts: [id: "node1"]}
-      transaction = %Transaction{operations: [operation], store: GraphOS.Graph.Store.ETS}
+      transaction = %Transaction{operations: [operation], store: GraphOS.GraphContext.Store.ETS}
       topic = "node:123"
       results = [%{id: "node1"}, %{id: "node2"}]
       
