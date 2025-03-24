@@ -1,0 +1,217 @@
+{
+  "name": "vscode-graphos",
+  "displayName": "GraphOS",
+  "description": "VS Code extension for managing GraphOS development",
+  "version": "0.1.0",
+  "publisher": "graphos",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/graphos.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "graphos.showMixMenu",
+        "title": "GraphOS: Show Mix Menu"
+      },
+      {
+        "command": "graphos.showMcpMenu",
+        "title": "GraphOS: Show MCP Menu"
+      },
+      {
+        "command": "graphos.startServer",
+        "title": "GraphOS: Start Server"
+      },
+      {
+        "command": "graphos.stopServer",
+        "title": "GraphOS: Stop Server"
+      },
+      {
+        "command": "graphos.restartServer",
+        "title": "GraphOS: Restart Server"
+      },
+      {
+        "command": "graphos.joinServer",
+        "title": "GraphOS: Join Server Session"
+      },
+      {
+        "command": "graphos.checkServerStatus",
+        "title": "GraphOS: Check Server Status"
+      },
+      {
+        "command": "graphos.openBrowser",
+        "title": "GraphOS: Open in Browser"
+      },
+      {
+        "command": "graphos.openInspector",
+        "title": "GraphOS: Open Inspector"
+      },
+      {
+        "command": "graphos.openDebug",
+        "title": "GraphOS: Open Debug Mode"
+      },
+      {
+        "command": "graphos.openSSE",
+        "title": "GraphOS: Open SSE"
+      },
+      {
+        "command": "graphos.runTestClient",
+        "title": "GraphOS: Run Test Client"
+      },
+      {
+        "command": "graphos.runTestTypes",
+        "title": "GraphOS: Run Test Types"
+      },
+      {
+        "command": "graphos.runTestServer",
+        "title": "GraphOS: Run Test Server"
+      },
+      {
+        "command": "graphos.runTestEndpoint",
+        "title": "GraphOS: Run Test Endpoint"
+      },
+      {
+        "command": "graphos.showTaskMenu",
+        "title": "GraphOS: Show Task Menu"
+      },
+      {
+        "command": "graphos.showMCPTasks",
+        "title": "GraphOS: Show MCP Tasks"
+      },
+      {
+        "command": "graphos.showDevTasks",
+        "title": "GraphOS: Show Dev Tasks"
+      },
+      {
+        "command": "graphos.listTasks",
+        "title": "GraphOS: List All Tasks"
+      },
+      {
+        "command": "graphos.runTask",
+        "title": "GraphOS: Run Mix Task"
+      },
+      {
+        "command": "graphos.refreshTasks",
+        "title": "GraphOS: Refresh Tasks",
+        "icon": "$(refresh)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "graphos-explorer",
+          "title": "GraphOS",
+          "icon": "resources/graphos.svg"
+        }
+      ]
+    },
+    "views": {
+      "graphos-explorer": [
+        {
+          "id": "graphos-sidebar",
+          "name": "GraphOS Explorer"
+        },
+        {
+          "id": "graphos-tasks",
+          "name": "Mix Tasks"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "graphos.refreshTasks",
+          "when": "view == graphos-tasks",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "graphos.runTask",
+          "when": "view == graphos-tasks && viewItem == taskItem",
+          "group": "inline"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "graphos.showMixMenu",
+          "group": "GraphOS"
+        },
+        {
+          "command": "graphos.showMcpMenu",
+          "group": "GraphOS"
+        },
+        {
+          "command": "graphos.startServer",
+          "group": "GraphOS"
+        },
+        {
+          "command": "graphos.stopServer",
+          "group": "GraphOS"
+        },
+        {
+          "command": "graphos.restartServer",
+          "group": "GraphOS"
+        },
+        {
+          "command": "graphos.joinServer",
+          "group": "GraphOS"
+        },
+        {
+          "command": "graphos.checkServerStatus",
+          "group": "GraphOS"
+        },
+        {
+          "command": "graphos.openBrowser",
+          "group": "GraphOS"
+        },
+        {
+          "command": "graphos.openInspector",
+          "group": "GraphOS"
+        },
+        {
+          "command": "graphos.openDebug",
+          "group": "GraphOS"
+        },
+        {
+          "command": "graphos.openSSE",
+          "group": "GraphOS"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "eslint": "^8.54.0",
+    "glob": "^10.3.10",
+    "mocha": "^10.2.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.3.2",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  }
+}
