@@ -3,8 +3,6 @@ defmodule GraphOS.Store.Meta do
   A module for managing metadata for the graph.
   """
 
-  use Boundary, deps: []
-
   @typedoc "The creation date of the node"
   @type created_at() :: DateTime.t()
   @typedoc "The last update date of the node"

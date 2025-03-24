@@ -61,7 +61,7 @@ defmodule GraphOS.Store.Graph do
   """
   @spec schema() :: map()
   def schema do
-    GraphOS.Schema.define(:graph, [
+    GraphOS.Store.Schema.define(:graph, [
       %{name: :id, type: :string, required: true},
       %{name: :name, type: :string, default: "Unnamed Graph"},
       %{name: :metadata, type: :map, default: %{}}

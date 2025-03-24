@@ -1,6 +1,4 @@
 defmodule GraphOS.Protocol.Auth.Secret do
-  use Boundary, deps: [GraphOS.Protocol.Auth]
-
   @moduledoc """
   Secret-based authentication for GraphOS protocol endpoints.
 

@@ -38,7 +38,7 @@ defmodule GraphOS.Protocol.Adapter do
     * `{:ok, pid}` - Successfully started the adapter
     * `{:error, reason}` - Failed to start the adapter
   """
-  @spec start_link(module(), keyword()) :: {:ok, pid()} | {:error, term()}
+  @spec start_link(module(), Keyword.t()) :: {:ok, pid()} | {:error, term()}
   def start_link(adapter_module, opts) do
     StoreAdapter.init(adapter_module, Keyword.put(opts, :adapter, adapter_module))
   end
@@ -105,7 +105,7 @@ defmodule GraphOS.Protocol.Adapter do
       import GraphOS.Protocol.Adapter, only: [execute: 3, execute: 4]
 
       # Define start_link function
-      @spec start_link(keyword()) :: {:ok, pid()} | {:error, term()}
+      @spec start_link(Keyword.t()) :: {:ok, pid()} | {:error, term()}
       def start_link(opts) do
         GraphOS.Protocol.Adapter.start_link(__MODULE__, opts)
       end

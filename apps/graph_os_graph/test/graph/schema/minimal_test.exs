@@ -45,7 +45,7 @@ defmodule GraphOS.Store.Schema.MinimalTest do
     end
   end
 
-  alias GraphOS.Schema
+  alias GraphOS.Store.Schema
 
   test "schema validation works" do
     # Define schema using the new API

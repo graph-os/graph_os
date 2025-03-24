@@ -10,6 +10,14 @@ defmodule GraphOS.Store.Schema.BaseEdge do
   @behaviour GraphOS.Store.SchemaBehaviour
 
   @doc """
+  Returns the service module for this schema.
+  """
+  @impl true
+  def service_module do
+    __MODULE__
+  end
+
+  @doc """
   Returns the base fields for an edge.
   """
   @impl true

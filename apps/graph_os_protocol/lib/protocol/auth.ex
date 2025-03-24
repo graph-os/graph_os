@@ -1,6 +1,4 @@
 defmodule GraphOS.Protocol.Auth do
-  use Boundary, exports: [Secret]
-
   @moduledoc """
   Authentication utilities for GraphOS protocol interfaces.
 

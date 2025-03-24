@@ -56,7 +56,7 @@ defmodule MCP.Client do
   * `{:ok, client()}` - The client was started successfully
   * `{:error, reason}` - The client failed to start
   """
-  @spec start_link(keyword()) :: {:ok, client()} | {:error, term()}
+  @spec start_link(Keyword.t()) :: {:ok, client()} | {:error, term()}
   def start_link(opts) do
     url = Keyword.fetch!(opts, :url)
     headers = Keyword.get(opts, :headers, @default_headers)
@@ -160,7 +160,7 @@ defmodule MCP.Client do
   * `{:ok, map()}` - The connection was initialized successfully with result data
   * `{:error, term()}` - The connection failed to initialize
   """
-  @spec initialize(client(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec initialize(client(), Keyword.t()) :: {:ok, map()} | {:error, term()}
   def initialize(client, opts \\ []) do
     initialize_internal(client, opts)
   end
@@ -181,7 +181,7 @@ defmodule MCP.Client do
   * `{:ok, list(map())}` - The tools were listed successfully
   * `{:error, term()}` - The request failed
   """
-  @spec list_tools(client(), keyword()) :: {:ok, list(map())} | {:error, term()}
+  @spec list_tools(client(), Keyword.t()) :: {:ok, list(map())} | {:error, term()}
   def list_tools(client, opts \\ []) do
     params =
       %{}
@@ -216,7 +216,7 @@ defmodule MCP.Client do
   * `{:ok, map()}` - The tool was called successfully with result data
   * `{:error, term()}` - The request failed
   """
-  @spec call_tool(client(), String.t(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec call_tool(client(), String.t(), map(), Keyword.t()) :: {:ok, map()} | {:error, term()}
   def call_tool(client, tool_name, arguments, opts \\ []) do
     params = %{
       name: tool_name,
@@ -244,7 +244,7 @@ defmodule MCP.Client do
   * `{:ok, map()}` - The tool was registered successfully
   * `{:error, term()}` - The request failed
   """
-  @spec register_tool(client(), map(), keyword()) :: {:ok, any()} | {:error, term()}
+  @spec register_tool(client(), map(), Keyword.t()) :: {:ok, any()} | {:error, term()}
   def register_tool(client, tool, opts \\ []) do
     # Basic validation of tool structure
     # TODO: Replace with proper schema validation once tool schemas are defined
@@ -308,7 +308,7 @@ defmodule MCP.Client do
   * `{:ok, list(map())}` - The resources were listed successfully
   * `{:error, term()}` - The request failed
   """
-  @spec list_resources(client(), keyword()) :: {:ok, list(map())} | {:error, term()}
+  @spec list_resources(client(), Keyword.t()) :: {:ok, list(map())} | {:error, term()}
   def list_resources(client, opts \\ []) do
     params =
       %{}
@@ -342,7 +342,7 @@ defmodule MCP.Client do
   * `{:ok, String.t()}` - The resource content was read successfully
   * `{:error, term()}` - The request failed
   """
-  @spec read_resource(client(), String.t(), keyword()) :: {:ok, String.t()} | {:error, term()}
+  @spec read_resource(client(), String.t(), Keyword.t()) :: {:ok, String.t()} | {:error, term()}
   def read_resource(client, resource_id, opts \\ []) do
     params = %{
       id: resource_id
@@ -370,7 +370,7 @@ defmodule MCP.Client do
   * `{:ok, list(map())}` - The prompts were listed successfully
   * `{:error, term()}` - The request failed
   """
-  @spec list_prompts(client(), keyword()) :: {:ok, list(map())} | {:error, term()}
+  @spec list_prompts(client(), Keyword.t()) :: {:ok, list(map())} | {:error, term()}
   def list_prompts(client, opts \\ []) do
     params =
       %{}
@@ -404,7 +404,7 @@ defmodule MCP.Client do
   * `{:ok, map()}` - The prompt was retrieved successfully
   * `{:error, term()}` - The request failed
   """
-  @spec get_prompt(client(), String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec get_prompt(client(), String.t(), Keyword.t()) :: {:ok, map()} | {:error, term()}
   def get_prompt(client, prompt_id, opts \\ []) do
     params = %{
       id: prompt_id
@@ -431,7 +431,7 @@ defmodule MCP.Client do
   * `{:ok, map()}` - The completion request was successful
   * `{:error, term()}` - The request failed
   """
-  @spec complete(client(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec complete(client(), map(), Keyword.t()) :: {:ok, map()} | {:error, term()}
   def complete(client, params, opts \\ []) do
     case send_request(client, "complete", params, opts) do
       {:ok, response} -> {:ok, response}
@@ -453,7 +453,7 @@ defmodule MCP.Client do
   * `{:ok, map()}` - The ping was successful
   * `{:error, term()}` - The request failed
   """
-  @spec ping(client(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec ping(client(), Keyword.t()) :: {:ok, map()} | {:error, term()}
   def ping(client, opts \\ []) do
     case send_request(client, "ping", %{}, opts) do
       {:ok, response} -> {:ok, response}
@@ -546,7 +546,7 @@ defmodule MCP.Client do
 
   # Private functions
 
-  @spec initialize_internal(client(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec initialize_internal(client(), Keyword.t()) :: {:ok, map()} | {:error, term()}
   defp initialize_internal(client, opts \\ []) do
     protocol_version =
       Keyword.get(opts, :protocol_version) ||
@@ -819,7 +819,7 @@ defmodule MCP.Client do
     end)
   end
 
-  @spec send_request(client(), String.t(), map(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec send_request(client(), String.t(), map(), Keyword.t()) :: {:ok, map()} | {:error, term()}
   defp send_request(client, method, params, opts) do
     timeout = Keyword.get(opts, :timeout, @default_timeout)
 

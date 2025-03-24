@@ -5,8 +5,6 @@ defmodule GraphOS.Store.Node do
   A node has a unique identifier within a graph and can have arbitrary properties.
   """
 
-  use Boundary, deps: []
-
   @type id :: String.t()
   @type t :: %__MODULE__{
           id: id(),
@@ -72,7 +70,7 @@ defmodule GraphOS.Store.Node do
   """
   @spec schema() :: map()
   def schema do
-    GraphOS.Schema.define(:node, [
+    GraphOS.Store.Schema.define(:node, [
       %{name: :id, type: :string, required: true},
       %{name: :graph_id, type: :string},
       %{name: :type, type: :string},

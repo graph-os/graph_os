@@ -10,7 +10,7 @@ defmodule GraphOS.Store.Transaction do
   @type t :: %__MODULE__{
           store: module() | atom(),
           operations: list(Operation.t()),
-          opts: keyword()
+          opts: Keyword.t()
         }
 
   @type result :: {:ok, map()} | {:error, term()}
@@ -135,9 +135,6 @@ defmodule GraphOS.Store.Transaction do
               case GraphOS.Store.StoreAdapter.ETS.init() do
                 {:ok, store_ref} ->
                   {:ok, %{ref: store_ref, adapter: GraphOS.Store.StoreAdapter.ETS}}
-
-                error ->
-                  error
               end
           end
 

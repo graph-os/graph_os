@@ -49,7 +49,7 @@ defmodule GraphOS.Store.Schema.ProtobufTest do
     end
   end
 
-  alias GraphOS.Schema
+  alias GraphOS.Store.Schema
 
   describe "Protobuf schema validation" do
     setup do
@@ -98,7 +98,7 @@ defmodule GraphOS.Store.Schema.ProtobufTest do
       data_with_negative_age: data_with_negative_age,
       schema: schema
     } do
-      # For negative age, we'll rely on GraphOS.Schema validation, which checks types but not values
+      # For negative age, we'll rely on GraphOS.Store.Schema validation, which checks types but not values
       # Since it doesn't validate negative values, this should pass type checking
       assert {:ok, _} = Schema.validate(schema, data_with_negative_age)
     end

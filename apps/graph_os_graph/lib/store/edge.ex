@@ -6,8 +6,6 @@ defmodule GraphOS.Store.Edge do
   source and target node IDs.
   """
 
-  use Boundary, deps: []
-
   @type id :: String.t()
   @type t :: %__MODULE__{
           id: id(),
@@ -93,7 +91,7 @@ defmodule GraphOS.Store.Edge do
   """
   @spec schema() :: map()
   def schema do
-    GraphOS.Schema.define(:edge, [
+    GraphOS.Store.Schema.define(:edge, [
       %{name: :id, type: :string, required: true},
       %{name: :graph_id, type: :string},
       %{name: :source, type: :string, required: true},

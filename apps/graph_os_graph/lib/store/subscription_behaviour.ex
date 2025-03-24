@@ -85,7 +85,7 @@ defmodule GraphOS.Store.SubscriptionBehaviour do
   - `{:ok, subscription_id}` - Successfully subscribed
   - `{:error, reason}` - Failed to subscribe
   """
-  @callback initialize(opts :: keyword()) :: :ok | {:ok, term()} | {:error, term()}
+  @callback initialize(opts :: Keyword.t()) :: :ok | {:ok, term()} | {:error, term()}
 
   @doc """
   Unsubscribe from a specific subscription.
@@ -99,7 +99,7 @@ defmodule GraphOS.Store.SubscriptionBehaviour do
   - `:ok` - Successfully unsubscribed
   - `{:error, reason}` - Failed to unsubscribe
   """
-  @callback subscribe(topic :: String.t(), opts :: keyword()) ::
+  @callback subscribe(topic :: String.t(), opts :: Keyword.t()) ::
               {:ok, reference()} | {:error, term()}
 
   @doc """
@@ -133,7 +133,7 @@ defmodule GraphOS.Store.SubscriptionBehaviour do
   - `{:ok, topic}` - The topic to subscribe to
   - `{:error, reason}` - Failed to create pattern topic
   """
-  @callback pattern_topic(pattern :: String.t(), opts :: keyword()) ::
+  @callback pattern_topic(pattern :: String.t(), opts :: Keyword.t()) ::
               {:ok, String.t()} | {:error, term()}
 
   @doc """

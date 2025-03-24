@@ -28,7 +28,7 @@ defmodule GraphOS.GraphContext.Action do
   Defines a behavior for reusable, declarative graph actions.
   """
   
-  @callback init(opts :: keyword()) :: map()
+  @callback init(opts :: Keyword.t()) :: map()
   @callback call(conn :: map(), params :: map(), opts :: map()) :: 
     {:ok, result :: any()} | {:error, reason :: any()}
   

@@ -167,7 +167,7 @@ defmodule GraphOS.Store.Schema.Adapter do
   This is a helper for protocol adapters to convert GraphOS schema field options
   to their corresponding Protobuf field options.
   """
-  @spec field_options_to_protobuf(keyword()) :: keyword()
+  @spec field_options_to_protobuf(Keyword.t()) :: Keyword.t()
   def field_options_to_protobuf(options) do
     options
     |> Enum.map(fn
@@ -184,7 +184,7 @@ defmodule GraphOS.Store.Schema.Adapter do
   This is a helper for protocol adapters to convert GraphOS schema field options
   to their corresponding JSONSchema field options.
   """
-  @spec field_options_to_json_schema(keyword()) :: map()
+  @spec field_options_to_json_schema(Keyword.t()) :: map()
   def field_options_to_json_schema(options) do
     options
     |> Enum.map(fn

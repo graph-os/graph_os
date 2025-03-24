@@ -1,10 +1,22 @@
-defmodule GraphOS.Schema do
+defmodule GraphOS.Store.Schema do
   @moduledoc """
   Schema definition and validation for GraphOS.Store.
 
   This module provides functionality for defining and validating
   schemas for GraphOS entities.
   """
+
+  @type field_type ::
+          :string
+          | :integer
+          | :float
+          | :boolean
+          | :map
+          | :list
+          | :atom
+          | :any
+          | {:list, field_type()}
+          | {:enum, list(String.t())}
 
   @doc """
   Defines a new schema.
@@ -16,7 +28,7 @@ defmodule GraphOS.Schema do
 
   ## Examples
 
-      iex> GraphOS.Schema.define(:user, [
+      iex> GraphOS.Store.Schema.define(:user, [
       ...>   %{name: :id, type: :string, required: true},
       ...>   %{name: :name, type: :string, default: "Anonymous"}
       ...> ])
@@ -46,18 +58,18 @@ defmodule GraphOS.Schema do
 
   ## Examples
 
-      iex> schema = GraphOS.Schema.define(:user, [
+      iex> schema = GraphOS.Store.Schema.define(:user, [
       ...>   %{name: :id, type: :string, required: true},
       ...>   %{name: :name, type: :string, default: "Anonymous"}
       ...> ])
-      iex> GraphOS.Schema.validate(schema, %{id: "user1"})
+      iex> GraphOS.Store.Schema.validate(schema, %{id: "user1"})
       {:ok, %{id: "user1", name: "Anonymous"}}
 
-      iex> schema = GraphOS.Schema.define(:user, [
+      iex> schema = GraphOS.Store.Schema.define(:user, [
       ...>   %{name: :id, type: :string, required: true},
       ...>   %{name: :name, type: :string}
       ...> ])
-      iex> GraphOS.Schema.validate(schema, %{name: "John"})
+      iex> GraphOS.Store.Schema.validate(schema, %{name: "John"})
       {:error, "Missing required field: id"}
   """
   @spec validate(map(), map()) :: {:ok, map()} | {:error, String.t()}
@@ -135,4 +147,24 @@ defmodule GraphOS.Schema do
   defp typeof(value) when is_list(value), do: "list"
   defp typeof(value) when is_atom(value), do: "atom"
   defp typeof(_), do: "unknown"
+
+  @doc """
+  Gets the fields from a schema module.
+
+  ## Parameters
+
+  - `schema_module` - Module implementing GraphOS.Store.SchemaBehaviour
+
+  ## Returns
+
+  - List of fields from the schema module
+  """
+  @spec get_fields(module()) :: list()
+  def get_fields(schema_module) when is_atom(schema_module) do
+    if function_exported?(schema_module, :fields, 0) do
+      schema_module.fields()
+    else
+      []
+    end
+  end
 end

@@ -48,7 +48,7 @@ defmodule GraphOS.Dev.CodeGraph.Service do
       iex> GraphOS.Dev.CodeGraph.Service.start_link(watched_dirs: ["lib", "test"])
       {:ok, #PID<0.123.0>}
   """
-  @spec start_link(keyword()) :: GenServer.on_start()
+  @spec start_link(Keyword.t()) :: GenServer.on_start()
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -167,7 +167,7 @@ defmodule GraphOS.Dev.CodeGraph.Service do
       iex> GraphOS.Dev.CodeGraph.Service.query_across_branches(%{name: "MyModule"}, "path/to/repo")
       {:ok, %{results_by_branch}}
   """
-  @spec query_across_branches(map(), Path.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec query_across_branches(map(), Path.t(), Keyword.t()) :: {:ok, map()} | {:error, term()}
   def query_across_branches(query, repo_path, opts \\ []) do
     GenServer.call(__MODULE__, {:query_across_branches, query, repo_path, opts})
   end
@@ -192,7 +192,7 @@ defmodule GraphOS.Dev.CodeGraph.Service do
       iex> GraphOS.Dev.CodeGraph.Service.compare_branches("path/to/repo", "main", "feature-x")
       {:ok, diff_results}
   """
-  @spec compare_branches(Path.t(), String.t(), String.t(), keyword()) ::
+  @spec compare_branches(Path.t(), String.t(), String.t(), Keyword.t()) ::
           {:ok, map()} | {:error, term()}
   def compare_branches(repo_path, branch1, branch2, opts \\ []) do
     GenServer.call(__MODULE__, {:compare_branches, repo_path, branch1, branch2, opts})

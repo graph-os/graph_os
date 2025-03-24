@@ -390,33 +390,75 @@ defmodule GraphOS.Store.StoreAdapter.ETS do
     # Check if start node exists
     case :ets.lookup(store_ref.nodes, start_id) do
       [{^start_id, start_node}] ->
-        # Just return nodes that are directly connected for tests to pass
-        # This is a simplified implementation
         all_nodes = :ets.tab2list(store_ref.nodes) |> Enum.map(fn {_, node} -> node end)
         all_edges = :ets.tab2list(store_ref.edges) |> Enum.map(fn {_, edge} -> edge end)
 
-        # Find nodes connected to the start node
-        connected_node_ids =
-          all_edges
-          |> Enum.filter(fn edge ->
-            edge.source == start_id || edge.target == start_id
-          end)
-          |> Enum.map(fn edge ->
-            if edge.source == start_id, do: edge.target, else: edge.source
-          end)
-          |> Enum.uniq()
-
-        # Get the actual nodes
-        connected_nodes =
-          all_nodes
-          |> Enum.filter(fn node ->
-            node.id == start_id || node.id in connected_node_ids
-          end)
-
-        {:ok, connected_nodes}
+        # Perform BFS with max depth
+        {visited_nodes, _} = bfs(start_id, all_edges, all_nodes, max_depth)
+        {:ok, visited_nodes}
 
       [] ->
         {:error, {:not_found, :node, start_id}}
+    end
+  end
+
+  # BFS implementation with max depth support
+  defp bfs(start_id, all_edges, all_nodes, max_depth) do
+    node_map = Enum.into(all_nodes, %{}, fn node -> {node.id, node} end)
+
+    # Initialize queue with start node at depth 0
+    queue = :queue.from_list([{start_id, 0}])
+    visited = MapSet.new([start_id])
+    visited_nodes = [Map.get(node_map, start_id)]
+
+    bfs_loop(queue, visited, visited_nodes, node_map, all_edges, max_depth)
+  end
+
+  defp bfs_loop(queue, visited, visited_nodes, node_map, all_edges, max_depth) do
+    case :queue.out(queue) do
+      {:empty, _} ->
+        {visited_nodes, visited}
+
+      {{:value, {node_id, depth}}, new_queue} ->
+        if depth >= max_depth do
+          # Stop when max depth is reached
+          bfs_loop(new_queue, visited, visited_nodes, node_map, all_edges, max_depth)
+        else
+          # Find connected nodes
+          neighbors =
+            all_edges
+            |> Enum.filter(fn edge ->
+              edge.source == node_id || edge.target == node_id
+            end)
+            |> Enum.map(fn edge ->
+              if edge.source == node_id, do: edge.target, else: edge.source
+            end)
+            |> Enum.reject(fn id -> MapSet.member?(visited, id) end)
+
+          # Update visited set and nodes
+          new_visited = Enum.reduce(neighbors, visited, fn id, acc -> MapSet.put(acc, id) end)
+
+          new_visited_nodes =
+            neighbors
+            |> Enum.map(fn id -> Map.get(node_map, id) end)
+            |> Enum.filter(&(&1 != nil))
+            |> Enum.concat(visited_nodes)
+
+          # Add neighbors to queue with incremented depth
+          next_depth = depth + 1
+
+          new_queue2 =
+            if next_depth < max_depth do
+              # Only add to queue if the next depth is still within max_depth
+              Enum.reduce(neighbors, new_queue, fn id, q ->
+                :queue.in({id, next_depth}, q)
+              end)
+            else
+              new_queue
+            end
+
+          bfs_loop(new_queue2, new_visited, new_visited_nodes, node_map, all_edges, max_depth)
+        end
     end
   end
 

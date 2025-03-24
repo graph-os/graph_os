@@ -26,8 +26,6 @@ defmodule GraphOS.Protocol.Plug do
   - `POST /graph/jsonrpc` - JSON-RPC endpoint (POST for requests)
   - `POST /graph/protobuf/:method` - Protocol Buffer endpoint
 
-  use Boundary, deps: [:graph_os_core, :graph_os_graph]
-
   ## Upgradable Protocol System
 
   This plug supports the upgradable protocol system, allowing Protocol Buffers to be

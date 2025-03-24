@@ -27,8 +27,8 @@ This document outlines the remaining tasks for the GraphOS.Store refactoring.
 | `apps/graph_os_graph/lib/store/query.ex` | ⚠️ NEEDS UPDATE | Fix mixed old/new implementation patterns, ensure consistency |
 | `apps/graph_os_graph/lib/store/query_behaviour.ex` | ⚠️ NEEDS UPDATE | Update to align with new Query API or remove completely |
 | `apps/graph_os_graph/lib/store/registry.ex` | ✅ IMPLEMENTED | Add missing typespecs, improve error handling |
-| `apps/graph_os_graph/lib/store/schema.ex` | ❌ REMOVE | Replace with GraphOS.Schema |
-| `apps/graph_os_graph/lib/store/schema_behaviour.ex` | ❌ REMOVE | Replace with GraphOS.Schema |
+| `apps/graph_os_graph/lib/store/schema.ex` | ❌ REMOVE | Replace with GraphOS.Store.Schema |
+| `apps/graph_os_graph/lib/store/schema_behaviour.ex` | ❌ REMOVE | Replace with GraphOS.Store.Schema |
 | `apps/graph_os_graph/lib/store/store_adapter.ex` | ✅ IMPLEMENTED | Review for improvements, add typespecs |
 | `apps/graph_os_graph/lib/store/subscription.ex` | ⚠️ NEEDS UPDATE | Update to work with new API |
 | `apps/graph_os_graph/lib/store/transaction.ex` | ✅ IMPLEMENTED | Add missing typespecs, improve validation |
@@ -55,7 +55,7 @@ This document outlines the remaining tasks for the GraphOS.Store refactoring.
 
 | File | Status | Remaining Tasks |
 |------|--------|----------------|
-| `apps/graph_os_graph/lib/store/schema/*.ex` | ⚠️ NEEDS UPDATE | Migrate functionality to GraphOS.Schema |
+| `apps/graph_os_graph/lib/store/schema/*.ex` | ⚠️ NEEDS UPDATE | Migrate functionality to GraphOS.Store.Schema |
 
 ## 2. Test Files
 
@@ -79,7 +79,7 @@ This document outlines the remaining tasks for the GraphOS.Store refactoring.
 
 | File | Status | Tasks |
 |------|--------|-------|
-| `apps/graph_os_graph/test/schema_test.exs` | 🔄 CREATE | Create tests for GraphOS.Schema |
+| `apps/graph_os_graph/test/schema_test.exs` | 🔄 CREATE | Create tests for GraphOS.Store.Schema |
 | `apps/graph_os_graph/test/store/graph_test.exs` | 🔄 CREATE | Create tests for GraphOS.Store.Graph |
 | `apps/graph_os_graph/test/store/node_test.exs` | 🔄 CREATE | Create tests for GraphOS.Store.Node |
 | `apps/graph_os_graph/test/store/edge_test.exs` | 🔄 CREATE | Create tests for GraphOS.Store.Edge |
@@ -93,7 +93,7 @@ This document outlines the remaining tasks for the GraphOS.Store refactoring.
 
 ### 3.1 Code Cleanup
 
-- [ ] Remove `GraphOS.Store.Schema` since it's been replaced by `GraphOS.Schema`
+- [ ] Remove `GraphOS.Store.Schema` since it's been replaced by `GraphOS.Store.Schema`
 - [ ] Remove `GraphOS.Store.SchemaBehaviour`
 - [ ] Update all schema references to use the new schema module
 - [ ] Remove deprecated code in `GraphOS.Store.start/1` method
@@ -192,7 +192,7 @@ The following components have been implemented:
 ✅ ETS-based adapter implementation `GraphOS.Store.StoreAdapter.ETS`
 ✅ Core entity modules: `GraphOS.Store.Graph`, `GraphOS.Store.Node`, `GraphOS.Store.Edge`
 ✅ Operation, Query, and Transaction abstractions
-✅ Moved schema functionality to `GraphOS.Schema`
+✅ Moved schema functionality to `GraphOS.Store.Schema`
 ✅ Custom node/edge type support with `use GraphOS.Store.Node` and `use GraphOS.Store.Edge`
 
 ⚠️ **Special Attention Needed**: 

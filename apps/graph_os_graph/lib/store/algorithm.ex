@@ -16,7 +16,7 @@ defmodule GraphOS.Store.Algorithm do
 
   alias GraphOS.Store.{Node, Edge}
 
-  @type algorithm_opts :: keyword()
+  @type algorithm_opts :: Keyword.t()
   @type traversal_result :: {:ok, list()} | {:error, term()}
   @type path_result :: {:ok, list(Node.t()), number()} | {:error, term()}
   @type components_result :: {:ok, list(list(Node.t()))} | {:error, term()}

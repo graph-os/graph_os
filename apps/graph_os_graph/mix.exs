@@ -23,8 +23,7 @@ defmodule GraphOS.Store.MixProject do
       name: "GraphOS.Store",
 
       # Boundary enforcement
-      compilers: [:boundary | Mix.compilers()],
-      boundary: boundary()
+      compilers: [:boundary | Mix.compilers()]
     ]
   end
 
@@ -60,43 +59,6 @@ defmodule GraphOS.Store.MixProject do
       main: "GraphOS.Store",
       source_url: @source_url,
       extras: ["README.md"]
-    ]
-  end
-
-  defp boundary do
-    [
-      default: [
-        check: [
-          # No dependencies on other GraphOS components (except MCP for serialization)
-          deps: [:mcp],
-          # Prevent this app from using apps higher in the hierarchy
-          apps: [in: [:mcp]]
-        ]
-      ],
-      # Define this boundary's ID for other components to reference
-      identifier: :graph_os_graph,
-      # Define public exports from this application
-      exports: [
-        # Core interfaces
-        GraphOS.Store,
-        GraphOS.Store.Node,
-        GraphOS.Store.Edge,
-        GraphOS.Store.Graph,
-        GraphOS.Store.Transaction,
-        GraphOS.Store.Operation,
-        # Registry for multiple stores
-        GraphOS.Store.Registry,
-        # Interfaces for other components to use
-        GraphOS.Store.Query,
-        GraphOS.Store.StoreAdapter,
-        # Schema system (public interfaces only)
-        GraphOS.Schema,
-        # Behaviours
-        GraphOS.Store.SchemaBehaviour,
-        GraphOS.Store.Protocol,
-        # Schema implementations
-        GraphOS.Store.Schema.Protobuf
-      ]
     ]
   end
 end

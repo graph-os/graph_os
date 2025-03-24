@@ -36,15 +36,7 @@ defmodule GraphOS.MixProject do
   defp docs do
     [
       main: "readme",
-      extras: ["README.md"],
-      groups_for_modules: [
-        "Graph": ~r/GraphOS\.Graph\..*/,
-        "Core": ~r/GraphOS\.Core\..*/,
-        "MCP": ~r/GraphOS\.MCP\..*/,
-        "Distributed": ~r/GraphOS\.Distributed\..*/,
-        "Livebook": ~r/GraphOS\.Livebook\..*/,
-        "Phoenix": ~r/GraphOS\.Phoenix\..*/
-      ]
+      extras: ["README.md"]
     ]
   end
 

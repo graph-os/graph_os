@@ -30,8 +30,6 @@ defmodule GraphOS.Store.StoreAdapter do
   ```
   """
 
-  use Boundary, deps: []
-
   alias GraphOS.Store.{Transaction, Operation, Node, Edge, Query}
 
   @type t() :: module()
@@ -44,7 +42,7 @@ defmodule GraphOS.Store.StoreAdapter do
   Returns `{:ok, store_ref}` on success, where `store_ref` is an opaque reference
   to the initialized store. This reference will be passed to other callback functions.
   """
-  @callback init(opts :: keyword()) :: {:ok, term()} | {:error, term()}
+  @callback init(opts :: Keyword.t()) :: {:ok, term()} | {:error, term()}
 
   @doc """
   Callback for stopping a store adapter.
@@ -76,7 +74,7 @@ defmodule GraphOS.Store.StoreAdapter do
       iex> GraphOS.Store.StoreAdapter.init(GraphOS.Protocol.GRPC, schema_module: MySchema, name: :grpc_server)
       {:ok, store_ref}
   """
-  @spec init(module(), keyword()) :: {:ok, term()} | {:error, term()}
+  @spec init(module(), Keyword.t()) :: {:ok, term()} | {:error, term()}
   def init(adapter, opts \\ []) do
     adapter.init(opts)
   end
@@ -113,7 +111,7 @@ defmodule GraphOS.Store.StoreAdapter do
       iex> GraphOS.Store.StoreAdapter.execute(transaction, access_control: MyAccessControl, access_context: %{actor_id: "user1"})
       {:ok, %{results: [...]}}
   """
-  @spec execute(Transaction.t(), keyword()) :: Transaction.result()
+  @spec execute(Transaction.t(), Keyword.t()) :: Transaction.result()
   def execute(transaction, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
     access_context = Keyword.get(opts, :access_context, %{})
@@ -157,7 +155,7 @@ defmodule GraphOS.Store.StoreAdapter do
   - `access_control` - Module implementing the `GraphOS.Store.Access` behaviour
   - `access_context` - Map with context for access control decisions
   """
-  @spec rollback(Transaction.t(), keyword()) :: :ok | {:error, term()}
+  @spec rollback(Transaction.t(), Keyword.t()) :: :ok | {:error, term()}
   def rollback(transaction, opts \\ []) do
     _access_module = Keyword.get(opts, :access_control)
     _access_context = Keyword.get(opts, :access_context, %{})
@@ -175,7 +173,7 @@ defmodule GraphOS.Store.StoreAdapter do
   - `access_control` - Module implementing the `GraphOS.Store.Access` behaviour
   - `access_context` - Map with context for access control decisions
   """
-  @spec handle(Operation.message(), keyword()) :: :ok | {:error, term()}
+  @spec handle(Operation.message(), Keyword.t()) :: :ok | {:error, term()}
   def handle(operation, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
     access_context = Keyword.get(opts, :access_context, %{})
@@ -206,7 +204,7 @@ defmodule GraphOS.Store.StoreAdapter do
   @doc """
   Close the store.
   """
-  @spec close(module(), keyword()) :: :ok | {:error, term()}
+  @spec close(module(), Keyword.t()) :: :ok | {:error, term()}
   def close(module \\ GraphOS.Store.StoreAdapter.ETS, _opts \\ []) do
     module.close()
   end
@@ -229,7 +227,7 @@ defmodule GraphOS.Store.StoreAdapter do
       iex> GraphOS.Store.StoreAdapter.query(params, GraphOS.Store.StoreAdapter.ETS, access_control: MyAccessControl)
       {:ok, [%Node{}, ...]}
   """
-  @spec query(Query.query_params(), module(), keyword()) :: Query.query_result()
+  @spec query(Query.query_params(), module(), Keyword.t()) :: Query.query_result()
   def query(params, module \\ GraphOS.Store.StoreAdapter.ETS, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
     access_context = Keyword.get(opts, :access_context, %{})
@@ -268,7 +266,7 @@ defmodule GraphOS.Store.StoreAdapter do
       iex> GraphOS.Store.StoreAdapter.get_node("node1", GraphOS.Store.StoreAdapter.ETS)
       {:ok, %Node{id: "node1", ...}}
   """
-  @spec get_node(Node.id(), module(), keyword()) :: {:ok, Node.t()} | {:error, term()}
+  @spec get_node(Node.id(), module(), Keyword.t()) :: {:ok, Node.t()} | {:error, term()}
   def get_node(node_id, module \\ GraphOS.Store.StoreAdapter.ETS, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
     access_context = Keyword.get(opts, :access_context, %{})
@@ -303,7 +301,7 @@ defmodule GraphOS.Store.StoreAdapter do
       iex> GraphOS.Store.StoreAdapter.get_edge("edge1", GraphOS.Store.StoreAdapter.ETS)
       {:ok, %Edge{id: "edge1", ...}}
   """
-  @spec get_edge(Edge.id(), module(), keyword()) :: {:ok, Edge.t()} | {:error, term()}
+  @spec get_edge(Edge.id(), module(), Keyword.t()) :: {:ok, Edge.t()} | {:error, term()}
   def get_edge(edge_id, module \\ GraphOS.Store.StoreAdapter.ETS, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
     access_context = Keyword.get(opts, :access_context, %{})
@@ -338,7 +336,7 @@ defmodule GraphOS.Store.StoreAdapter do
       iex> GraphOS.Store.StoreAdapter.find_nodes_by_properties(%{name: "John"}, GraphOS.Store.StoreAdapter.ETS)
       {:ok, [%Node{...}, ...]}
   """
-  @spec find_nodes_by_properties(map(), module(), keyword()) ::
+  @spec find_nodes_by_properties(map(), module(), Keyword.t()) ::
           {:ok, list(Node.t())} | {:error, term()}
   def find_nodes_by_properties(properties, module \\ GraphOS.Store.StoreAdapter.ETS, opts \\ []) do
     access_module = Keyword.get(opts, :access_control)
@@ -384,7 +382,7 @@ defmodule GraphOS.Store.StoreAdapter do
 
   - `map()` - Access control context
   """
-  @spec create_access_context(keyword()) :: map()
+  @spec create_access_context(Keyword.t()) :: map()
   def create_access_context(opts \\ []) do
     %{
       actor_id: Keyword.get(opts, :actor_id),

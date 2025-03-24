@@ -43,9 +43,7 @@ defmodule GraphOS.Protocol do
   ```
   """
 
-  use Boundary,
-    deps: [:graph_os_core, :graph_os_graph, :mcp]
-
   # This module is just a namespace, so we don't need any functions here.
   # The actual implementation is in the adapter modules.
+  use Boundary, deps: [], exports: []
 end

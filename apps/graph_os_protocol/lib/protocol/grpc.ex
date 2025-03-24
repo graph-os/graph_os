@@ -59,7 +59,6 @@ defmodule GraphOS.Protocol.GRPC do
   ```
   """
 
-  use Boundary, deps: [:graph_os_core, :graph_os_graph]
   use GraphOS.Protocol.Adapter
 
   alias GraphOS.Store.{StoreAdapter, Transaction}

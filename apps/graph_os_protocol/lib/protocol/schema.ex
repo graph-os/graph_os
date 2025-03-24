@@ -31,8 +31,6 @@ defmodule GraphOS.Protocol.Schema do
   maintaining a single canonical schema definition.
   """
 
-  use Boundary, deps: [:graph_os_graph]
-
   alias GraphOS.Store.Schema.Protobuf
 
   @doc """

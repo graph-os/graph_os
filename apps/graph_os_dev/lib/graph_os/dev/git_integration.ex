@@ -178,7 +178,7 @@ defmodule GraphOS.Dev.GitIntegration do
 
   A list of line entries with commit information.
   """
-  @spec blame(Path.t(), Path.t(), keyword()) :: {:ok, [map()]} | {:error, term()}
+  @spec blame(Path.t(), Path.t(), Keyword.t()) :: {:ok, [map()]} | {:error, term()}
   def blame(repo_path, file_path, options \\ []) do
     args = ["--no-pager", "blame", "--porcelain"]
 

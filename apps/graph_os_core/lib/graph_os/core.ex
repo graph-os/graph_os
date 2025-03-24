@@ -33,6 +33,8 @@ defmodule GraphOS.Core do
       iex> version_info.version
       "0.1.0"
   """
+  use Boundary, deps: [GraphOS.Store], exports: []
+
   def version do
     %{
       version: "0.1.0",

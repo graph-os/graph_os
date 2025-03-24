@@ -29,7 +29,7 @@ defmodule GraphOS.Store.Algorithm.ETS do
   - `{:ok, [%Node{}, ...]}` - List of traversed nodes
   - `{:error, reason}` - Error with reason
   """
-  @spec process_traverse_query(String.t(), keyword()) ::
+  @spec process_traverse_query(String.t(), Keyword.t()) ::
           {:ok, list(Node.t())} | {:error, term()}
   def process_traverse_query(start_node_id, opts \\ []) do
     max_depth = Keyword.get(opts, :max_depth, 10)
@@ -265,7 +265,7 @@ defmodule GraphOS.Store.Algorithm.ETS do
   - `{:ok, %{"node_id" => rank, ...}}` - Map of node IDs to ranks
   - `{:error, reason}` - Error with reason
   """
-  @spec process_pagerank_query(keyword()) ::
+  @spec process_pagerank_query(Keyword.t()) ::
           {:ok, map()} | {:error, term()}
   def process_pagerank_query(opts \\ []) do
     iterations = Keyword.get(opts, :iterations, 20)
@@ -467,7 +467,7 @@ defmodule GraphOS.Store.Algorithm.ETS do
   - `{:ok, [%Edge{}, ...], total_weight}` - Tree edges and total weight
   - `{:error, reason}` - Error with reason
   """
-  @spec process_mst_query(keyword()) ::
+  @spec process_mst_query(Keyword.t()) ::
           {:ok, list(Edge.t()), number()} | {:error, term()}
   def process_mst_query(opts \\ []) do
     edge_type = Keyword.get(opts, :edge_type)

@@ -61,7 +61,7 @@ defmodule GraphOS.Dev.CodeGraph do
       {:ok, stats}
 
   """
-  @spec build_graph(Path.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec build_graph(Path.t(), Keyword.t()) :: {:ok, map()} | {:error, term()}
   def build_graph(directory, opts \\ []) do
     # Default options
     recursive = Keyword.get(opts, :recursive, true)
@@ -255,7 +255,7 @@ defmodule GraphOS.Dev.CodeGraph do
       {:ok, changes}
 
   """
-  @spec update_file(Path.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  @spec update_file(Path.t(), Keyword.t()) :: {:ok, map()} | {:error, term()}
   def update_file(file_path, _opts \\ []) do
     # First clear existing nodes and edges for this file
     with :ok <- remove_file_from_graph(file_path) do

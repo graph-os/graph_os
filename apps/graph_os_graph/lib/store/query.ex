@@ -22,7 +22,7 @@ defmodule GraphOS.Store.Query do
           target_node_id: String.t() | nil,
           id: String.t() | nil,
           filter: map() | nil,
-          opts: keyword()
+          opts: Keyword.t()
         }
 
   defstruct operation: nil,
@@ -47,7 +47,7 @@ defmodule GraphOS.Store.Query do
       iex> GraphOS.Store.Query.get(:node, "node1")
       %GraphOS.Store.Query{operation: :get, entity: :node, id: "node1", opts: []}
   """
-  @spec get(entity_type(), String.t(), keyword()) :: t()
+  @spec get(entity_type(), String.t(), Keyword.t()) :: t()
   def get(entity, id, opts \\ []) when entity in [:graph, :node, :edge] and is_binary(id) do
     %__MODULE__{
       operation: :get,
@@ -71,7 +71,7 @@ defmodule GraphOS.Store.Query do
       iex> GraphOS.Store.Query.list(:node, %{type: "person"})
       %GraphOS.Store.Query{operation: :list, entity: :node, filter: %{type: "person"}, opts: []}
   """
-  @spec list(entity_type(), map(), keyword()) :: t()
+  @spec list(entity_type(), map(), Keyword.t()) :: t()
   def list(entity, filter \\ %{}, opts \\ []) when entity in [:graph, :node, :edge] do
     %__MODULE__{
       operation: :list,
@@ -98,10 +98,11 @@ defmodule GraphOS.Store.Query do
       iex> GraphOS.Store.Query.traverse("node1", algorithm: :bfs, max_depth: 3)
       %GraphOS.Store.Query{operation: :traverse, start_node_id: "node1", opts: [algorithm: :bfs, max_depth: 3]}
   """
-  @spec traverse(String.t(), keyword()) :: t()
+  @spec traverse(String.t(), Keyword.t()) :: t()
   def traverse(start_node_id, opts \\ []) when is_binary(start_node_id) do
     %__MODULE__{
       operation: :traverse,
+      entity: :node,
       start_node_id: start_node_id,
       opts: opts
     }
@@ -123,11 +124,12 @@ defmodule GraphOS.Store.Query do
       iex> GraphOS.Store.Query.shortest_path("node1", "node5", weight_property: "distance")
       %GraphOS.Store.Query{operation: :shortest_path, start_node_id: "node1", target_node_id: "node5", opts: [weight_property: "distance"]}
   """
-  @spec shortest_path(String.t(), String.t(), keyword()) :: t()
+  @spec shortest_path(String.t(), String.t(), Keyword.t()) :: t()
   def shortest_path(start_node_id, target_node_id, opts \\ [])
       when is_binary(start_node_id) and is_binary(target_node_id) do
     %__MODULE__{
       operation: :shortest_path,
+      entity: :node,
       start_node_id: start_node_id,
       target_node_id: target_node_id,
       opts: opts
@@ -148,10 +150,11 @@ defmodule GraphOS.Store.Query do
       iex> GraphOS.Store.Query.connected_components(edge_type: "friend")
       %GraphOS.Store.Query{operation: :connected_components, opts: [edge_type: "friend"]}
   """
-  @spec connected_components(keyword()) :: t()
+  @spec connected_components(Keyword.t()) :: t()
   def connected_components(opts \\ []) do
     %__MODULE__{
       operation: :connected_components,
+      entity: :node,
       opts: opts
     }
   end
@@ -171,10 +174,11 @@ defmodule GraphOS.Store.Query do
       iex> GraphOS.Store.Query.pagerank(iterations: 30, damping: 0.9)
       %GraphOS.Store.Query{operation: :pagerank, opts: [iterations: 30, damping: 0.9]}
   """
-  @spec pagerank(keyword()) :: t()
+  @spec pagerank(Keyword.t()) :: t()
   def pagerank(opts \\ []) do
     %__MODULE__{
       operation: :pagerank,
+      entity: :node,
       opts: opts
     }
   end
@@ -193,7 +197,7 @@ defmodule GraphOS.Store.Query do
       iex> GraphOS.Store.Query.minimum_spanning_tree(weight_property: "distance")
       %GraphOS.Store.Query{operation: :minimum_spanning_tree, opts: [weight_property: "distance"]}
   """
-  @spec minimum_spanning_tree(keyword()) :: t()
+  @spec minimum_spanning_tree(Keyword.t()) :: t()
   def minimum_spanning_tree(opts \\ []) do
     %__MODULE__{
       operation: :minimum_spanning_tree,

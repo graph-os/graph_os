@@ -1,6 +1,4 @@
 defmodule GraphOS.Protocol.Auth.Plug do
-  use Boundary, deps: [GraphOS.Protocol.Auth]
-
   @moduledoc """
   Authentication plug for GraphOS protocol endpoints.
 

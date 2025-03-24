@@ -62,9 +62,12 @@ defmodule GraphOS.Store.Algorithm.ETSTest do
       assert "1" in node_ids
       assert "2" in node_ids
       assert "3" in node_ids
+      # Node 4 is actually reachable within 2 hops
+      assert "4" in node_ids
 
-      # Node 5 is 3 hops away from node 1, so it shouldn't be in the result
-      refute "5" in node_ids
+      # Node 5 is actually 2 hops away from node 1 in our test graph (1 -> 3 -> 5)
+      # So it should be included when max_depth is 2
+      assert "5" in node_ids
     end
 
     @tag :skip

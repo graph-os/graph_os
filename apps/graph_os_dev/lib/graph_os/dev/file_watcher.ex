@@ -40,7 +40,7 @@ defmodule GraphOS.Dev.FileWatcher do
       {:ok, #PID<0.123.0>}
 
   """
-  @spec start_link(Path.t() | [Path.t()], keyword()) :: GenServer.on_start()
+  @spec start_link(Path.t() | [Path.t()], Keyword.t()) :: GenServer.on_start()
   def start_link(directory, opts \\ []) when is_binary(directory) or is_list(directory) do
     GenServer.start_link(__MODULE__, {directory, opts}, name: __MODULE__)
   end

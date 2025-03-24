@@ -6,7 +6,17 @@ defmodule GraphOS.Store do
   using different storage engines (adapters).
   """
 
-  use Boundary, exports: [], deps: [:mcp]
+  use Boundary,
+    exports: [
+      GraphOS.Store.Graph,
+      GraphOS.Store.Node,
+      GraphOS.Store.Edge,
+      GraphOS.Store.StoreAdapter,
+      GraphOS.Store.Operation,
+      GraphOS.Store.Query,
+      GraphOS.Store.Registry,
+      GraphOS.Store.Schema
+    ]
 
   alias GraphOS.Store.{StoreAdapter, Operation, Query, Registry}
 
@@ -26,7 +36,7 @@ defmodule GraphOS.Store do
       iex> GraphOS.Store.init(adapter: MyAdapter, name: :my_store)
       {:ok, :my_store}
   """
-  @spec init(keyword()) :: {:ok, atom()} | {:error, term()}
+  @spec init(Keyword.t()) :: {:ok, atom()} | {:error, term()}
   def init(opts) do
     adapter = Keyword.fetch!(opts, :adapter)
     name = Keyword.fetch!(opts, :name)
@@ -59,7 +69,7 @@ defmodule GraphOS.Store do
       iex> GraphOS.Store.start(adapter: MyCustomAdapter)
       {:ok, :my_custom_adapter}
   """
-  @spec start(keyword()) :: {:ok, atom()} | {:error, term()}
+  @spec start(Keyword.t()) :: {:ok, atom()} | {:error, term()}
   def start(opts \\ []) do
     adapter = Keyword.get(opts, :adapter, GraphOS.Store.StoreAdapter.ETS)
     name = Keyword.get(opts, :name, :default)
@@ -130,7 +140,7 @@ defmodule GraphOS.Store do
       iex> GraphOS.Store.execute(transaction)
       {:ok, [result1, result2]}
   """
-  @spec execute(struct(), keyword()) :: {:ok, term()} | {:error, term()}
+  @spec execute(struct(), Keyword.t()) :: {:ok, term()} | {:error, term()}
   def execute(operation, opts \\ []) do
     store_name = Keyword.get(opts, :store, :default)
 
@@ -164,7 +174,7 @@ defmodule GraphOS.Store do
       iex> GraphOS.Store.insert(:graph, %{id: "graph1", name: "My Graph"})
       {:ok, %Graph{id: "graph1", name: "My Graph"}}
   """
-  @spec insert(atom(), map(), keyword()) :: {:ok, term()} | {:error, term()}
+  @spec insert(atom(), map(), Keyword.t()) :: {:ok, term()} | {:error, term()}
   def insert(entity_type, params, opts \\ []) do
     operation = %Operation{type: :insert, entity: entity_type, params: params}
     execute(operation, opts)
@@ -185,7 +195,7 @@ defmodule GraphOS.Store do
       iex> GraphOS.Store.update(:node, %{id: "node1", name: "Updated Name"})
       {:ok, %Node{id: "node1", name: "Updated Name"}}
   """
-  @spec update(atom(), map(), keyword()) :: {:ok, term()} | {:error, term()}
+  @spec update(atom(), map(), Keyword.t()) :: {:ok, term()} | {:error, term()}
   def update(entity_type, params, opts \\ []) do
     operation = %Operation{type: :update, entity: entity_type, params: params}
     execute(operation, opts)
@@ -206,7 +216,7 @@ defmodule GraphOS.Store do
       iex> GraphOS.Store.delete(:node, "node1")
       :ok
   """
-  @spec delete(atom(), binary(), keyword()) :: :ok | {:error, term()}
+  @spec delete(atom(), binary(), Keyword.t()) :: :ok | {:error, term()}
   def delete(entity_type, id, opts \\ []) do
     operation = %Operation{type: :delete, entity: entity_type, params: %{id: id}}
     execute(operation, opts)
@@ -227,7 +237,7 @@ defmodule GraphOS.Store do
       iex> GraphOS.Store.get(:node, "node1")
       {:ok, %Node{id: "node1", type: "person"}}
   """
-  @spec get(atom(), binary(), keyword()) :: {:ok, term()} | {:error, term()}
+  @spec get(atom(), binary(), Keyword.t()) :: {:ok, term()} | {:error, term()}
   def get(entity_type, id, opts \\ []) do
     query = Query.get(entity_type, id, opts)
     execute(query)
