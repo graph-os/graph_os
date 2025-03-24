@@ -1,7 +1,6 @@
 defmodule GraphOS.Protocol.AuthIntegrationTest do
   use ExUnit.Case, async: false
   use Plug.Test
-  alias GraphOS.Protocol.{GRPC, JSONRPC}
 
   # Define a simple schema module for testing
   defmodule TestSchema do
@@ -64,7 +63,7 @@ defmodule GraphOS.Protocol.AuthIntegrationTest do
         # Create a connection with a secret in headers
         conn_with_header =
           conn(:get, "/test")
-          |> put_req_header("x-graphos-rpc-secret", "test_secret")
+          |> put_req_header("x-graph-os-rpc-secret", "test_secret")
 
         # Process with a secret - should pass
         result = GraphOS.Protocol.Auth.Plug.call(conn_with_header, [])
@@ -94,7 +93,7 @@ defmodule GraphOS.Protocol.AuthIntegrationTest do
         # Test with a valid secret in header
         conn =
           conn(:get, "/test")
-          |> put_req_header("x-graphos-rpc-secret", "valid_secret")
+          |> put_req_header("x-graph-os-rpc-secret", "valid_secret")
 
         # This should pass validation
         result = GraphOS.Protocol.Auth.Plug.call(conn, [])
@@ -103,7 +102,7 @@ defmodule GraphOS.Protocol.AuthIntegrationTest do
         # Test with an invalid secret (should be blocked)
         conn =
           conn(:get, "/test")
-          |> put_req_header("x-graphos-rpc-secret", "wrong_secret")
+          |> put_req_header("x-graph-os-rpc-secret", "wrong_secret")
 
         # This should not pass validation
         result = GraphOS.Protocol.Auth.Plug.call(conn, [])

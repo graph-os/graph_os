@@ -7,16 +7,7 @@ defmodule GraphOS.Core.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
-      # Core services
-      {GraphOS.Core.Access.Supervisor, []},
-
-      # Component Registry
-      {GraphOS.Component.Registry, []},
-      
-      # System Info Service
-      {GraphOS.Core.SystemInfo, []}
-    ]
+    children = []
 
     # Add CodeGraph Service if enabled
     children =
@@ -31,7 +22,7 @@ defmodule GraphOS.Core.Application do
           distributed: Application.get_env(:graph_os_core, :distributed, true)
         ]
 
-        children ++ [{GraphOS.Core.CodeGraph.Service, code_graph_opts}]
+        children ++ [{GraphOS.Dev.CodeGraph.Service, code_graph_opts}]
       else
         children
       end

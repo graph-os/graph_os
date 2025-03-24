@@ -11,7 +11,7 @@ defmodule GraphOS.Dev.FileWatcherTest do
     :ok = CodeGraph.init()
 
     # Create a temporary directory for test files
-    test_dir = Path.join(System.tmp_dir!(), "graphos_file_watcher_test_#{:rand.uniform(1000)}")
+    test_dir = Path.join(System.tmp_dir!(), "graph_os_file_watcher_test_#{:rand.uniform(1000)}")
     File.mkdir_p!(test_dir)
 
     # Clean up after the test

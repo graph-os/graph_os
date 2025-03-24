@@ -4,14 +4,14 @@ defmodule GraphOS.Dev.CodeGraphTest do
 
   alias GraphOS.Dev.CodeGraph
   alias GraphOS.Dev.CodeParser
-  alias GraphOS.GraphContext
+  alias GraphOS.Store
 
   setup do
-    # Initialize the graph store before each test
-    :ok = Graph.init()
+    # Initialize the graph
+    :ok = GraphOS.Dev.CodeGraph.init()
 
     # Create a temporary directory for test files
-    test_dir = Path.join(System.tmp_dir!(), "graphos_code_graph_test_#{:rand.uniform(1000)}")
+    test_dir = Path.join(System.tmp_dir!(), "graph_os_code_graph_test_#{:rand.uniform(1000)}")
     File.mkdir_p!(test_dir)
 
     # Return the test directory for use in tests
@@ -142,8 +142,10 @@ defmodule GraphOS.Dev.CodeGraphTest do
       IO.puts("Build stats: #{inspect(stats)}")
 
       # Debug: Check what nodes are in the graph
-      {:ok, all_nodes} = GraphOS.GraphContext.Query.find_nodes_by_properties(%{})
-      IO.puts("All nodes: #{inspect(Enum.map(all_nodes, & &1.id))}")
+      query = GraphOS.Store.Query.find_nodes_by_properties(%{})
+      assert %GraphOS.Store.Query{} = query
+      assert query.operation == :list
+      assert query.entity == :node
 
       # Debug: Check if the file exists
       IO.puts("File exists: #{File.exists?(file_path)}")

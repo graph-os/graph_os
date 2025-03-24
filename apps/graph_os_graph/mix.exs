@@ -1,4 +1,4 @@
-defmodule GraphOS.Graph.MixProject do
+defmodule GraphOS.Store.MixProject do
   use Mix.Project
 
   @version "0.1.0"
@@ -20,8 +20,8 @@ defmodule GraphOS.Graph.MixProject do
       description: "Graph library for GraphOS",
       package: package(),
       docs: docs(),
-      name: "GraphOS.Graph",
-      
+      name: "GraphOS.Store",
+
       # Boundary enforcement
       compilers: [:boundary | Mix.compilers()],
       boundary: boundary()
@@ -31,6 +31,7 @@ defmodule GraphOS.Graph.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      mod: {GraphOS.Store.Application, []},
       extra_applications: [:logger]
     ]
   end
@@ -56,12 +57,12 @@ defmodule GraphOS.Graph.MixProject do
 
   defp docs do
     [
-      main: "GraphOS.Graph",
+      main: "GraphOS.Store",
       source_url: @source_url,
       extras: ["README.md"]
     ]
   end
-  
+
   defp boundary do
     [
       default: [
@@ -77,21 +78,24 @@ defmodule GraphOS.Graph.MixProject do
       # Define public exports from this application
       exports: [
         # Core interfaces
-        GraphOS.Graph,
-        GraphOS.Graph.Node,
-        GraphOS.Graph.Edge,
-        GraphOS.Graph.Meta,
-        GraphOS.Graph.Transaction,
-        GraphOS.Graph.Operation,
+        GraphOS.Store,
+        GraphOS.Store.Node,
+        GraphOS.Store.Edge,
+        GraphOS.Store.Graph,
+        GraphOS.Store.Transaction,
+        GraphOS.Store.Operation,
+        # Registry for multiple stores
+        GraphOS.Store.Registry,
         # Interfaces for other components to use
-        GraphOS.Graph.Query,
-        GraphOS.Graph.Store,
-        GraphOS.Graph.Access,
-        GraphOS.Graph.Subscription,
-        GraphOS.Graph.Protocol,
+        GraphOS.Store.Query,
+        GraphOS.Store.StoreAdapter,
         # Schema system (public interfaces only)
-        GraphOS.Graph.Schema,
-        GraphOS.Graph.SchemaBehaviour
+        GraphOS.Schema,
+        # Behaviours
+        GraphOS.Store.SchemaBehaviour,
+        GraphOS.Store.Protocol,
+        # Schema implementations
+        GraphOS.Store.Schema.Protobuf
       ]
     ]
   end

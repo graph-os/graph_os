@@ -29,24 +29,9 @@ All documentation is centralized in the `/instructions` directory:
 
 ## Documentation Maintenance
 
-### Important: Symlink System
-All documentation files are **symlinked** from the `/instructions` directory to various locations:
-
-1. **Root level**: `/ARCHITECTURE.md`, `/BOUNDARIES.md`, `/CLAUDE.md`, etc.
-2. **App directories**: `/apps/*/BOUNDARIES.md`, `/apps/*/CLAUDE.md`, etc.
-
-This ensures documentation is accessible from any location in the project.
-
-### Editing Guidelines
-- **ALWAYS edit files in the `/instructions` directory**, never the symlinked copies
-- When updating component-specific details, also update the component's README.md
-- Keep documentation in sync with code changes
-- Use Markdown formatting consistently
-
 ### Adding New Documentation
 1. Create the file in `/instructions/`
-2. Create symlinks as needed
-3. Update relevant README files and index.md
+2. Update `/instructions/index.md` to include the new file
 
 ## Project Structure
 This is an Elixir umbrella project with the following hierarchy:
@@ -198,7 +183,7 @@ The GraphOS.Core component provides the central functionality of GraphOS, includ
 
 ### graph_os_graph
 
-The GraphOS.GraphContext component provides the core graph data structure and algorithms for GraphOS. It is a pure graph library with no dependencies on other GraphOS components except potentially MCP for serialization.
+The GraphOS.Store component provides the core graph data structure and algorithms for GraphOS. It is a pure graph library with no dependencies on other GraphOS components except potentially MCP for serialization.
 
 #### Code Organization
 - `lib/graph.ex` - Main graph interface
@@ -211,8 +196,8 @@ The GraphOS.GraphContext component provides the core graph data structure and al
 - `lib/graph/access.ex` - Access control interface
 - `lib/graph/subscription.ex` - Subscription interface
 - `lib/graph/subscription/noop.ex` - No-op subscription implementation
-- `lib/graph/store.ex` - Store behavior
-- `lib/graph/store/*.ex` - Store implementations
+- `lib/graph/store.ex` - StoreAdapter behavior
+- `lib/graph/store/*.ex` - StoreAdapter implementations
 - `lib/graph/algorithm.ex` - Algorithm module
 - `lib/graph/algorithm/*.ex` - Algorithm implementations
 - `lib/graph/query.ex` - Query interface
@@ -232,7 +217,7 @@ The GraphOS.GraphContext component provides the core graph data structure and al
 #### Architecture Notes
 - Graph operations should be composable
 - Support both immutable and mutable (transactional) operations
-- Store implementations should be pluggable
+- StoreAdapter implementations should be pluggable
 - Define extension points via behaviors
 - Keep interface definitions separate from implementations
 - Do not include application lifecycle management

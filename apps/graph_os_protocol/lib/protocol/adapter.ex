@@ -2,7 +2,7 @@ defmodule GraphOS.Protocol.Adapter do
   @moduledoc """
   Core adapter functionality for protocol implementations.
 
-  This module integrates with the GraphOS.Adapter system to provide protocol-specific
+  This module integrates with the GraphOS.Store.StoreAdapter system to provide protocol-specific
   adapters for different communication protocols. It serves as the foundation for
   all protocol implementations in the GraphOS.Protocol namespace.
 
@@ -12,26 +12,27 @@ defmodule GraphOS.Protocol.Adapter do
   - `GraphOS.Protocol.GRPC`: gRPC protocol adapter
   - `GraphOS.Protocol.MCP`: Model Context Protocol adapter
 
-  ## Integration with GraphOS.Adapter
+  ## Integration with GraphOS.Store.StoreAdapter
 
-  Protocol adapters are built on top of the GraphOS.Adapter system, which provides
-  core functionality for adapter operation, context management, and middleware
-  processing. Protocol adapters extend this system with protocol-specific behaviors.
+  Protocol adapters are built on top of the GraphOS.Store.StoreAdapter system, which provides
+  core functionality for store operations, access control, and query processing.
+  Protocol adapters extend this system with protocol-specific behaviors.
   """
 
-  alias GraphOS.Adapter.GraphAdapter
+  alias GraphOS.Store.StoreAdapter
+  alias GraphOS.Store.Transaction
   alias GraphOS.Adapter.Context
 
   @doc """
   Starts a protocol adapter as a linked process.
 
-  This is a convenience function that delegates to GraphOS.Adapter.GraphAdapter.start_link/1.
+  This is a convenience function that delegates to GraphOS.Store.StoreAdapter.init/2.
 
   ## Parameters
 
     * `adapter_module` - The protocol adapter module
     * `opts` - Adapter options
-    
+
   ## Returns
 
     * `{:ok, pid}` - Successfully started the adapter
@@ -39,13 +40,13 @@ defmodule GraphOS.Protocol.Adapter do
   """
   @spec start_link(module(), keyword()) :: {:ok, pid()} | {:error, term()}
   def start_link(adapter_module, opts) do
-    GraphAdapter.start_link(Keyword.put(opts, :adapter, adapter_module))
+    StoreAdapter.init(adapter_module, Keyword.put(opts, :adapter, adapter_module))
   end
 
   @doc """
   Executes an operation through a protocol adapter.
 
-  This is a convenience function that delegates to GraphOS.Adapter.GraphAdapter.execute/4.
+  This is a convenience function that delegates to GraphOS.Store.StoreAdapter.execute/2.
 
   ## Parameters
 
@@ -53,7 +54,7 @@ defmodule GraphOS.Protocol.Adapter do
     * `operation` - The operation to perform
     * `context` - Optional custom context for the operation
     * `timeout` - Optional timeout in milliseconds
-    
+
   ## Returns
 
     * `{:ok, result}` - Operation succeeded with the given result
@@ -61,13 +62,13 @@ defmodule GraphOS.Protocol.Adapter do
   """
   @spec execute(
           module() | pid(),
-          GraphAdapter.operation(),
+          Transaction.t(),
           Context.t() | nil,
           timeout :: non_neg_integer() | :infinity
         ) ::
           {:ok, term()} | {:error, term()}
   def execute(adapter, operation, context \\ nil, timeout \\ 5000) do
-    GraphAdapter.execute(adapter, operation, context, timeout)
+    StoreAdapter.execute(operation, adapter: adapter, context: context, timeout: timeout)
   end
 
   @doc """
@@ -81,13 +82,13 @@ defmodule GraphOS.Protocol.Adapter do
   ```elixir
   defmodule MyProtocolAdapter do
     use GraphOS.Protocol.Adapter
-    
+
     @impl true
     def init(opts) do
       # Initialize adapter state
       {:ok, %{config: opts}}
     end
-    
+
     @impl true
     def handle_operation(operation, context, state) do
       # Handle a Graph operation
@@ -98,7 +99,7 @@ defmodule GraphOS.Protocol.Adapter do
   """
   defmacro __using__(_opts) do
     quote do
-      use GraphOS.Adapter.GraphAdapter
+      @behaviour GraphOS.Store.Protocol
 
       # Import common functionality
       import GraphOS.Protocol.Adapter, only: [execute: 3, execute: 4]
@@ -108,6 +109,18 @@ defmodule GraphOS.Protocol.Adapter do
       def start_link(opts) do
         GraphOS.Protocol.Adapter.start_link(__MODULE__, opts)
       end
+
+      # Default implementations
+      @impl GraphOS.Store.Protocol
+      def init(opts \\ []), do: {:ok, opts}
+
+      @impl GraphOS.Store.Protocol
+      def execute(operation, opts \\ []), do: {:ok, operation}
+
+      @impl GraphOS.Store.Protocol
+      def close, do: :ok
+
+      defoverridable init: 1, execute: 2, close: 0
     end
   end
 end

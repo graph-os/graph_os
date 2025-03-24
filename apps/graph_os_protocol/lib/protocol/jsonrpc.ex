@@ -10,7 +10,7 @@ defmodule GraphOS.Protocol.JSONRPC do
 
   - `:name` - Name to register the adapter process (optional)
   - `:plugs` - List of plugs to apply to operations (optional)
-  - `:graph_module` - The Graph module to use (default: `GraphOS.GraphContext`)
+  - `:graph_module` - The Graph module to use (default: `GraphOS.Store`)
   - `:version` - JSON-RPC version to use (default: "2.0")
   - `:method_prefix` - Prefix for method names (default: "graph.")
 
@@ -122,7 +122,7 @@ defmodule GraphOS.Protocol.JSONRPC do
 
   @impl true
   def init(opts) do
-    graph_module = Keyword.get(opts, :graph_module, GraphOS.GraphContext)
+    graph_module = Keyword.get(opts, :graph_module, GraphOS.Store)
     version = Keyword.get(opts, :version, "2.0")
     method_prefix = Keyword.get(opts, :method_prefix, "graph.")
 

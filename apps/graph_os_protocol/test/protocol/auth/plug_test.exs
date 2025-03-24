@@ -110,7 +110,7 @@ defmodule GraphOS.Protocol.Auth.PlugTest do
         # Test case 2: Valid secret in headers - should pass
         conn =
           conn(:get, "/test")
-          |> put_req_header("x-graphos-rpc-secret", "test_secret")
+          |> put_req_header("x-graph-os-rpc-secret", "test_secret")
 
         result = Plug.call(conn, [])
         # Conn should not be halted

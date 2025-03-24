@@ -14,7 +14,7 @@ defmodule GraphOS.Core do
 
   ## Architecture
 
-  GraphOS.Core depends on GraphOS.GraphContext for its underlying graph data structures
+  GraphOS.Core depends on GraphOS.Store for its underlying graph data structures
   and operations, while providing higher-level functionality on top of that
   foundation.
 

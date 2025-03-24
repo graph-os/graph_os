@@ -87,7 +87,7 @@ GraphOS Protocol interfaces use a secret-based authentication system to secure t
   Authorization: Bearer your_secret_here
   
   # gRPC metadata
-  x-graphos-rpc-secret: your_secret_here
+  x-graph-os-rpc-secret: your_secret_here
   ```
 
 - **Security Notes**:

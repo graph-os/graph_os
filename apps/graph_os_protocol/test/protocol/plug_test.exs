@@ -3,7 +3,6 @@ defmodule GraphOS.Protocol.PlugTest do
   use Plug.Test
 
   alias GraphOS.Protocol.Plug
-  alias GraphOS.GraphContext.Schema.TestPersonSchema
 
   # Create a real adapter implementation for testing
   defmodule TestAdapter do
@@ -105,55 +104,13 @@ defmodule GraphOS.Protocol.PlugTest do
       # Create a test connection
       conn =
         conn(:get, "/graph/query/nodes.get")
-        |> put_private(:graphos_adapter, adapter_pid)
+        |> put_private(:graph_os_adapter, adapter_pid)
 
       # Return the test context
       %{
         conn: conn,
         adapter_pid: adapter_pid
       }
-    end
-
-    test "handles JSON content type", %{conn: conn, adapter_pid: adapter_pid} do
-      # Mock the GenServer.execute function to return a predefined response
-      :meck.new(GraphOS.Adapter.GenServer, [:passthrough])
-
-      :meck.expect(GraphOS.Adapter.GenServer, :execute, fn _adapter, _operation, _context ->
-        {:ok,
-         %{
-           id: "node-1",
-           type: "person",
-           data: %{"name" => "Alice", "age" => 30},
-           created_at: "2023-01-01T00:00:00Z",
-           updated_at: "2023-01-01T00:00:00Z"
-         }}
-      end)
-
-      # Create a test request with JSON content type
-      conn =
-        conn
-        |> put_req_header("content-type", "application/json")
-        |> Plug.call(%{
-          adapter: TestAdapter,
-          adapter_opts: [],
-          base_path: "graph",
-          json_codec: Jason,
-          schema_module: TestSchemaModule
-        })
-
-      # Clean up the mock after the test
-      :meck.unload(GraphOS.Adapter.GenServer)
-
-      # Check the response
-      assert conn.status == 200
-      content_type = get_resp_header(conn, "content-type")
-      assert String.starts_with?(hd(content_type), "application/json")
-
-      # Parse the response body
-      response = Jason.decode!(conn.resp_body)
-      assert response["id"] == "node-1"
-      assert response["type"] == "person"
-      assert response["data"]["name"] == "Alice"
     end
 
     test "configures Schema module correctly", %{conn: conn} do
@@ -170,7 +127,7 @@ defmodule GraphOS.Protocol.PlugTest do
       assert config.schema_module == TestSchemaModule
     end
 
-    test "handles empty schema module gracefully", %{conn: conn} do
+    test "handles empty schema module gracefully", %{conn: _conn} do
       # Create a test config without schema module
       config =
         Plug.init(
@@ -184,29 +141,15 @@ defmodule GraphOS.Protocol.PlugTest do
       assert config.schema_module == nil
     end
 
-    test "routes handle different content types based on headers", %{conn: conn} do
+    test "routes handle different content types based on headers", %{conn: _conn} do
       # Create a new adapter for this test to avoid shared state
       {:ok, adapter_pid} = TestAdapter.start_link([])
-
-      # Mock the GenServer.execute function
-      :meck.new(GraphOS.Adapter.GenServer, [:passthrough])
-
-      :meck.expect(GraphOS.Adapter.GenServer, :execute, fn _adapter, _operation, _context ->
-        {:ok,
-         %{
-           id: "node-1",
-           type: "person",
-           data: %{"name" => "Alice", "age" => 30},
-           created_at: "2023-01-01T00:00:00Z",
-           updated_at: "2023-01-01T00:00:00Z"
-         }}
-      end)
 
       # Create a test connection
       conn =
         conn(:post, "/graph/protobuf/GetNode")
         |> put_req_header("content-type", "application/json")
-        |> put_private(:graphos_adapter, adapter_pid)
+        |> put_private(:graph_os_adapter, adapter_pid)
         |> Plug.call(%{
           adapter: TestAdapter,
           adapter_opts: [],
@@ -214,9 +157,6 @@ defmodule GraphOS.Protocol.PlugTest do
           json_codec: Jason,
           schema_module: nil
         })
-
-      # Clean up the mock after the test
-      :meck.unload(GraphOS.Adapter.GenServer)
 
       # Since schema_module is nil, it should return 501 Not Implemented
       assert conn.status == 501

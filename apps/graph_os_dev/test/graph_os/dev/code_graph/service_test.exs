@@ -11,7 +11,7 @@ defmodule GraphOS.Dev.CodeGraph.ServiceTest do
 
     # Create a temporary directory for test files
     test_dir =
-      Path.join(System.tmp_dir!(), "graphos_codegraph_service_test_#{:rand.uniform(1000)}")
+      Path.join(System.tmp_dir!(), "graph_os_codegraph_service_test_#{:rand.uniform(1000)}")
 
     File.mkdir_p!(test_dir)
 
@@ -243,13 +243,16 @@ defmodule GraphOS.Dev.CodeGraph.ServiceTest do
 
   defp start_registry_and_supervisor do
     # Start the registry
-    case Registry.start_link(keys: :unique, name: GraphOS.GraphContext.StoreRegistry) do
+    case Registry.start_link(keys: :unique, name: GraphOS.Store.StoreAdapterRegistry) do
       {:ok, _} -> :ok
       {:error, {:already_started, _}} -> :ok
     end
 
     # Start the supervisor
-    case DynamicSupervisor.start_link(name: GraphOS.GraphContext.StoreSupervisor, strategy: :one_for_one) do
+    case DynamicSupervisor.start_link(
+           name: GraphOS.Store.StoreAdapterSupervisor,
+           strategy: :one_for_one
+         ) do
       {:ok, _} -> :ok
       {:error, {:already_started, _}} -> :ok
     end

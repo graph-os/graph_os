@@ -8,7 +8,7 @@ defmodule GraphOS.DevWeb.CodeGraphController do
   use GraphOS.DevWeb, :controller
   require Logger
 
-  @query_module Application.compile_env(:graph_os_dev, :query_module, GraphOS.Graph.Query)
+  @query_module Application.compile_env(:graph_os_dev, :query_module, GraphOS.Store.Query)
   @code_graph_enabled Application.compile_env(:graph_os_dev, :enable_code_graph, false)
 
   # Message shown when CodeGraph is disabled
@@ -71,7 +71,7 @@ defmodule GraphOS.DevWeb.CodeGraphController do
       # Return a placeholder response when disabled
       watch_dirs = Application.get_env(:graph_os_core, :watch_directories, ["lib"])
       file_pattern = Application.get_env(:graph_os_core, :file_pattern, "**/*.ex")
-      
+
       # Just return empty data with a note that it's disabled
       json(conn, %{
         files: [],

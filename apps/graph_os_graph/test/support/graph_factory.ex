@@ -4,10 +4,10 @@ defmodule GraphOS.Test.Support.GraphFactory do
   Provides functions to create nodes, edges, and graph structures.
   """
 
-  alias GraphOS.Graph
-  alias GraphOS.Graph.Edge
-  alias GraphOS.Graph.Node
-  alias GraphOS.Graph.Transaction
+  alias GraphOS.Store
+  alias GraphOS.Store.Edge
+  alias GraphOS.Store.Node
+  alias GraphOS.Store.Transaction
 
   @doc """
   Initializes the graph store and creates a graph with the specified number of nodes and edges.
@@ -15,7 +15,7 @@ defmodule GraphOS.Test.Support.GraphFactory do
   Returns :ok when successful.
   """
   def create_graph(node_count \\ 10, edge_count \\ 10, connection_type \\ :acyclic) do
-    Graph.init()
+    {:ok, _} = Store.start()
     create_nodes(node_count)
     create_edges(node_count, edge_count, connection_type)
     :ok
@@ -29,13 +29,14 @@ defmodule GraphOS.Test.Support.GraphFactory do
   def create_nodes(count \\ 10) do
     Enum.map(1..count, fn i ->
       node_id = "#{i}"
-      node = Node.new(%{}, id: node_id)
+      node = Node.new(%{id: node_id, data: %{}})
 
-      {:ok, _} = Graph.execute(%Transaction{
-        operations: [
-          {:create_node, node}
-        ]
-      })
+      {:ok, _} =
+        Store.execute(%Transaction{
+          operations: [
+            %GraphOS.Store.Operation{type: :insert, entity: :node, params: node}
+          ]
+        })
 
       node_id
     end)
@@ -47,7 +48,7 @@ defmodule GraphOS.Test.Support.GraphFactory do
   Returns :ok when successful.
   """
   def create_large_cyclic_graph(node_count \\ 1000) do
-    Graph.init()
+    {:ok, _} = Store.start()
 
     # Create nodes
     node_ids = create_nodes(node_count)
@@ -140,13 +141,14 @@ defmodule GraphOS.Test.Support.GraphFactory do
   Creates an edge between two nodes.
   """
   def create_edge(source_id, target_id) do
-    edge = Edge.new(source_id, target_id)
+    edge = Edge.new(%{source: source_id, target: target_id})
 
-    {:ok, _} = Graph.execute(%Transaction{
-      operations: [
-        {:create_edge, edge}
-      ]
-    })
+    {:ok, _} =
+      Store.execute(%Transaction{
+        operations: [
+          %GraphOS.Store.Operation{type: :insert, entity: :edge, params: edge}
+        ]
+      })
 
     :ok
   end

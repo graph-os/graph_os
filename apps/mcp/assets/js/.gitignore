@@ -20,4 +20,4 @@ yarn-error.log*
 .env.production.local
 
 # Misc
-.DS_Store 
+.DS_StoreAdapter 

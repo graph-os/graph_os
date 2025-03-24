@@ -1,426 +1,222 @@
-# GraphOS Refactoring Plan
+## GraphOS.Store Refactoring Tasks
 
-This document outlines a comprehensive plan to refactor the GraphOS architecture to improve component boundaries, separation of concerns, and integration capabilities.
+This document outlines the remaining tasks for the GraphOS.Store refactoring.
 
-## Problem Statement
+## 1. File Status and Pending Tasks
 
-Current issues in the GraphOS architecture:
+### 1.1 Main Files
 
-1. Boundary violations between apps
-2. Protocol adapters mixed with graph implementation
-3. Access control references cross-cutting through apps
-4. Custom plug implementation instead of standard Plug
-5. Potential overuse of GenServer where GenStage might be more appropriate
+| File | Status | Remaining Tasks |
+|------|--------|----------------|
+| `apps/graph_os_graph/lib/schema.ex` | ✅ IMPLEMENTED | Add missing typespecs, review API for consistency |
+| `apps/graph_os_graph/lib/store.ex` | ✅ IMPLEMENTED | Add typespecs, standardize return types, improve error handling |
 
-## Refactoring Goals
+### 1.2 Store Directory
 
-1. Clarify component boundaries
-2. Separate protocol concerns from core graph implementation
-3. Standardize on official Plug for HTTP/web interfaces
-4. Improve the flow of data processing with GenStage where appropriate
-5. Create a more maintainable and extensible architecture
+| File | Status | Remaining Tasks |
+|------|--------|----------------|
+| `apps/graph_os_graph/lib/store/access.ex` | ❌ REMOVE | Remove completely, no deprecation period |
+| `apps/graph_os_graph/lib/store/algorithm.ex` | ⚠️ NEEDS UPDATE | Update API calls to use new Store interface |
+| `apps/graph_os_graph/lib/store/application.ex` | ✅ IMPLEMENTED | Review for potential improvements, add typespecs |
+| `apps/graph_os_graph/lib/store/edge.ex` | ✅ IMPLEMENTED | Add missing typespecs, improve validation |
+| `apps/graph_os_graph/lib/store/graph.ex` | ✅ IMPLEMENTED | Add missing typespecs, improve validation |
+| `apps/graph_os_graph/lib/store/meta.ex` | ⚠️ NEEDS UPDATE | Update to align with new API or consider complete removal |
+| `apps/graph_os_graph/lib/store/node.ex` | ✅ IMPLEMENTED | Add missing typespecs, improve validation |
+| `apps/graph_os_graph/lib/store/operation.ex` | ✅ IMPLEMENTED | Add missing typespecs, improve validation |
+| `apps/graph_os_graph/lib/store/protocol.ex` | ❌ REMOVE | Remove completely, no deprecation period |
+| `apps/graph_os_graph/lib/store/query.ex` | ⚠️ NEEDS UPDATE | Fix mixed old/new implementation patterns, ensure consistency |
+| `apps/graph_os_graph/lib/store/query_behaviour.ex` | ⚠️ NEEDS UPDATE | Update to align with new Query API or remove completely |
+| `apps/graph_os_graph/lib/store/registry.ex` | ✅ IMPLEMENTED | Add missing typespecs, improve error handling |
+| `apps/graph_os_graph/lib/store/schema.ex` | ❌ REMOVE | Replace with GraphOS.Schema |
+| `apps/graph_os_graph/lib/store/schema_behaviour.ex` | ❌ REMOVE | Replace with GraphOS.Schema |
+| `apps/graph_os_graph/lib/store/store_adapter.ex` | ✅ IMPLEMENTED | Review for improvements, add typespecs |
+| `apps/graph_os_graph/lib/store/subscription.ex` | ⚠️ NEEDS UPDATE | Update to work with new API |
+| `apps/graph_os_graph/lib/store/transaction.ex` | ✅ IMPLEMENTED | Add missing typespecs, improve validation |
 
-## Phase 1: Move Adapters Out of Graph Library ✅
+### 1.3 Algorithm Subdirectory
 
-**Status: COMPLETED**
+| File | Status | Remaining Tasks |
+|------|--------|----------------|
+| `apps/graph_os_graph/lib/store/algorithm/*.ex` | ⚠️ NEEDS UPDATE | Update to work with new API, ensure efficiency with updated table structure |
 
-The first phase of the refactoring has been completed with the following changes:
+### 1.4 Store Adapter Subdirectory
 
-1. Created a new `GraphOS.Adapter` namespace in graph_os_core as the central entry point for adapters
-2. Implemented core adapter functionality in graph_os_core:
-   - `GraphOS.Adapter.GraphAdapter` (behavior definition)
-   - `GraphOS.Adapter.Context` (request/response context)
-   - `GraphOS.Adapter.Server` (GenServer implementation)
-   - `GraphOS.Adapter.PlugAdapter` (middleware system)
-   - `GraphOS.Adapter.GenServer` (sample adapter)
+| File | Status | Remaining Tasks |
+|------|--------|----------------|
+| `apps/graph_os_graph/lib/store/store_adapter/ets.ex` | ✅ IMPLEMENTED | Add missing typespecs, optimize for performance |
 
-3. Created compatibility modules in graph_os_graph to maintain backward compatibility:
-   - Modified existing adapter modules to delegate to new implementations
-   - Added deprecation notices to old modules
-   - Ensured existing code continues to work through the transition
+### 1.5 Subscription Subdirectory
 
-4. Added gen_stage dependency to graph_os_core for future pipeline implementations
+| File | Status | Remaining Tasks |
+|------|--------|----------------|
+| `apps/graph_os_graph/lib/store/subscription/*.ex` | ⚠️ NEEDS UPDATE | Update to work with new API |
 
-5. Updated boundary definitions to expose new adapter modules
+### 1.6 Schema Subdirectory
 
-### Test Status
+| File | Status | Remaining Tasks |
+|------|--------|----------------|
+| `apps/graph_os_graph/lib/store/schema/*.ex` | ⚠️ NEEDS UPDATE | Migrate functionality to GraphOS.Schema |
 
-The core functionality tests pass successfully, but the adapter-specific tests still need to be moved and updated. This will be addressed in Phase 3 as we migrate to the graph_os_protocol application.
+## 2. Test Files
 
-### Original Plan (For Reference)
+### 2.1 Main Test Files
 
-Files moved:
-- `/apps/graph_os_graph/lib/graph/adapter.ex` → `/apps/graph_os_core/lib/graph_os/adapter/graph_adapter.ex`
-- `/apps/graph_os_graph/lib/graph/adapter/context.ex` → `/apps/graph_os_core/lib/graph_os/adapter/context.ex`
-- `/apps/graph_os_graph/lib/graph/adapter/server.ex` → `/apps/graph_os_core/lib/graph_os/adapter/server.ex`
-- `/apps/graph_os_graph/lib/graph/adapters/gen_server.ex` → `/apps/graph_os_core/lib/graph_os/adapter/gen_server.ex`
-- `/apps/graph_os_graph/lib/graph/plug.ex` → `/apps/graph_os_core/lib/graph_os/adapter/plug_adapter.ex`
+| File | Status | Remaining Tasks |
+|------|--------|----------------|
+| `apps/graph_os_graph/test/store_test.exs` | 🔄 CREATE/UPDATE | Create if not exists, update to test new API |
 
-Tests to be moved in Phase 3:
-- `/apps/graph_os_graph/test/graph/adapter/adapter_test.exs` → `/apps/graph_os_core/test/graph_os/adapter/adapter_test.exs`
-- `/apps/graph_os_graph/test/graph/adapter/gen_server_adapter_test.exs` → `/apps/graph_os_core/test/graph_os/adapter/gen_server_adapter_test.exs`
-- `/apps/graph_os_graph/test/graph/adapter/grpc_adapter_test.exs` → `/apps/graph_os_core/test/graph_os/adapter/grpc_adapter_test.exs`
-- `/apps/graph_os_graph/test/graph/adapter/jsonrpc_adapter_test.exs` → `/apps/graph_os_core/test/graph_os/adapter/jsonrpc_adapter_test.exs`
-- `/apps/graph_os_graph/test/graph/adapter/mcp_adapter_test.exs` → `/apps/graph_os_core/test/graph_os/adapter/mcp_adapter_test.exs`
-- `/apps/graph_os_graph/test/graph/adapter/plug_test.exs` → `/apps/graph_os_core/test/graph_os/adapter/plug_adapter_test.exs`
+### 2.2 Subdirectory Test Files
 
-## Phase 2: Create Clean Interface for Access Control ✅
+| File | Status | Remaining Tasks |
+|------|--------|----------------|
+| `apps/graph_os_graph/test/graph/access_test.exs` | ⚠️ NEEDS UPDATE | Update to work with new API |
+| `apps/graph_os_graph/test/graph/algorithm_test.exs` | ⚠️ NEEDS UPDATE | Update to work with new API |
+| `apps/graph_os_graph/test/graph/edge_test.exs` | ❌ REPLACE | Replace with new test for GraphOS.Store.Edge |
+| `apps/graph_os_graph/test/graph/subscription_test.exs` | ⚠️ NEEDS UPDATE | Update to work with new API |
+| `apps/graph_os_graph/test/support/graph_factory.ex` | ⚠️ NEEDS UPDATE | Update to work with new API |
 
-**Status: COMPLETED**
+### 2.3 Missing Test Files (To Create)
 
-Phase 2 of the refactoring has been completed with the following changes:
+| File | Status | Tasks |
+|------|--------|-------|
+| `apps/graph_os_graph/test/schema_test.exs` | 🔄 CREATE | Create tests for GraphOS.Schema |
+| `apps/graph_os_graph/test/store/graph_test.exs` | 🔄 CREATE | Create tests for GraphOS.Store.Graph |
+| `apps/graph_os_graph/test/store/node_test.exs` | 🔄 CREATE | Create tests for GraphOS.Store.Node |
+| `apps/graph_os_graph/test/store/edge_test.exs` | 🔄 CREATE | Create tests for GraphOS.Store.Edge |
+| `apps/graph_os_graph/test/store/operation_test.exs` | 🔄 CREATE | Create tests for GraphOS.Store.Operation |
+| `apps/graph_os_graph/test/store/transaction_test.exs` | 🔄 CREATE | Create tests for GraphOS.Store.Transaction |
+| `apps/graph_os_graph/test/store/query_test.exs` | 🔄 CREATE | Create tests for GraphOS.Store.Query |
+| `apps/graph_os_graph/test/store/registry_test.exs` | 🔄 CREATE | Create tests for GraphOS.Store.Registry |
+| `apps/graph_os_graph/test/store/store_adapter/ets_test.exs` | 🔄 CREATE | Create tests for ETS adapter |
 
-1. Created a new `GraphOS.GraphContext.Access` behaviour in graph_os_graph:
-   - Defined a clear interface with authorization callbacks
-   - Provided type specifications for operation types and contexts
-   - Added comprehensive documentation with usage examples
+## 3. Consolidated Task List
 
-2. Implemented `GraphOS.Core.Access.GraphAccess` in graph_os_core:
-   - Created a complete implementation of the `GraphOS.GraphContext.Access` behaviour
-   - Added delegation to the existing `GraphOS.Core.AccessControl` system
-   - Implemented fine-grained authorization for nodes, edges, and operations
+### 3.1 Code Cleanup
 
-3. Updated `GraphOS.GraphContext.Store` to support access control:
-   - Added access control hooks to all graph operations
-   - Implemented context-passing for all store functions
-   - Created helper functions for access context creation
+- [ ] Remove `GraphOS.Store.Schema` since it's been replaced by `GraphOS.Schema`
+- [ ] Remove `GraphOS.Store.SchemaBehaviour`
+- [ ] Update all schema references to use the new schema module
+- [ ] Remove deprecated code in `GraphOS.Store.start/1` method
+- [ ] Clean up unused files and directories
+- [ ] Review and clean up imports and aliases in all modules
 
-4. Enhanced `GraphOS.GraphContext.Store.ETS` to work with the access system:
-   - Added access control support to init function
-   - Set up storage for access control configuration
+### 3.2 API Consistency
 
-5. Updated `GraphOS.Core.AccessControl` to integrate with the new interface:
-   - Added helper functions for access context creation
-   - Improved pattern matching for resource permissions
-   - Enhanced documentation with examples of the new interface
+- [ ] Fix mixed old/new patterns in the Query module
+- [ ] Ensure consistent return types across all public APIs
+- [ ] Standardize error handling approach throughout codebase
+- [ ] Add typespecs for all public functions
+- [ ] Improve validation for Operation and Query parameters
 
-### Files Created/Modified
-- `/apps/graph_os_graph/lib/graph/access.ex` - New behaviour definition
-- `/apps/graph_os_core/lib/graph_os/core/access/graph_access.ex` - New implementation
-- `/apps/graph_os_graph/lib/graph/store.ex` - Updated with access control hooks
-- `/apps/graph_os_graph/lib/graph/store/ets.ex` - Enhanced for access control
-- `/apps/graph_os_core/lib/graph_os/core/access_control.ex` - Improved integration
+### 3.3 Module Updates
 
-## Phase 2.5: Clean Up Graph Library and Add Subscription Interface ✅
+- [ ] Update `GraphOS.Store.Access` to work with the new API
+- [ ] Update `GraphOS.Store.Algorithm` to work with the new API
+- [ ] Update `GraphOS.Store.Subscription` to work with the new API
+- [ ] Update `GraphOS.Store.Meta` or remove completely
+- [ ] Remove `GraphOS.Store.Protocol` completely 
+- [ ] Update `GraphOS.Store.QueryBehaviour` to align with the new Query API or remove completely
 
-**Status: COMPLETED**
+### 3.4 Boundary Integration
 
-Phase 2.5 of the refactoring has been completed with the following changes:
+- [ ] Update boundary definitions to ensure clean dependencies
+- [ ] Ensure no circular dependencies between modules
+- [ ] Every module MUST have proper Boundary definitions
 
-1. Removed execution-related code from graph_os_graph:
-   - Removed GraphOS.GraphContext.execute_node and execute_node_by_id functions
-   - Removed check_execute_permission helper functions
-   - Removed unused extractor functions
+### 3.5 Testing
 
-2. Added subscription system to graph_os_graph:
-   - Created GraphOS.GraphContext.Subscription behavior with a clear interface
-   - Added a lightweight GraphOS.GraphContext.Subscription.NoOp implementation
-   - Added subscription-related convenience functions to GraphOS.GraphContext
-   - Added tests for the subscription system
+- [ ] Create missing test files for new modules
+- [ ] Update existing tests to work with the new API
+- [ ] Add tests for new functionality (Registry, multiple stores)
+- [ ] Ensure test coverage for error cases
 
-3. Updated Access interface to focus on core interfaces:
-   - Refocused to match only Transaction, Operation, Query, and Subscription
-   - Removed direct references to nodes and edges
-   - Added higher-level authorization functions
-   - Added generic filter_results function
+### 3.6 Documentation
 
-4. Removed Application module and other infrastructure:
-   - Removed GraphOS.GraphContext.Application module
-   - Updated mix.exs to remove application callback
-   - Removed redundant adapter tests
+- [ ] Update documentation for all public modules
+- [ ] Update examples in README
+- [ ] Add typespecs for all public functions
 
-5. Simplified serialization:
-   - Removed encoders/jason_encoder.ex
-   - Used built-in @derive directive for JSON encoding
-   - Fixed JSON encoding warnings
+## 4. Implementation Notes
 
-6. Updated documentation:
-   - Updated BOUNDARIES.md to reflect new architecture
-   - Updated CLAUDE.md with new modules and responsibilities
-   - Added explicit descriptions of what doesn't belong in the graph library
-
-### Files Created/Modified
-- `/apps/graph_os_graph/lib/graph.ex` - Removed execution code, added subscription functions
-- `/apps/graph_os_graph/lib/graph/access.ex` - Redesigned interface
-- `/apps/graph_os_graph/lib/graph/subscription.ex` - New subscription behavior
-- `/apps/graph_os_graph/lib/graph/subscription/noop.ex` - No-op implementation
-- `/apps/graph_os_graph/test/graph/access_test.exs` - Updated tests
-- `/apps/graph_os_graph/test/graph/subscription_test.exs` - New tests
-- `/apps/graph_os_graph/mix.exs` - Removed application callback
-- `/apps/graph_os_graph/BOUNDARIES.md` - Updated boundaries
-- `/apps/graph_os_graph/CLAUDE.md` - Updated documentation
-
-### Files Removed
-- `/apps/graph_os_graph/lib/graph/application.ex` - Application module
-- `/apps/graph_os_graph/lib/graph/encoders/jason_encoder.ex` - Custom encoder
-- `/apps/graph_os_graph/test/graph/adapter/*` - Adapter tests
-- `/apps/graph_os_graph/test/support/schema_factory.ex` - Unused factory
-
-## Phase 3: Create New graph_os_protocol Application ✅
-
-**Status: COMPLETED**
-
-Phase 3 of the refactoring has been completed with the creation of the graph_os_protocol application:
-
-1. Created new application structure with core protocol modules:
-   - Created basic Protocol module with application structure
-   - Implemented adapter interfaces for different protocols
-   - Added router implementation for protocol routing
-   - Included schema handling for protocol messages
-
-2. Implemented protocol-specific modules:
-   - `protocol/plug.ex` - Standard Plug implementation
-   - `protocol/grpc.ex` - gRPC implementation
-   - `protocol/jsonrpc.ex` - JSON-RPC implementation
-   - `protocol/router.ex` - Routing logic
-
-3. Added comprehensive test coverage:
-   - Tests for Plug implementation
-   - Tests for gRPC handlers
-   - Tests for schema validation
-   - Tests for protocol upgrades
-
-### Implemented Application Structure
-```
-/apps/graph_os_protocol/
-  /lib/
-    /protocol.ex
-    /protocol/
-      /adapter.ex
-      /adapters/
-      /application.ex
-      /grpc.ex
-      /grpc/
-      /jsonrpc.ex
-      /jsonrpc/
-      /mcp/
-      /plug.ex
-      /plug/
-      /router.ex
-      /schema.ex
-  /test/
-    /graph_os_protocol_test.exs
-    /protocol/
-      /grpc_test.exs
-      /plug_test.exs
-      /schema_test.exs
-      /upgrade_test.exs
-    /support/
-    /test_helper.exs
-  mix.exs
-  README.md
-  BOUNDARIES.md
-```
-
-## Phase 4: Convert Key Flows to GenStage
-
-### Flows to Convert
-1. Code Analysis Pipeline
+1. **Table Structure**:
 
 ```elixir
-# New structure in /apps/graph_os_core/lib/graph_os/core/code_graph/pipeline/
-defmodule GraphOS.Core.CodeGraph.Pipeline do
-  # Producer: File sources
-  defmodule FileProducer do
-    use GenStage
-    # Implementation
-  end
-  
-  # Producer-Consumer: Code parser
-  defmodule CodeParser do
-    use GenStage
-    # Implementation
-  end
-  
-  # Producer-Consumer: AST analyzer
-  defmodule ASTAnalyzer do
-    use GenStage
-    # Implementation
-  end
-  
-  # Consumer: Graph builder
-  defmodule GraphBuilder do
-    use GenStage
-    # Implementation
-  end
-  
-  # Pipeline supervisor
-  defmodule Supervisor do
-    use Supervisor
-    # Implementation to connect stages
-  end
+# Tables structure
+table :graphs do
+  field :id, :integer, required: true     # Auto-incrementing numeric ID
+  field :module, :atom, required: true    # Graph module (e.g., GraphOS.Core.Access.Policy)
+  field :temp, :boolean, default: false   # Whether this graph is temporary
+  field :meta, :map, default: %{}         # Additional metadata
+end
+
+table :nodes do
+  field :graph_id, :integer, required: true  # Reference to graphs.id
+  field :id, :string, required: true         # Unique ID within the system
+  field :type, :atom, required: true         # Module that defines this node type
+  field :data, :map, required: true          # Node data/attributes
+end
+
+table :edges do
+  field :graph_id, :integer, required: true  # Graph this edge belongs to
+  field :id, :string, required: true         # Unique ID within the system
+  field :type, :atom, required: true         # Module that defines this edge type
+  field :source, :string, required: true     # Source node ID
+  field :target, :string, required: true     # Target node ID
+  field :data, :map, required: true          # Edge attributes
 end
 ```
 
-2. Git Integration Events
+2. **Graph ID Management**:
+   - Root graphs (like Access.Policy) should be assigned ID 0
+   - Ensure graph IDs are consistent across restarts
 
-```elixir
-# New structure in /apps/graph_os_core/lib/graph_os/core/git/pipeline/
-defmodule GraphOS.Core.Git.Pipeline do
-  # Producer: Git events
-  defmodule EventProducer do
-    use GenStage
-    # Implementation
-  end
-  
-  # Producer-Consumer: Event classifier
-  defmodule EventClassifier do
-    use GenStage
-    # Implementation
-  end
-  
-  # Consumer: Graph updater
-  defmodule GraphUpdater do
-    use GenStage
-    # Implementation
-  end
-  
-  # Pipeline supervisor
-  defmodule Supervisor do
-    use Supervisor
-    # Implementation to connect stages
-  end
-end
-```
+3. **Performance Considerations**:
+   - Benchmark updated implementation
+   - Profile memory usage with large datasets
+   
+4. **Breaking Changes**:
+   - API changes from GraphOS.Graph to GraphOS.Store
+   - Schema definition syntax changes
+   - Edge and Node behavior changes
+   - Update all code that uses the old Graph API
 
-## Phase 5: Update Boundary Definitions ✅
+## 5. Implementation Progress
 
-**Status: COMPLETED**
+The following components have been implemented:
 
-Phase 5 of the refactoring has been completed with the following changes:
+✅ Minimal interface for `GraphOS.Store` with `start/0`, `stop/0`, `execute/1` methods
+✅ Shorthand operations `insert/2`, `update/2`, `delete/1`, `get/2`
+✅ `GraphOS.Store.Registry` for managing multiple stores
+✅ `GraphOS.Store.Application` for starting the Registry as part of the application
+✅ `GraphOS.Store.StoreAdapter` behavior for different storage engines
+✅ ETS-based adapter implementation `GraphOS.Store.StoreAdapter.ETS`
+✅ Core entity modules: `GraphOS.Store.Graph`, `GraphOS.Store.Node`, `GraphOS.Store.Edge`
+✅ Operation, Query, and Transaction abstractions
+✅ Moved schema functionality to `GraphOS.Schema`
+✅ Custom node/edge type support with `use GraphOS.Store.Node` and `use GraphOS.Store.Edge`
 
-1. Updated `/BOUNDARIES.md` with the new component architecture:
-   - Defined clear responsibilities for each component
-   - Established graph_os_graph as a pure graph data structure library
-   - Moved infrastructure concerns to graph_os_core
-   - Added graph_os_protocol as a dedicated protocol layer
-   - Defined precise public APIs for each component
-   - Updated dependency flow between components
+⚠️ **Special Attention Needed**: 
+- The `GraphOS.Store.Query` module currently has a mix of old and new implementation patterns. It implements the old `GraphOS.Store.QueryBehaviour` but also has new pattern methods)
+- The boundary definitions have been updated but some unused modules are still exported.
+- Return type inconsistencies exist in some APIs and need to be standardized.
 
-2. The new architecture follows these principles:
-   - **graph_os_graph**: Pure graph data structure with algorithm implementations
-   - **graph_os_core**: Application infrastructure and cross-cutting concerns
-   - **graph_os_protocol**: Protocol interfaces using standard libraries
-   - **graph_os_dev**: Development tools and interfaces
+## Remaining Tasks
 
-3. Clarified module responsibilities:
-   - Access control interface in graph_os_graph, implementation in graph_os_core
-   - Protocol concerns moved entirely to graph_os_protocol
-   - Application lifecycle management centralized in graph_os_core
+### 4.1 Compatibility Considerations
 
-### Files Updated
-- `/BOUNDARIES.md` - Complete revision with new component architecture
+1. **Breaking Changes**
+   - API changes from GraphOS.Graph to GraphOS.Store
+   - Schema definition syntax changes
+   - Edge and Node behavior changes
+   - Update all code that uses the old Graph API
 
-### Files To Update (Pending)
-- Each app's `/CLAUDE.md` - Update with revised boundaries
-- Each app's `mix.exs` - Update boundary definitions
+2. **Performance Monitoring**
+   - Benchmark updated implementation
+   - Profile memory usage with large datasets
 
-## Implementation Strategy
+⚠️ **Special Attention Needed**: 
+- The `GraphOS.Store.Query` module currently has a mix of old and new implementation patterns. It implements the old `GraphOS.Store.QueryBehaviour` but also has new pattern methods)
+- The boundary definitions have been updated but some unused modules are still exported.
+- Return type inconsistencies exist in some APIs and need to be standardized.
 
-### Order of Operations
-1. Begin with adapter movement (Phase 1)
-2. Implement access control interface (Phase 2)
-3. Create protocol app (Phase 3)
-4. Convert key flows to GenStage (Phase 4)
-5. Update boundary documentation (Phase 5)
 
-### Testing Strategy
-1. Maintain existing tests during migration
-2. Create integration tests that verify boundaries
-3. Test protocol interfaces with standard Plug testing tools
-4. Test GenStage pipelines with concurrency tests
-5. Properly document skipped tests for incomplete features:
-   - Add clear TODO comments explaining what needs to be implemented
-   - Explain why the test is skipped and what it will validate
-   - Use appropriate tags (@tag :skip) to exclude them from normal test runs
-   - Follow the guidelines in CLAUDE.md "Handling Incomplete Implementations and TODOs" section
-
-## Dependencies and Version Updates
-
-- Add `{:gen_stage, "~> 1.2"}` to relevant apps
-- Add `{:plug, "~> 1.14"}` to protocol app
-- Consider `{:phoenix, "~> 1.7"}` for protocol app (optional)
-- Ensure boundary dependency is consistent across apps
-
-## Migration Path for Clients
-
-1. Provide compatibility modules during transition
-2. Document new integration points
-3. Create examples of integration with Phoenix, Plug, and other frameworks
-4. Update client libraries to use new protocol interfaces
-
-## Metrics for Success
-
-- Reduced coupling between components
-- Clear and enforceable boundaries
-- Improved performance in data processing flows
-- Standard compliance with Plug ecosystem
-- Easier integration with external systems
-
-## Protocol Implementation Enhancements
-
-### gRPC Server Implementation
-
-**Status: NEEDS INVESTIGATION**
-
-The current gRPC implementation might not fully serve requests properly:
-
-- The gRPC adapter is initialized but may not be listening on the expected TCP port (50051)
-- Connection attempts from the Rust CLI to localhost:50051 are refused
-- The server may be missing proper HTTP/2 implementation required for gRPC
-- Need to investigate if an appropriate Elixir gRPC library is integrated
-
-Debug steps to complete:
-1. Verify if any gRPC libraries are present in dependencies
-2. Check if the gRPC server is properly configured to listen on port 50051
-3. Implement proper HTTP/2 server binding if missing
-4. Add explicit logging for gRPC server initialization 
-5. Ensure proper integration between the SystemInfo module and gRPC service
-6. Add connection diagnostics to monitor successful connections
-
-This issue currently prevents the graph_os_cli Rust client from connecting to the GraphOS system via gRPC.
-
-## Security Enhancements
-
-During security analysis, several areas for improvement were identified:
-
-### Network Interface Binding
-
-**Status: COMPLETED**
-
-- Changed default binding from "0.0.0.0" to "localhost" in MCP.Endpoint
-- Added documentation about security implications of different binding options
-- Created warning about using 0.0.0.0 in production environments
-
-### User-Level Access Control
-
-**Status: PARTIALLY IMPLEMENTED**
-
-Current improvements:
-- Implemented secret-based authentication for all protocol interfaces
-- Created `GraphOS.Protocol.Auth` module with comprehensive security features
-- Added plugs that enforce authentication for both gRPC and JSON-RPC
-- Configured environment-specific secrets with proper production handling
-- Added support for authentication via headers, metadata, or context
-
-Current findings:
-- Any process on localhost can connect to GraphOS services, but now requires a secret
-- No Unix socket or file permission-based isolation is implemented yet
-- The authentication system protects against different users on the same machine
-- The graph-based access control system controls resource access after authentication
-
-Remaining work:
-1. **Unix Socket Support**
-   - Implement Unix socket as an alternative to TCP/IP
-   - Configure restrictive file permissions (e.g., 0600)
-   - Default to Unix sockets for development and local usage
-
-2. **Process Environment Authentication**
-   - Enhance the shared secret mechanism for inter-process communication
-   - Set up additional environment variable based authentication for local services
-   - Document secure setup procedures for different deployment scenarios
-
-Implementation priority:
-- Phase 1: Default Authentication with API keys/tokens ✅
-- Phase 2: Unix Socket implementation
-- Phase 3: Process Environment Authentication

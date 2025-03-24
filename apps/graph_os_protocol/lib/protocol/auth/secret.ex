@@ -37,7 +37,7 @@ defmodule GraphOS.Protocol.Auth.Secret do
   X-GraphOS-RPC-Secret: your_secret_here
 
   # Or as a gRPC metadata field
-  metadata = [{"x-graphos-rpc-secret", "your_secret_here"}]
+  metadata = [{"x-graph-os-rpc-secret", "your_secret_here"}]
   ```
   """
 

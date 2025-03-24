@@ -10,15 +10,18 @@ defmodule GraphOS.DevWeb.CodeGraphLive.Module do
   use GraphOS.DevWeb, :live_view
   require Logger
 
+  alias GraphOS.Dev.CodeGraph.Service, as: CodeGraphService
+
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket,
-      page_title: "Module Graph Visualization",
-      module_name: "",
-      graph_data: nil,
-      loading: false,
-      error: nil
-    )}
+    {:ok,
+     assign(socket,
+       page_title: "Module Graph Visualization",
+       module_name: "",
+       graph_data: nil,
+       loading: false,
+       error: nil
+     )}
   end
 
   @impl true
@@ -46,6 +49,7 @@ defmodule GraphOS.DevWeb.CodeGraphLive.Module do
     case fetch_graph_data(name) do
       {:ok, data} ->
         {:noreply, assign(socket, graph_data: data, loading: false, error: nil)}
+
       {:error, error} ->
         {:noreply, assign(socket, loading: false, error: error, graph_data: nil)}
     end
@@ -57,18 +61,21 @@ defmodule GraphOS.DevWeb.CodeGraphLive.Module do
     Logger.debug("Directly accessing CodeGraph service for module #{name}")
 
     # Check if the CodeGraph service is running
-    case Process.whereis(GraphOS.Core.CodeGraph.Service) do
+    case Process.whereis(CodeGraphService) do
       nil ->
         # Service is not running
         Logger.warning("CodeGraph.Service is not running. Unable to fetch module data.")
-        {:error, "CodeGraph service not available. Please ensure it's enabled in your configuration."}
+
+        {:error,
+         "CodeGraph service not available. Please ensure it's enabled in your configuration."}
 
       _pid ->
         # Service is running, try to query it
-        case GraphOS.Core.CodeGraph.Service.query_module(name) do
+        case CodeGraphService.query_module(name) do
           {:ok, module_info} ->
             # Transform the module info into a format suitable for visualization
             {:ok, transform_module_info_for_visualization(module_info)}
+
           {:error, reason} ->
             Logger.warning("Error querying CodeGraph service: #{inspect(reason)}")
             {:error, format_error(reason)}
@@ -109,7 +116,7 @@ defmodule GraphOS.DevWeb.CodeGraphLive.Module do
     ~H"""
     <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-8">
       <strong class="font-bold">Error:</strong>
-      <span class="block sm:inline"><%= format_error(@error) %></span>
+      <span class="block sm:inline">{format_error(@error)}</span>
 
       <div class="mt-2 text-sm">
         <p>This could be due to:</p>
@@ -122,13 +129,12 @@ defmodule GraphOS.DevWeb.CodeGraphLive.Module do
         <p class="mt-2">Try checking the module name for typos or try a different module.</p>
 
         <p :if={@error =~ "CodeGraph service not available"} class="mt-2 font-semibold">
-          The CodeGraph service needs to be enabled in your configuration:
-          <br /><br />
+          The CodeGraph service needs to be enabled in your configuration: <br /><br />
           <code class="bg-gray-800 text-white p-2 rounded block">
             # In config/dev.exs
             config :graph_os_core,
-              enable_code_graph: true,
-              watch_directories: ["apps/graph_os_core/lib", ...]
+            enable_code_graph: true,
+            watch_directories: ["apps/graph_os_core/lib", ...]
           </code>
         </p>
       </div>
@@ -165,7 +171,13 @@ defmodule GraphOS.DevWeb.CodeGraphLive.Module do
         <.form :let={f} for={%{}} as={:module} phx-submit="search">
           <div class="flex gap-2">
             <div class="flex-1">
-              <.input field={f[:name]} value={@module_name} type="text" placeholder="GraphOS.MCP.Application" required />
+              <.input
+                field={f[:name]}
+                value={@module_name}
+                type="text"
+                placeholder="GraphOS.MCP.Application"
+                required
+              />
             </div>
             <.button type="submit" class="bg-blue-500 hover:bg-blue-600">
               Visualize
@@ -181,12 +193,11 @@ defmodule GraphOS.DevWeb.CodeGraphLive.Module do
       <.render_error :if={@error} error={@error} />
 
       <div :if={@graph_data && !@loading} class="bg-white p-6 rounded-lg shadow-md mb-8">
-        <h2 class="text-xl font-semibold mb-4">Graph for <%= @module_name %></h2>
+        <h2 class="text-xl font-semibold mb-4">Graph for {@module_name}</h2>
 
         <div id="graph-container" class="w-full h-[600px] border border-gray-300 rounded">
           <p class="text-center text-gray-600 p-4">
-            Graph visualization would be displayed here.
-            <br />
+            Graph visualization would be displayed here. <br />
             <br />
             <span class="text-sm">
               This is a placeholder. In a real implementation, we would use a JavaScript

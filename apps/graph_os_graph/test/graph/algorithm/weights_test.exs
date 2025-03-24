@@ -1,19 +1,19 @@
-defmodule GraphOS.GraphContext.Algorithm.WeightsTest do
+defmodule GraphOS.Store.Algorithm.WeightsTest do
   use ExUnit.Case
 
-  alias GraphOS.GraphContext.{Edge}
-  alias GraphOS.GraphContext.Algorithm.Weights
+  alias GraphOS.Store.{Edge}
+  alias GraphOS.Store.Algorithm.Weights
 
   test "get_edge_weight/3" do
     # Create an edge with a weight
-    edge = Edge.new("source", "target", [weight: 5])
+    edge = Edge.new(%{source: "source", target: "target", data: %{weight: 5}})
     assert Weights.get_edge_weight(edge, nil, nil) == 5
 
     # Test with nil edge
     assert Weights.get_edge_weight(nil, nil, 10) == 10
 
     # Test with default weight
-    edge_no_weight = Edge.new("source", "target", [weight: nil])
+    edge_no_weight = Edge.new(%{source: "source", target: "target", data: %{}})
     assert Weights.get_edge_weight(edge_no_weight, nil, 10) == 10
   end
 
@@ -61,7 +61,8 @@ defmodule GraphOS.GraphContext.Algorithm.WeightsTest do
     # Test with zero values
     weights = %{"edge1" => 0, "edge2" => 2, "edge3" => 4}
     inverted = Weights.invert_weights(weights, :reciprocal)
-    assert inverted["edge1"] == 4.0  # Max value for zero
+    # Max value for zero
+    assert inverted["edge1"] == 4.0
     assert inverted["edge2"] == 0.5
     assert inverted["edge3"] == 0.25
 

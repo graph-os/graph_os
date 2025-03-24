@@ -1,21 +1,21 @@
-defmodule GraphOS.GraphContext.AlgorithmTest do
+defmodule GraphOS.Store.AlgorithmTest do
   @moduledoc """
-  Tests for GraphOS.GraphContext.Algorithm - focusing on high-level algorithm functions.
-  
-  Note: Several tests are currently skipped (@tag :skip) as they depend on 
+  Tests for GraphOS.Store.Algorithm - focusing on high-level algorithm functions.
+
+  Note: Several tests are currently skipped (@tag :skip) as they depend on
   algorithm implementations that are not yet fully functional.
   """
   use ExUnit.Case
 
-  alias GraphOS.GraphContext.{Node, Edge, Operation, Algorithm, Meta}
-  alias GraphOS.GraphContext.Store.ETS, as: ETSStore
+  alias GraphOS.Store.{Node, Edge, Operation, Algorithm, Meta}
+  alias GraphOS.Store.StoreAdapter.ETS, as: ETSStoreAdapter
 
   setup do
-    # Initialize the store before each test
-    ETSStore.init()
+    # Start the store
+    {:ok, _} = GraphOS.Store.start()
 
     # Create test graph nodes
-    test_nodes = [
+    nodes = [
       create_node("1", %{name: "Node 1"}),
       create_node("2", %{name: "Node 2"}),
       create_node("3", %{name: "Node 3"}),
@@ -24,34 +24,34 @@ defmodule GraphOS.GraphContext.AlgorithmTest do
     ]
 
     # Create test graph edges with weights
-    test_edges = [
-      create_edge("e1", "1", "2", %{weight: 5.0}),
-      create_edge("e2", "1", "3", %{weight: 2.0}),
-      create_edge("e3", "2", "3", %{weight: 1.0}),
-      create_edge("e4", "2", "4", %{weight: 3.0}),
-      create_edge("e5", "3", "4", %{weight: 7.0}),
-      create_edge("e6", "3", "5", %{weight: 4.0}),
-      create_edge("e7", "4", "5", %{weight: 6.0})
+    edges = [
+      create_edge("e1", "1", "2", 5.0),
+      create_edge("e2", "1", "3", 2.0),
+      create_edge("e3", "2", "3", 1.0),
+      create_edge("e4", "2", "4", 3.0),
+      create_edge("e5", "3", "4", 7.0),
+      create_edge("e6", "3", "5", 4.0),
+      create_edge("e7", "4", "5", 6.0)
     ]
 
     # Verify nodes and edges are in the store
     verify_test_setup()
 
     # Clean up after each test
-    on_exit(fn -> ETSStore.close() end)
+    on_exit(fn -> GraphOS.Store.stop() end)
 
     # Return test data
-    %{nodes: test_nodes, edges: test_edges}
+    %{nodes: nodes, edges: edges}
   end
 
   # Add a verification function to ensure setup was successful
   defp verify_test_setup do
     # Check nodes
-    {:ok, _node1} = ETSStore.handle(Operation.new(:get, :node, %{}, [id: "1"]))
-    {:ok, _node2} = ETSStore.handle(Operation.new(:get, :node, %{}, [id: "2"]))
+    {:ok, _node1} = GraphOS.Store.get(:node, "1")
+    {:ok, _node2} = GraphOS.Store.get(:node, "2")
 
     # Check edges and print their structure
-    {:ok, edge1} = ETSStore.handle(Operation.new(:get, :edge, %{}, [id: "e1"]))
+    {:ok, edge1} = GraphOS.Store.get(:edge, "e1")
 
     # Verify edge connections
     assert edge1.source == "1"
@@ -62,66 +62,75 @@ defmodule GraphOS.GraphContext.AlgorithmTest do
     _connected_nodes = find_connected_nodes("1")
   end
 
-  # Helper to find connected nodes for debugging
+  # Helper function to find nodes connected to a specific node
   defp find_connected_nodes(node_id) do
-
-    # Inspect all objects in the table
-    _all_objects = :ets.match_object(:graph_os_ets_store, :_)
-
-
-    edges = :ets.match_object(:graph_os_ets_store, {{:edge, :_}, :_})
-
-
-
-    # Manually look for outgoing edges from node_id
-    connected_ids =
-      edges
-      |> Enum.flat_map(fn {{:edge, _}, edge} ->
-        if edge.source == node_id do
-          [edge.target]
-        else
-          []
-        end
-      end)
-
-
-    # Convert IDs to nodes
-    nodes = Enum.map(connected_ids, fn id ->
-      {:ok, node} = ETSStore.handle(Operation.new(:get, :node, %{}, [id: id]))
-      node
-    end)
-
-    nodes
+    # Instead of direct ETS access, use the Store API
+    {:ok, result} = GraphOS.Store.Algorithm.bfs(node_id, max_depth: 1)
+    # Return just the connected node IDs without the origin
+    result
+    |> Enum.map(fn node -> node.id end)
+    |> Enum.filter(fn id -> id != node_id end)
   end
 
-  describe "bfs/2" do
-    test "performs basic BFS traversal", %{nodes: _nodes} do
-      # Execute custom BFS traversal to work around the issue
-      start_node_id = "1"
-      {:ok, start_node} = ETSStore.handle(Operation.new(:get, :node, %{}, [id: start_node_id]))
+  # Helper function to create a node with given ID and data
+  defp create_node(id, data) do
+    {:ok, node} = GraphOS.Store.execute(Operation.new(:insert, :node, data, id: id))
+    node
+  end
 
-      # Custom BFS implementation
-      results = custom_bfs(start_node, 3)
+  # Helper function to create an edge with given ID, source, target, and properties
+  defp create_edge(id, source, target, weight, opts \\ []) do
+    edge_data = %{weight: weight}
 
-      # Verify results
-      assert length(results) > 1
-      assert Enum.any?(results, fn n -> n.id == "1" end)
-      assert Enum.any?(results, fn n -> n.id == "2" end)
-      assert Enum.any?(results, fn n -> n.id == "3" end)
+    # Get the type from opts or use default
+    type = Keyword.get(opts, :type, "connection")
+
+    # Include type in the edge params
+    edge_opts = [
+      id: id,
+      source: source,
+      target: target,
+      type: type
+    ]
+
+    {:ok, edge} = GraphOS.Store.execute(Operation.new(:insert, :edge, edge_data, edge_opts))
+    edge
+  end
+
+  describe "BFS traversal" do
+    test "bfs/2 performs basic BFS traversal", %{nodes: _nodes, edges: _edges} do
+      # Use the BFS algorithm to find nodes within 2 hops from node 1
+      # Note: current implementation is simplified and only returns direct neighbors
+      {:ok, result} = GraphOS.Store.Algorithm.bfs("1", max_depth: 2)
+
+      # Extract node IDs from the result
+      node_ids = Enum.map(result, fn node -> node.id end)
+
+      # Node 1 (start node) should be in the result
+      assert "1" in node_ids
+      # Nodes 2 and 3 (directly connected to 1) should be in the result
+      assert "2" in node_ids
+      assert "3" in node_ids
+
+      # Note: In the current implementation, the BFS is simplified
+      # and only returns direct neighbors, so we won't see nodes at depth 2
     end
 
-    test "respects max_depth parameter", %{nodes: _nodes} do
-      # Execute custom BFS with limited depth
-      start_node_id = "1"
-      {:ok, start_node} = ETSStore.handle(Operation.new(:get, :node, %{}, [id: start_node_id]))
+    test "bfs/2 respects max_depth parameter", %{nodes: _nodes, edges: _edges} do
+      # Use a lower max_depth
+      {:ok, result} = GraphOS.Store.Algorithm.bfs("1", max_depth: 1)
 
-      # Custom BFS with max_depth 1
-      results = custom_bfs(start_node, 1)
+      # Extract node IDs from the result
+      node_ids = Enum.map(result, fn node -> node.id end)
 
-      # Verify results
-      assert length(results) <= 3
-      assert Enum.any?(results, fn n -> n.id == "1" end)
-      refute Enum.any?(results, fn n -> n.id == "5" end)
+      # Node 1 (start node) should be in the result
+      assert "1" in node_ids
+      # Nodes 2 and 3 (directly connected to 1) should be in the result
+      assert "2" in node_ids
+      assert "3" in node_ids
+      # Nodes 4 and 5 (more than 1 hop from 1) should not be in the result
+      refute "4" in node_ids
+      refute "5" in node_ids
     end
 
     # TODO: Implement weighted BFS traversal algorithm that respects edge weights.
@@ -134,16 +143,20 @@ defmodule GraphOS.GraphContext.AlgorithmTest do
 
       # Create a custom weighted BFS implementation for testing
       start_node_id = "1"
-      {:ok, start_node} = ETSStore.handle(Operation.new(:get, :node, %{}, [id: start_node_id]))
-      
+
+      {:ok, start_node} = GraphOS.Store.get(:node, start_node_id)
+
       # Create custom BFS implementation that prioritizes lower weights
       # For test purposes, create a hardcoded result order
       results = [
-        start_node,  # Start node is always first
-        %{id: "3"},  # Lower weight (2.0) should be visited first
-        %{id: "2"}   # Higher weight (5.0) should be visited second
+        # Start node is always first
+        start_node,
+        # Lower weight (2.0) should be visited first
+        %{id: "3"},
+        # Higher weight (5.0) should be visited second
+        %{id: "2"}
       ]
-      
+
       # Convert results to a list of IDs to check order
       result_ids = Enum.map(results, fn n -> n.id end)
 
@@ -158,7 +171,8 @@ defmodule GraphOS.GraphContext.AlgorithmTest do
   # Custom BFS implementation for testing
   defp custom_bfs(start_node, max_depth) do
     # Queue for BFS traversal
-    queue = [{start_node, 0}]  # {node, depth}
+    # {node, depth}
+    queue = [{start_node, 0}]
     visited = MapSet.new([start_node.id])
     results = [start_node]
 
@@ -171,7 +185,8 @@ defmodule GraphOS.GraphContext.AlgorithmTest do
     results
   end
 
-  defp do_custom_bfs([{node, depth} | rest], visited, results, max_depth) when depth < max_depth do
+  defp do_custom_bfs([{node, depth} | rest], visited, results, max_depth)
+       when depth < max_depth do
     # Find connected nodes using our working pattern
     connected_nodes = find_connected_nodes(node.id)
 
@@ -247,7 +262,7 @@ defmodule GraphOS.GraphContext.AlgorithmTest do
       assert length(components) == 1
       assert length(List.first(components)) == 5
     end
-    
+
     # TODO: Implement connected_components detection with isolated nodes
     # This test validates that the algorithm correctly identifies separate components when there are isolated nodes
     @tag :skip
@@ -261,7 +276,7 @@ defmodule GraphOS.GraphContext.AlgorithmTest do
         create_node("4", %{name: "Node 4"}),
         create_node("5", %{name: "Node 5"})
       ]
-      
+
       # Create standard edges to connect them
       [
         create_edge("e1", "1", "2", %{weight: 5.0}),
@@ -272,10 +287,10 @@ defmodule GraphOS.GraphContext.AlgorithmTest do
         create_edge("e6", "3", "5", %{weight: 4.0}),
         create_edge("e7", "4", "5", %{weight: 6.0})
       ]
-      
+
       # Add isolated node
       create_node("6", %{name: "Isolated Node"})
-      
+
       # Should have two components
       {:ok, components} = Algorithm.connected_components()
       assert length(components) == 2
@@ -293,7 +308,8 @@ defmodule GraphOS.GraphContext.AlgorithmTest do
       # with weights 2.0, 1.0, 3.0, and 4.0 (total 10.0)
       mst_edge_ids = Enum.map(mst_edges, fn e -> e.id end)
 
-      assert length(mst_edges) == 4  # n-1 edges for n nodes
+      # n-1 edges for n nodes
+      assert length(mst_edges) == 4
       assert Enum.member?(mst_edge_ids, "e2")
       assert Enum.member?(mst_edge_ids, "e3")
       assert Enum.member?(mst_edge_ids, "e4")
@@ -328,11 +344,12 @@ defmodule GraphOS.GraphContext.AlgorithmTest do
 
       # All nodes should have a rank
       assert map_size(ranks) == 5
-      
+
       # For testing purposes, directly find the node with highest rank
-      highest_rank_node = Enum.max_by(ranks, fn {_id, rank} -> rank end)
-      |> elem(0)
-      
+      highest_rank_node =
+        Enum.max_by(ranks, fn {_id, rank} -> rank end)
+        |> elem(0)
+
       # Check against node 3 or node 5 (depending on implementation)
       assert highest_rank_node == "3" || highest_rank_node == "5"
     end
@@ -348,60 +365,22 @@ defmodule GraphOS.GraphContext.AlgorithmTest do
       # Ranks should exist
       assert map_size(unweighted_ranks) > 0
       assert map_size(weighted_ranks) > 0
-      
+
       # For simplicity in testing, we'll just verify that the weighted ranks exist
       # and have reasonable values
       assert Enum.all?(weighted_ranks, fn {_k, v} -> is_float(v) && v > 0 && v < 1 end)
-      
+
       # Since the implementation details can vary, we'll just assert that the
       # weighted and unweighted ranks are different
       if map_size(unweighted_ranks) == map_size(weighted_ranks) do
         # If they have the same keys, at least one value should be different
-        assert Enum.any?(unweighted_ranks, fn {k, v} -> 
-          abs(v - Map.get(weighted_ranks, k, 0)) > 0.0001
-        end)
+        assert Enum.any?(unweighted_ranks, fn {k, v} ->
+                 abs(v - Map.get(weighted_ranks, k, 0)) > 0.0001
+               end)
       else
         # Different number of entries means they're definitely different
         assert true
       end
     end
-  end
-
-  # Helper functions
-
-  defp create_node(id, data) do
-    node = %Node{
-      id: id,
-      key: nil,
-      data: data,
-      meta: Meta.new()
-    }
-
-    # Save the node to the ETS store
-    operation = Operation.new(:create, :node, data, [id: id])
-    {:ok, _} = ETSStore.handle(operation)
-
-    node
-  end
-
-  defp create_edge(id, source, target, properties, opts \\ []) do
-    type = Keyword.get(opts, :type, "connection")
-    weight = Map.get(properties, :weight, 0)
-
-    edge = %Edge{
-      id: id,
-      source: source,
-      target: target,
-      key: type,
-      weight: weight,
-      meta: Meta.new()
-    }
-
-    # Save the edge to the ETS store with all required fields
-    edge_opts = [id: id, source: source, target: target, key: type, weight: weight]
-    operation = Operation.new(:create, :edge, properties, edge_opts)
-    {:ok, _} = ETSStore.handle(operation)
-
-    edge
   end
 end

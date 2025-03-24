@@ -1,1 +1,0 @@
-/Users/vegard/Developer/GraphOS/graph_os/instructions/BOUNDARIES.md

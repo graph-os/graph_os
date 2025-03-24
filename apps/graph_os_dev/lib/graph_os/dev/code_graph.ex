@@ -4,7 +4,7 @@ defmodule GraphOS.Dev.CodeGraph do
 
   This module provides functionality to:
   - Build a graph representation of Elixir code
-  - Store and query relationships between modules, functions, and files
+  - StoreAdapter and query relationships between modules, functions, and files
   - Monitor changes to the codebase and update the graph in real-time
   - Provide insights about code structure and dependencies
 
@@ -14,8 +14,8 @@ defmodule GraphOS.Dev.CodeGraph do
   - Properties: Documentation, line numbers, metadata
   """
 
-  alias GraphOS.Graph
-  alias GraphOS.Graph.{Node, Transaction, Query}
+  alias GraphOS.Store
+  alias GraphOS.Store.{Node, Transaction, Query}
   alias GraphOS.Dev.CodeParser
 
   @doc """
@@ -32,8 +32,8 @@ defmodule GraphOS.Dev.CodeGraph do
   @spec init() :: :ok | {:error, term()}
   def init do
     # Graph.init now returns :ok directly
-    case Graph.init() do
-      :ok -> :ok
+    case GraphOS.Store.start() do
+      {:ok, _} -> :ok
       error -> error
     end
   end
@@ -137,15 +137,15 @@ defmodule GraphOS.Dev.CodeGraph do
   """
   @spec get_module_info(String.t()) :: {:ok, map()} | {:error, term()}
   def get_module_info(module_name) do
-    case Query.get_node(module_name) do
+    case GraphOS.Store.get(:node, module_name) do
       {:ok, node} ->
         # Fetch related information
         {:ok, related_functions} =
-          Query.execute(start_node_id: module_name, edge_type: "defines")
+          GraphOS.Store.execute(Query.traverse(module_name, edge_type: "defines"))
 
         # Fetch dependencies
         {:ok, dependencies} =
-          Query.execute(start_node_id: module_name, edge_type: "depends_on")
+          GraphOS.Store.execute(Query.traverse(module_name, edge_type: "depends_on"))
 
         # Combine all data
         {:ok,
@@ -193,17 +193,18 @@ defmodule GraphOS.Dev.CodeGraph do
 
   ## Examples
 
-      iex> GraphOS.Dev.CodeGraph.find_implementations("GraphOS.Graph.Protocol")
+      iex> GraphOS.Dev.CodeGraph.find_implementations("GraphOS.Store.Protocol")
       {:ok, [module_names]}
 
   """
   @spec find_implementations(String.t()) :: {:ok, list(String.t())} | {:error, term()}
   def find_implementations(protocol_or_behaviour) do
     # Query for nodes that have an "implements" edge to the protocol
-    case Query.execute(
-           start_node_id: protocol_or_behaviour,
-           edge_type: "implemented_by",
-           direction: :incoming
+    case GraphOS.Store.execute(
+           Query.traverse(protocol_or_behaviour,
+             edge_type: "implemented_by",
+             direction: :incoming
+           )
          ) do
       {:ok, nodes} ->
         {:ok, Enum.map(nodes, & &1.id)}
@@ -222,17 +223,15 @@ defmodule GraphOS.Dev.CodeGraph do
 
   ## Examples
 
-      iex> GraphOS.Dev.CodeGraph.find_dependents("GraphOS.Graph")
+      iex> GraphOS.Dev.CodeGraph.find_dependents("GraphOS.Store")
       {:ok, [module_names]}
 
   """
   @spec find_dependents(String.t()) :: {:ok, list(String.t())} | {:error, term()}
   def find_dependents(module_name) do
     # Query for nodes that have a "depends_on" edge to the module
-    case Query.execute(
-           start_node_id: module_name,
-           edge_type: "depends_on",
-           direction: :incoming
+    case GraphOS.Store.execute(
+           Query.traverse(module_name, edge_type: "depends_on", direction: :incoming)
          ) do
       {:ok, nodes} ->
         {:ok, Enum.map(nodes, & &1.id)}
@@ -290,7 +289,7 @@ defmodule GraphOS.Dev.CodeGraph do
   # Add parsed content to the graph
   defp add_to_graph(parsed_data, file_path, stats) do
     # Initialize a transaction
-    transaction = Transaction.new(GraphOS.Graph.Store.ETS)
+    transaction = Transaction.new(GraphOS.Store.StoreAdapter.ETS)
 
     # Extract data
     modules = parsed_data.modules
@@ -301,20 +300,18 @@ defmodule GraphOS.Dev.CodeGraph do
     transaction =
       Enum.reduce(modules, transaction, fn module, tx ->
         module_node =
-          Node.new(
-            %{
-              name: module.name,
-              file: file_path,
-              line: module.line,
-              documentation: module.documentation
-            },
-            id: module.name
-          )
+          Node.new(%{
+            id: module.name,
+            name: module.name,
+            file: file_path,
+            line: module.line,
+            documentation: module.documentation
+          })
 
         # Add operation to transaction
         Transaction.add(
           tx,
-          GraphOS.Graph.Operation.new(:create, :node, module_node, id: module.name)
+          GraphOS.Store.Operation.new(:insert, :node, module_node, id: module.name)
         )
       end)
 
@@ -324,30 +321,28 @@ defmodule GraphOS.Dev.CodeGraph do
         function_id = "#{function.module}##{function.name}/#{function.arity}"
 
         function_node =
-          Node.new(
-            %{
-              name: function.name,
-              arity: function.arity,
-              module: function.module,
-              file: file_path,
-              line: function.line,
-              documentation: function.documentation,
-              visibility: function.visibility
-            },
-            id: function_id
-          )
+          Node.new(%{
+            id: function_id,
+            name: function.name,
+            arity: function.arity,
+            module: function.module,
+            file: file_path,
+            line: function.line,
+            documentation: function.documentation,
+            visibility: function.visibility
+          })
 
         # Add function node
         tx =
           Transaction.add(
             tx,
-            GraphOS.Graph.Operation.new(:create, :node, function_node, id: function_id)
+            GraphOS.Store.Operation.new(:insert, :node, function_node, id: function_id)
           )
 
         # Add edge from module to function (defines relationship)
         Transaction.add(
           tx,
-          GraphOS.Graph.Operation.new(:create, :edge, %{},
+          GraphOS.Store.Operation.new(:insert, :edge, %{},
             id: "#{function.module}->#{function_id}",
             key: "defines",
             weight: 1,
@@ -366,7 +361,7 @@ defmodule GraphOS.Dev.CodeGraph do
         # Add operation to transaction
         Transaction.add(
           tx,
-          GraphOS.Graph.Operation.new(:create, :edge, %{},
+          GraphOS.Store.Operation.new(:insert, :edge, %{},
             id: "#{source}->#{target}",
             key: dependency.type,
             weight: 1,
@@ -377,7 +372,7 @@ defmodule GraphOS.Dev.CodeGraph do
       end)
 
     # Execute the transaction
-    case Graph.execute(transaction) do
+    case GraphOS.Store.execute(transaction) do
       {:ok, _result} ->
         # Update statistics
         updated_stats = %{
@@ -389,28 +384,30 @@ defmodule GraphOS.Dev.CodeGraph do
 
         {:ok, updated_stats}
 
-      {:error, reason} ->
-        {:error, "Failed to add to graph: #{inspect(reason)}"}
+      error ->
+        error
     end
   end
 
   # Remove a file's nodes and edges from the graph
   defp remove_file_from_graph(file_path) do
     # Find all nodes associated with this file
-    case Query.find_nodes_by_properties(%{file: file_path}) do
+    query = Query.find_nodes_by_properties(%{file: file_path})
+
+    case GraphOS.Store.execute(query) do
       {:ok, nodes} ->
         # Create a transaction to remove all these nodes
-        transaction = Transaction.new(GraphOS.Graph.Store.ETS)
+        transaction = Transaction.new(GraphOS.Store.StoreAdapter.ETS)
 
         # Add delete operations for each node
         transaction =
           Enum.reduce(nodes, transaction, fn node, tx ->
-            Transaction.add(tx, GraphOS.Graph.Operation.new(:delete, :node, %{}, id: node.id))
+            Transaction.add(tx, GraphOS.Store.Operation.new(:delete, :node, %{}, id: node.id))
           end)
 
         # Execute the transaction
-        case Graph.execute(transaction) do
-          {:ok, _result} -> :ok
+        case GraphOS.Store.execute(transaction) do
+          {:ok, _} -> {:ok, file_path: file_path, removed_nodes: length(nodes)}
           error -> error
         end
 

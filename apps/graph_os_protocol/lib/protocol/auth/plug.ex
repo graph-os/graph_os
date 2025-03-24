@@ -90,7 +90,7 @@ defmodule GraphOS.Protocol.Auth.Plug do
   # Extract secret from Plug.Conn headers
   defp secret_from_conn_headers(conn) do
     conn
-    |> get_req_header("x-graphos-rpc-secret")
+    |> get_req_header("x-graph-os-rpc-secret")
     |> case do
       [value | _] ->
         value
@@ -114,7 +114,7 @@ defmodule GraphOS.Protocol.Auth.Plug do
     headers = context.req_headers || %{}
 
     case headers do
-      %{"x-graphos-rpc-secret" => secret} when is_binary(secret) ->
+      %{"x-graph-os-rpc-secret" => secret} when is_binary(secret) ->
         secret
 
       %{"authorization" => "Bearer " <> token} ->
@@ -135,7 +135,7 @@ defmodule GraphOS.Protocol.Auth.Plug do
     metadata = context.metadata || %{}
 
     case metadata do
-      %{"x-graphos-rpc-secret" => secret} when is_binary(secret) ->
+      %{"x-graph-os-rpc-secret" => secret} when is_binary(secret) ->
         secret
 
       %{"authorization" => "Bearer " <> token} ->

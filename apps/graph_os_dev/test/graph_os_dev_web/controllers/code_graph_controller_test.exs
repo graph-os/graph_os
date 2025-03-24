@@ -3,8 +3,8 @@ defmodule GraphOS.DevWeb.CodeGraphControllerTest do
   use GraphOS.DevWeb.ConnCase
   @moduletag :code_graph
 
-  alias GraphOS.Core.CodeGraph
-  alias GraphOS.Core.CodeGraph.Service, as: CodeGraphService
+  alias GraphOS.Dev.CodeGraph
+  alias GraphOS.Dev.CodeGraph.Service, as: CodeGraphService
 
   setup do
     # Get the path to the current file and use it to determine the app path
@@ -26,9 +26,11 @@ defmodule GraphOS.DevWeb.CodeGraphControllerTest do
 
     # Stop the existing CodeGraphService if it's running
     service_pid = Process.whereis(CodeGraphService)
+
     if service_pid do
       ref = Process.monitor(service_pid)
       Process.exit(service_pid, :kill)
+
       receive do
         {:DOWN, ^ref, :process, _pid, _reason} -> :ok
       after
@@ -40,11 +42,12 @@ defmodule GraphOS.DevWeb.CodeGraphControllerTest do
     Process.sleep(100)
 
     # Start the CodeGraph Service with app directory to watch
-    {:ok, _pid} = CodeGraphService.start_link([
-      watched_dirs: [app_dir],
-      file_pattern: "**/*.ex",
-      auto_reload: false
-    ])
+    {:ok, _pid} =
+      CodeGraphService.start_link(
+        watched_dirs: [app_dir],
+        file_pattern: "**/*.ex",
+        auto_reload: false
+      )
 
     # Wait a moment for service to initialize
     Process.sleep(200)
@@ -61,10 +64,13 @@ defmodule GraphOS.DevWeb.CodeGraphControllerTest do
 
     # Cleanup after tests
     on_exit(fn ->
+      # Stop the CodeGraph service
       service_pid = Process.whereis(CodeGraphService)
+
       if service_pid do
         ref = Process.monitor(service_pid)
         Process.exit(service_pid, :kill)
+
         receive do
           {:DOWN, ^ref, :process, _pid, _reason} -> :ok
         after
@@ -73,13 +79,13 @@ defmodule GraphOS.DevWeb.CodeGraphControllerTest do
       end
     end)
 
-    # Share the file path in the test context for test use
-    {:ok, %{
-      app_dir: app_dir,
-      dev_file_path: dev_file_path,
-      file_rel_path: file_rel_path,
-      module_name: "GraphOS.Dev"
-    }}
+    {:ok,
+     %{
+       conn: build_conn(),
+       app_dir: app_dir,
+       dev_file_path: dev_file_path,
+       file_rel_path: file_rel_path
+     }}
   end
 
   describe "API routes" do
@@ -88,8 +94,8 @@ defmodule GraphOS.DevWeb.CodeGraphControllerTest do
       assert json_response(conn, 200)
     end
 
-    test "GET /api/code-graph/module", %{conn: conn, module_name: module_name} do
-      conn = get(conn, ~p"/api/code-graph/module?name=#{module_name}")
+    test "GET /api/code-graph/module", %{conn: conn, dev_file_path: dev_file_path} do
+      conn = get(conn, ~p"/api/code-graph/module?name=#{dev_file_path}")
       assert json_response(conn, 200)
     end
 

@@ -1,25 +1,25 @@
 defmodule GraphOS.Protocol.Test.MockSchema do
   @moduledoc """
   A mock schema implementation for testing the gRPC server.
-  
+
   This is a minimal implementation to make the gRPC server start successfully.
   """
-  @behaviour GraphOS.Graph.SchemaBehaviour
-  
+  @behaviour GraphOS.Store.SchemaBehaviour
+
   # Service module for gRPC
   @impl true
   def service_module do
     __MODULE__
   end
-  
-  # Protobuf definition for the system info 
+
+  # Protobuf definition for the system info
   @impl true
   def proto_definition do
     """
     syntax = "proto3";
-    
+
     package graph_os;
-    
+
     // SystemInfo represents basic system metrics and information
     message SystemInfo {
       string id = 1;                // Unique identifier
@@ -37,32 +37,32 @@ defmodule GraphOS.Protocol.Test.MockSchema do
       string platform = 13;         // Platform name
       string architecture = 14;     // System architecture
     }
-    
+
     // SystemInfoList represents a collection of system info records
     message SystemInfoList {
       repeated SystemInfo items = 1; // List of system info items
     }
-    
+
     // GetSystemInfoRequest gets current system info
     message GetSystemInfoRequest {}
-    
+
     // ListSystemInfoRequest lists historical system info records
     message ListSystemInfoRequest {
       int32 limit = 1;              // Max number of records to return
       int64 since = 2;              // Get records since this timestamp
     }
-    
+
     // SystemInfoService defines gRPC service for system information
     service SystemInfoService {
       // GetSystemInfo returns the current system information
       rpc GetSystemInfo(GetSystemInfoRequest) returns (SystemInfo);
-      
+
       // ListSystemInfo returns historical system information
       rpc ListSystemInfo(ListSystemInfoRequest) returns (SystemInfoList);
     }
     """
   end
-  
+
   # Field mapping
   @impl true
   def proto_field_mapping do
@@ -83,7 +83,7 @@ defmodule GraphOS.Protocol.Test.MockSchema do
       "architecture" => :architecture
     }
   end
-  
+
   # Define fields
   @impl true
   def fields do

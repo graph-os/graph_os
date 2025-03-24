@@ -29,17 +29,17 @@ defmodule GraphOS.Core.AccessControl do
   # Check if an operation is permitted
   {:ok, true} = GraphOS.Core.AccessControl.can?(graph, "user:alice", "filesystem:/tmp/file.txt", :read)
 
-  # Use with graph operations via the GraphOS.GraphContext.Access interface
+  # Use with graph operations via the GraphOS.Store.Access interface
   access_control = GraphOS.Core.Access.GraphAccess
   access_context = %{actor_id: "user:alice", graph: graph}
-  GraphOS.GraphContext.Store.query(params, GraphOS.GraphContext.Store.ETS, 
+  GraphOS.Store.StoreAdapter.query(params, GraphOS.Store.StoreAdapter.ETS,
     access_control: access_control,
     access_context: access_context
   )
   ```
   """
 
-  alias GraphOS.GraphContext.{Node, Edge, Transaction}
+  alias GraphOS.Store.{Node, Edge, Transaction}
 
   # Node and edge types for access control
   @actor_type "access:actor"
@@ -71,28 +71,26 @@ defmodule GraphOS.Core.AccessControl do
   @spec init(atom() | pid()) :: :ok | {:error, term()}
   def init(_graph) do
     # Create a transaction to initialize the access control system
-    transaction = Transaction.new(GraphOS.GraphContext.Store.ETS)
+    transaction = Transaction.new(GraphOS.Store.StoreAdapter.ETS)
 
     # Create the root access control node
     root_node =
-      Node.new(
-        %{
-          name: "AccessControl",
-          protected: true,
-          created_at: DateTime.utc_now()
-        },
-        id: "access:root"
-      )
+      Node.new(%{
+        id: "access:root",
+        name: "AccessControl",
+        protected: true,
+        created_at: DateTime.utc_now()
+      })
 
     # Add the root node operation to the transaction
     transaction =
       Transaction.add(
         transaction,
-        GraphOS.GraphContext.Operation.new(:create, :node, root_node, id: "access:root")
+        GraphOS.Store.Operation.new(:insert, :node, root_node, id: "access:root")
       )
 
-    # Execute the transaction via GraphOS.GraphContext
-    case GraphOS.GraphContext.execute(transaction) do
+    # Execute the transaction via GraphOS.Store
+    case GraphOS.Store.execute(transaction) do
       {:ok, _result} -> :ok
       error -> error
     end
@@ -117,38 +115,36 @@ defmodule GraphOS.Core.AccessControl do
   ## Examples
 
       iex> GraphOS.Core.AccessControl.define_actor(graph, "user:alice", %{role: "admin"})
-      {:ok, %GraphOS.GraphContext.Node{id: "user:alice", ...}}
+      {:ok, %GraphOS.Store.Node{id: "user:alice", ...}}
   """
   @spec define_actor(atom() | pid(), String.t(), map()) :: {:ok, Node.t()} | {:error, term()}
   def define_actor(_graph, actor_id, attributes \\ %{}) do
     # Create a transaction to define the actor
-    transaction = Transaction.new(GraphOS.GraphContext.Store.ETS)
+    transaction = Transaction.new(GraphOS.Store.StoreAdapter.ETS)
 
     # Create the actor node
     actor_node =
-      Node.new(
-        Map.merge(attributes, %{
-          name: actor_id,
-          type: @actor_type,
-          protected: true,
-          created_at: DateTime.utc_now()
-        }),
-        id: actor_id
-      )
+      Node.new(%{
+        id: actor_id,
+        name: actor_id,
+        type: @actor_type,
+        protected: true,
+        created_at: DateTime.utc_now()
+      })
 
     # Add the actor node operation to the transaction
     transaction =
       Transaction.add(
         transaction,
-        GraphOS.GraphContext.Operation.new(:create, :node, actor_node, id: actor_id)
+        GraphOS.Store.Operation.new(:insert, :node, actor_node, id: actor_id)
       )
 
     # Add an edge linking the actor to the access control root
     transaction =
       Transaction.add(
         transaction,
-        GraphOS.GraphContext.Operation.new(
-          :create,
+        GraphOS.Store.Operation.new(
+          :insert,
           :edge,
           %{
             type: "access:actor_def",
@@ -163,8 +159,8 @@ defmodule GraphOS.Core.AccessControl do
         )
       )
 
-    # Execute the transaction via GraphOS.GraphContext
-    case GraphOS.GraphContext.execute(transaction) do
+    # Execute the transaction via GraphOS.Store
+    case GraphOS.Store.execute(transaction) do
       {:ok, _result} -> {:ok, actor_node}
       error -> error
     end
@@ -188,7 +184,7 @@ defmodule GraphOS.Core.AccessControl do
   ## Examples
 
       iex> GraphOS.Core.AccessControl.grant_permission(graph, "user:alice", "filesystem:*", [:read, :write])
-      {:ok, %GraphOS.GraphContext.Edge{id: "user:alice->filesystem:*", ...}}
+      {:ok, %GraphOS.Store.Edge{id: "user:alice->filesystem:*", ...}}
   """
   @spec grant_permission(atom() | pid(), String.t(), String.t(), list(atom())) ::
           {:ok, Edge.t()} | {:error, term()}
@@ -200,7 +196,7 @@ defmodule GraphOS.Core.AccessControl do
       {:error, "Invalid operations: #{inspect(invalid_operations)}"}
     else
       # Create a transaction to grant the permission
-      transaction = Transaction.new(GraphOS.GraphContext.Store.ETS)
+      transaction = Transaction.new(GraphOS.Store.StoreAdapter.ETS)
 
       # Create the resource pattern node if it doesn't exist
       transaction = ensure_resource_pattern(transaction, resource_pattern)
@@ -218,7 +214,7 @@ defmodule GraphOS.Core.AccessControl do
       transaction =
         Transaction.add(
           transaction,
-          GraphOS.GraphContext.Operation.new(:create, :edge, edge_data,
+          GraphOS.Store.Operation.new(:insert, :edge, edge_data,
             id: permission_id,
             key: @permission_edge,
             weight: 1,
@@ -227,8 +223,8 @@ defmodule GraphOS.Core.AccessControl do
           )
         )
 
-      # Execute the transaction via GraphOS.GraphContext
-      case GraphOS.GraphContext.execute(transaction) do
+      # Execute the transaction via GraphOS.Store
+      case GraphOS.Store.execute(transaction) do
         {:ok, _result} ->
           # Return the created edge
           {:ok,
@@ -238,7 +234,7 @@ defmodule GraphOS.Core.AccessControl do
              weight: 1,
              source: actor_id,
              target: resource_pattern,
-             meta: GraphOS.GraphContext.Meta.new()
+             metadata: %{}
            }}
 
         error ->
@@ -292,7 +288,7 @@ defmodule GraphOS.Core.AccessControl do
   end
 
   @doc """
-  Creates an access context map for use with GraphOS.GraphContext.Access implementations.
+  Creates an access context map for use with GraphOS.Store.Access implementations.
 
   ## Parameters
 
@@ -306,7 +302,7 @@ defmodule GraphOS.Core.AccessControl do
   ## Examples
 
       iex> context = GraphOS.Core.AccessControl.create_context(graph, "user:alice")
-      iex> GraphOS.GraphContext.Store.query(params, GraphOS.GraphContext.Store.ETS, 
+      iex> GraphOS.Store.StoreAdapter.query(params, GraphOS.Store.StoreAdapter.ETS,
       ...>   access_control: GraphOS.Core.Access.GraphAccess,
       ...>   access_context: context
       ...> )
@@ -334,7 +330,7 @@ defmodule GraphOS.Core.AccessControl do
 
     Transaction.add(
       transaction,
-      GraphOS.GraphContext.Operation.new(:create, :node, node_data,
+      GraphOS.Store.Operation.new(:insert, :node, node_data,
         id: resource_pattern,
         # Skip if already exists
         on_conflict: :ignore
@@ -345,7 +341,7 @@ defmodule GraphOS.Core.AccessControl do
   # Get all permissions for an actor
   defp get_actor_permissions(_graph, actor_id) do
     # Query for all permission edges from this actor
-    case GraphOS.GraphContext.Query.execute(
+    case GraphOS.Store.Query.execute(
            start_node_id: actor_id,
            edge_type: @permission_edge
          ) do

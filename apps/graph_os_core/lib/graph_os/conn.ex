@@ -101,7 +101,7 @@ defmodule GraphOS.Conn do
     # Add self() as subscriber if not specified
     opts = Keyword.put_new(opts, :subscriber, self())
 
-    case GraphOS.GraphContext.Subscription.subscribe(topic, opts) do
+    case GraphOS.Store.Subscription.subscribe(topic, opts) do
       {:ok, subscription_id} ->
         {:reply, {:ok, subscription_id},
          %{state | subscriptions: [subscription_id | state.subscriptions]}}
@@ -112,7 +112,7 @@ defmodule GraphOS.Conn do
   end
 
   def handle_call({:unsubscribe, subscription_id}, _from, state) do
-    case GraphOS.GraphContext.Subscription.unsubscribe(subscription_id) do
+    case GraphOS.Store.Subscription.unsubscribe(subscription_id) do
       :ok ->
         {:reply, :ok, %{state | subscriptions: List.delete(state.subscriptions, subscription_id)}}
 
@@ -128,7 +128,7 @@ defmodule GraphOS.Conn do
     # Handle the message based on connection state
     case handle_message(message, state) do
       {:ok, new_state} -> {:noreply, new_state}
-      {:error, reason} -> {:noreply, state}
+      {:error, _reason} -> {:noreply, state}
     end
   end
 
@@ -178,13 +178,13 @@ defmodule GraphOS.Conn do
     end
   end
 
-  defp handle_initialization(message, state) do
+  defp handle_initialization(_message, state) do
     # Handle initialization messages
     # This could include authentication, protocol negotiation, etc.
     {:ok, %{state | state: :connected}}
   end
 
-  defp handle_connected_message(message, state) do
+  defp handle_connected_message(_message, state) do
     # Handle messages from connected clients
     # This is where you'll implement your message handling logic
     {:ok, state}

@@ -43,7 +43,7 @@ defmodule GraphOS.Protocol.Auth do
   ]
 
   # For gRPC requests
-  metadata = [{"x-graphos-rpc-secret", "your_secret_here"}]
+  metadata = [{"x-graph-os-rpc-secret", "your_secret_here"}]
   ```
 
   ## Module Structure

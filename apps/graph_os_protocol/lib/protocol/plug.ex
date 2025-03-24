@@ -74,7 +74,7 @@ defmodule GraphOS.Protocol.Plug do
 
   scope "/api" do
     pipe_through :api
-    
+
     forward "/graph", GraphOS.Protocol.Plug, [
       adapter_opts: [
         graph_module: MyApp.Graph,
@@ -94,17 +94,17 @@ defmodule GraphOS.Protocol.Plug do
   ```elixir
   defmodule MyApp.Router do
     use Plug.Router
-    
+
     plug :match
     plug :dispatch
-    
+
     forward "/graph", GraphOS.Protocol.Plug, [
       adapter_opts: [
         graph_module: MyApp.Graph,
         schema_module: MyApp.GraphSchema
       ]
     ]
-    
+
     match _ do
       send_resp(conn, 404, "Not found")
     end
@@ -138,7 +138,7 @@ defmodule GraphOS.Protocol.Plug do
   def call(conn, opts) do
     # Check if an adapter is already started
     adapter =
-      case conn.private[:graphos_adapter] do
+      case conn.private[:graph_os_adapter] do
         nil ->
           # Start the adapter
           {:ok, adapter} = start_adapter(opts)
@@ -150,7 +150,7 @@ defmodule GraphOS.Protocol.Plug do
       end
 
     # Add the adapter to the connection
-    conn = Plug.Conn.put_private(conn, :graphos_adapter, adapter)
+    conn = Plug.Conn.put_private(conn, :graph_os_adapter, adapter)
 
     # Route the request
     route_request(conn, opts)
@@ -213,7 +213,7 @@ defmodule GraphOS.Protocol.Plug do
 
   # Handle a graph query
   defp handle_query(conn, path, params, opts) do
-    adapter = conn.private[:graphos_adapter]
+    adapter = conn.private[:graph_os_adapter]
 
     # Create a context with request data
     context =
@@ -247,7 +247,7 @@ defmodule GraphOS.Protocol.Plug do
 
   # Handle a graph action
   defp handle_action(conn, path, params, opts) do
-    adapter = conn.private[:graphos_adapter]
+    adapter = conn.private[:graph_os_adapter]
 
     # Create a context with request data
     context =
@@ -312,7 +312,7 @@ defmodule GraphOS.Protocol.Plug do
 
   # Handle a JSON-RPC request
   defp handle_jsonrpc_request(conn, request, opts) do
-    adapter = conn.private[:graphos_adapter]
+    adapter = conn.private[:graph_os_adapter]
 
     # Create a context with request data
     context =
@@ -348,7 +348,7 @@ defmodule GraphOS.Protocol.Plug do
   defp handle_protobuf_request(conn, method, opts) do
     # We need a schema module to handle protobuf requests
     if opts.schema_module do
-      adapter = conn.private[:graphos_adapter]
+      adapter = conn.private[:graph_os_adapter]
       accept_type = get_accept_type(conn)
 
       # Read and parse the request body
@@ -527,7 +527,7 @@ defmodule GraphOS.Protocol.Plug do
       if msg_type do
         # Use the Protobuf module to decode the binary
         try do
-          decoded = GraphOS.GraphContext.Schema.Protobuf.decode(binary, msg_type)
+          decoded = GraphOS.Store.Schema.Protobuf.decode(binary, msg_type)
           {:ok, decoded}
         rescue
           e -> {:error, {:decode_error, e.message}}
@@ -544,7 +544,7 @@ defmodule GraphOS.Protocol.Plug do
   defp encode_protobuf(proto_struct) do
     # Use the Protobuf module to encode the struct
     try do
-      GraphOS.GraphContext.Schema.Protobuf.encode(proto_struct)
+      GraphOS.Store.Schema.Protobuf.encode(proto_struct)
     rescue
       _ -> raise "Failed to encode Protocol Buffer message"
     end

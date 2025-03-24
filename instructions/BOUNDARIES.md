@@ -39,7 +39,7 @@ graph_os_dev  graph_os_cli
 A pure graph data structure library with no dependencies on other GraphOS components except potentially MCP for serialization.
 
 #### Key Boundary Rules
-- GraphOS.GraphContext is a pure graph data structure library
+- GraphOS.Store is a pure graph data structure library
 - It defines interfaces but not implementations for cross-cutting concerns
 - No application infrastructure, execution logic or business logic belongs here
 - Protocol adapters have been moved to GraphOS.Protocol
@@ -49,21 +49,21 @@ A pure graph data structure library with no dependencies on other GraphOS compon
 - `mcp` - For serialization (limited usage)
 
 #### Public API
-- `GraphOS.GraphContext` - Main module for graph operations
-- `GraphOS.GraphContext.Node` - Node representation
-- `GraphOS.GraphContext.Edge` - Edge representation
-- `GraphOS.GraphContext.Meta` - Metadata for graph elements
-- `GraphOS.GraphContext.Transaction` - Transaction handling
-- `GraphOS.GraphContext.Operation` - Individual operations
-- `GraphOS.GraphContext.Query` - Query interface
-- `GraphOS.GraphContext.Store` - Storage interface
-- `GraphOS.GraphContext.Algorithm` - Graph algorithms
-- `GraphOS.GraphContext.Access` - Access control interface
-- `GraphOS.GraphContext.Subscription` - Subscription interface (minimal implementation)
-- `GraphOS.GraphContext.Protocol` - Core protocol definition
-- `GraphOS.GraphContext.Schema` - Schema definitions for graph elements
-- `GraphOS.GraphContext.SchemaBehaviour` - Schema behavior interface
-- `GraphOS.GraphContext.Schema.Adapter` - Utilities for schema protocol adapters
+- `GraphOS.Store` - Main module for graph operations
+- `GraphOS.Store.Node` - Node representation
+- `GraphOS.Store.Edge` - Edge representation
+- `GraphOS.Store.Meta` - Metadata for graph elements
+- `GraphOS.Store.Transaction` - Transaction handling
+- `GraphOS.Store.Operation` - Individual operations
+- `GraphOS.Store.Query` - Query interface
+- `GraphOS.Store.StoreAdapter` - Storage interface
+- `GraphOS.Store.Algorithm` - Graph algorithms
+- `GraphOS.Store.Access` - Access control interface
+- `GraphOS.Store.SubscriptionBehaviour` - Subscription interface (minimal implementation)
+- `GraphOS.Store.Protocol` - Core protocol definition
+- `GraphOS.Store.Schema` - Schema definitions for graph elements
+- `GraphOS.Store.SchemaBehaviour` - Schema behavior interface
+- `GraphOS.Store.Schema.Adapter` - Utilities for schema protocol adapters
 
 #### Responsibilities
 - Graph data structures (nodes, edges)

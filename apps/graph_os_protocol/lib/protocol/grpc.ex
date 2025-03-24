@@ -3,7 +3,7 @@ defmodule GraphOS.Protocol.GRPC do
   gRPC protocol adapter for GraphOS components.
 
   This adapter provides a gRPC interface to GraphOS, utilizing Protocol Buffers
-  as the canonical serialization format. It integrates with the GraphOS.GraphContext.Schema system
+  as the canonical serialization format. It integrates with the GraphOS.Store.Schema system
   to provide strongly-typed gRPC services.
 
   The gRPC adapter serves as the foundation for the protocol upgrade system,
@@ -13,7 +13,7 @@ defmodule GraphOS.Protocol.GRPC do
 
   - `:name` - Name to register the adapter process (optional)
   - `:plugs` - List of plugs to apply to operations (optional)
-  - `:graph_module` - The Graph module to use (default: `GraphOS.GraphContext`)
+  - `:graph_module` - The Graph module to use (default: `GraphOS.Store`)
   - `:schema_module` - The Schema module that defines Protocol Buffer messages
   - `:service_module` - The Protocol Buffer service module (default: from schema_module)
 
@@ -36,7 +36,7 @@ defmodule GraphOS.Protocol.GRPC do
 
   # Upgrade the response to JSON-RPC format
   {:ok, jsonrpc_response} = GraphOS.Protocol.GRPC.upgrade(
-    MyGRPCAdapter, 
+    MyGRPCAdapter,
     response,
     "GetNode",
     :jsonrpc
@@ -61,9 +61,10 @@ defmodule GraphOS.Protocol.GRPC do
 
   use Boundary, deps: [:graph_os_core, :graph_os_graph]
   use GraphOS.Protocol.Adapter
-  alias GraphOS.Adapter.{Context, GenServer}
+
+  alias GraphOS.Store.{StoreAdapter, Transaction}
   alias GraphOS.Protocol.Schema, as: ProtocolSchema
-  
+
   # Default gRPC port
   @default_port 50051
 
@@ -73,14 +74,14 @@ defmodule GraphOS.Protocol.GRPC do
 
     @type t :: %__MODULE__{
             graph_module: module(),
-            gen_server_adapter: pid(),
+            store_adapter: module(),
             schema_module: module(),
             service_module: module()
           }
 
     defstruct [
       :graph_module,
-      :gen_server_adapter,
+      :store_adapter,
       :schema_module,
       :service_module
     ]
@@ -95,7 +96,7 @@ defmodule GraphOS.Protocol.GRPC do
     * `request` - The Protocol Buffer request message
     * `rpc_name` - The name of the RPC method being called
     * `context` - Optional custom context for the request
-    
+
   ## Returns
 
     * `{:ok, response}` - Successfully processed the request
@@ -111,9 +112,11 @@ defmodule GraphOS.Protocol.GRPC do
       # Create a new context if not provided
       context = context || Context.new()
 
-      # Pass the request to the adapter as a GenServer call
-      # Use the GraphOS.Adapter.GenServer.call function that has special handling in tests
-      GraphOS.Adapter.GenServer.call(adapter_pid, {:grpc_request, request, rpc_name, context})
+      # Pass the request to the adapter
+      case handle_grpc_request(request, rpc_name, context, adapter_pid) do
+        {:ok, response} -> {:ok, response}
+        {:error, reason} -> {:error, reason}
+      end
     else
       {:error, :adapter_not_found}
     end
@@ -123,7 +126,7 @@ defmodule GraphOS.Protocol.GRPC do
 
   @impl true
   def init(opts) do
-    graph_module = Keyword.get(opts, :graph_module, GraphOS.GraphContext)
+    graph_module = Keyword.get(opts, :graph_module, GraphOS.Store)
     schema_module = Keyword.fetch!(opts, :schema_module)
 
     # Get service module from schema or options
@@ -157,18 +160,18 @@ defmodule GraphOS.Protocol.GRPC do
             [auth_plug | existing_plugs]
           end
       end
-      
+
     # Get the port from config, opts, or use default
-    port = 
-      Keyword.get(opts, :port) || 
-      Application.get_env(:graph_os_protocol, :grpc, [])[:port] ||
-      @default_port
-    
+    port =
+      Keyword.get(opts, :port) ||
+        Application.get_env(:graph_os_protocol, :grpc, [])[:port] ||
+        @default_port
+
     # Log the port being used
     if opts[:verbose] do
       IO.puts("Starting gRPC server on port #{port}")
     end
-    
+
     # Start Bandit HTTP/2 server for gRPC using proper Bandit config
     # Create basic HTTP2-enabled server config
     server_config = %{
@@ -176,60 +179,51 @@ defmodule GraphOS.Protocol.GRPC do
       scheme: :http,
       port: port
     }
-    
+
     # Start the HTTP/2 server for gRPC
     case Bandit.start_link(server_config) do
       {:ok, _pid} ->
         if opts[:verbose] do
           IO.puts("HTTP/2 server for gRPC started successfully on port #{port}")
         end
-        
+
+        # Initialize the store adapter
+        case StoreAdapter.init(graph_module, opts) do
+          {:ok, store_adapter} ->
+            state = %State{
+              graph_module: graph_module,
+              store_adapter: store_adapter,
+              schema_module: schema_module,
+              service_module: service_module
+            }
+
+            {:ok, state}
+
+          :ok ->
+            # If no store adapter is returned, use the graph module itself
+            state = %State{
+              graph_module: graph_module,
+              store_adapter: graph_module,
+              schema_module: schema_module,
+              service_module: service_module
+            }
+
+            {:ok, state}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
       {:error, reason} ->
         IO.puts("Failed to start HTTP/2 server for gRPC: #{inspect(reason)}")
-        # Return error instead of continuing
         {:error, {:http2_server_failed, reason}}
-    end
-
-    # Start the GenServer adapter as a child
-    gen_server_opts =
-      Keyword.merge(opts,
-        adapter: Keyword.get(opts, :gen_server_adapter, GenServer),
-        graph_module: graph_module,
-        port: port,
-        plugs: plugs
-      )
-
-    case GenServer.start_link(gen_server_opts) do
-      {:ok, gen_server_pid} ->
-        state = %State{
-          graph_module: graph_module,
-          gen_server_adapter: gen_server_pid,
-          schema_module: schema_module,
-          service_module: service_module
-        }
-
-        {:ok, state}
-        
-      {:error, {:already_started, pid}} ->
-        # If it's already started, use the existing process
-        state = %State{
-          graph_module: graph_module,
-          gen_server_adapter: pid,
-          schema_module: schema_module,
-          service_module: service_module
-        }
-        
-        {:ok, state}
-
-      {:error, reason} ->
-        {:error, reason}
     end
   end
 
   @impl true
   def handle_operation(operation, context, state) do
-    # Delegate to the GenServer adapter
-    case GenServer.execute(state.gen_server_adapter, operation, context) do
+    # Execute the operation through the store adapter
+    case StoreAdapter.execute(operation, adapter: state.store_adapter, context: context) do
       {:ok, result} ->
         # Operation succeeded
         {:reply, result, context, state}
@@ -251,7 +245,7 @@ defmodule GraphOS.Protocol.GRPC do
     * `rpc_name` - The name of the RPC method being called
     * `context` - The request context
     * `state` - The adapter state
-    
+
   ## Returns
 
     * `{:reply, response, context, state}` - Reply with result and updated context/state
@@ -264,8 +258,12 @@ defmodule GraphOS.Protocol.GRPC do
     # Map the gRPC method to a Graph operation
     case map_grpc_to_operation(rpc_name, request, state.schema_module) do
       {:ok, operation, params} ->
-        # Execute the operation
-        case GenServer.execute(state.gen_server_adapter, {operation, params}, context) do
+        # Create and execute the transaction
+        transaction =
+          Transaction.new(state.store_adapter)
+          |> Transaction.add(operation)
+
+        case StoreAdapter.execute(transaction, adapter: state.store_adapter, context: context) do
           {:ok, result} ->
             # Convert the result back to a Protocol Buffer message
             response = convert_result_to_proto(result, rpc_name, state.schema_module)
@@ -288,10 +286,10 @@ defmodule GraphOS.Protocol.GRPC do
     else
       # Get the protobuf definition for this request type
       proto_def =
-        GraphOS.GraphContext.Schema.Protobuf.get_proto_definition(schema_module, request.__struct__)
+        GraphOS.Store.Schema.Protobuf.get_proto_definition(schema_module, request.__struct__)
 
       # Convert the request to a map using the protobuf utilities
-      params = GraphOS.GraphContext.Schema.Protobuf.proto_to_map(request, proto_def)
+      params = GraphOS.Store.Schema.Protobuf.proto_to_map(request, proto_def)
 
       # Default mapping based on method name conventions
       cond do
@@ -340,10 +338,10 @@ defmodule GraphOS.Protocol.GRPC do
       if response_type do
         # Get the protobuf definition for this message type
         proto_def =
-          GraphOS.GraphContext.Schema.Protobuf.get_proto_definition(schema_module, response_type)
+          GraphOS.Store.Schema.Protobuf.get_proto_definition(schema_module, response_type)
 
         # Convert the result to a Protocol Buffer message
-        GraphOS.GraphContext.Schema.Protobuf.map_to_proto(result, proto_def, response_type)
+        GraphOS.Store.Schema.Protobuf.map_to_proto(result, proto_def, response_type)
       else
         raise "Unable to determine response type for RPC: #{rpc_name}"
       end
@@ -422,10 +420,10 @@ defmodule GraphOS.Protocol.GRPC do
   end
 
   @impl true
-  def terminate(reason, %State{gen_server_adapter: adapter_pid}) do
-    # Terminate the GenServer adapter
-    if Process.alive?(adapter_pid) do
-      GenServer.stop(adapter_pid, reason)
+  def terminate(reason, %State{store_adapter: store_adapter}) do
+    # Terminate the store adapter
+    if Process.alive?(store_adapter) do
+      StoreAdapter.stop(store_adapter)
     end
 
     :ok
@@ -440,7 +438,7 @@ defmodule GraphOS.Protocol.GRPC do
     * `response` - The Protocol Buffer response message
     * `rpc_name` - The name of the RPC method
     * `target_protocol` - The target protocol format (:jsonrpc, :plug, or :mcp)
-    
+
   ## Returns
 
     * `{:ok, upgraded_response}` - Successfully upgraded the response
@@ -457,7 +455,7 @@ defmodule GraphOS.Protocol.GRPC do
       # In tests, this might be mocked
       schema_module =
         try do
-          GraphOS.Adapter.GenServer.call(adapter_pid, :get_schema_module)
+          StoreAdapter.call(adapter_pid, :get_schema_module)
         rescue
           # For tests, use a mock schema module
           _ ->

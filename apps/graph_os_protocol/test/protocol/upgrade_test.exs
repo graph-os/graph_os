@@ -1,8 +1,6 @@
 defmodule GraphOS.Protocol.UpgradeTest do
   use ExUnit.Case, async: true
 
-  alias GraphOS.Protocol.Schema
-
   # Define proto message structs for testing
   defmodule GetNodeRequest do
     @moduledoc "Protocol Buffer message for GetNodeRequest"
@@ -111,7 +109,7 @@ defmodule GraphOS.Protocol.UpgradeTest do
 
     test "Protocol Buffer response messages can be upgraded" do
       # Node response
-      node = %Node{
+      _node = %Node{
         id: "node-1",
         type: "person",
         data: %{"name" => "Alice", "age" => 30},

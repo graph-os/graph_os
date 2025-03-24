@@ -1,7 +1,7 @@
 ExUnit.start()
 
-# Mock the GraphOS.GraphContext.Schema.Protobuf module for testing
-defmodule GraphOS.GraphContext.Schema.Protobuf do
+# Mock the GraphOS.Store.Schema.Protobuf module for testing
+defmodule GraphOS.Store.Schema.Protobuf do
   @moduledoc false
 
   def get_proto_definition(_schema_module, _msg_type) do

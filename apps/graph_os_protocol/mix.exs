@@ -85,7 +85,9 @@ defmodule GraphOS.Protocol.MixProject do
         # Auth modules (needed for the new authentication system)
         GraphOS.Protocol.Auth,
         GraphOS.Protocol.Auth.Secret,
-        GraphOS.Protocol.Auth.Plug
+        GraphOS.Protocol.Auth.Plug,
+        # Adapter behaviour
+        GraphOS.Protocol.Adapter
       ]
     ]
   end

@@ -93,8 +93,8 @@ defmodule GraphOS.Core.MixProject do
         # Connection and Graph functionality
         GraphOS.Conn,
         GraphOS.ConnSupervisor,
-        GraphOS.Graph,
-        GraphOS.Graph.Subscription,
+        GraphOS.Store,
+        GraphOS.Store.SubscriptionBehaviour,
         GraphOS.Registry,
         GraphOS.Server
       ]

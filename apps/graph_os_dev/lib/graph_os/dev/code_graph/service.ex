@@ -79,7 +79,7 @@ defmodule GraphOS.Dev.CodeGraph.Service do
 
   ## Examples
 
-      iex> GraphOS.Dev.CodeGraph.Service.find_implementations("GraphOS.Graph.Protocol")
+      iex> GraphOS.Dev.CodeGraph.Service.find_implementations("GraphOS.Store.Protocol")
       {:ok, [module_names]}
   """
   @spec find_implementations(String.t()) :: {:ok, list(String.t())} | {:error, term()}
@@ -96,7 +96,7 @@ defmodule GraphOS.Dev.CodeGraph.Service do
 
   ## Examples
 
-      iex> GraphOS.Dev.CodeGraph.Service.find_dependents("GraphOS.Graph")
+      iex> GraphOS.Dev.CodeGraph.Service.find_dependents("GraphOS.Store")
       {:ok, [module_names]}
   """
   @spec find_dependents(String.t()) :: {:ok, list(String.t())} | {:error, term()}
@@ -251,9 +251,9 @@ defmodule GraphOS.Dev.CodeGraph.Service do
     # Initialize the graph
     :ok = CodeGraph.init()
 
-    # Log the fact that Store.Supervisor and CrossQuery aren't implemented yet
-    Logger.warning("Store.Supervisor/CrossQuery functionality not fully implemented")
-    
+    # Log the fact that StoreAdapter.Supervisor and CrossQuery aren't implemented yet
+    Logger.warning("StoreAdapter.Supervisor/CrossQuery functionality not fully implemented")
+
     # Start a basic registry system for backward compatibility
     start_store_system()
 
@@ -515,11 +515,11 @@ defmodule GraphOS.Dev.CodeGraph.Service do
     case Map.get(state.stores, store_key) do
       nil ->
         # TODO: Implement store supervisor and management
-        # This would require implementing a GraphOS.Dev.Graph.Store module
+        # This would require implementing a GraphOS.Dev.Graph.StoreAdapter module
         # For now, return a placeholder
-        Logger.warning("Store functionality not fully implemented for branch #{branch}")
+        Logger.warning("StoreAdapter functionality not fully implemented for branch #{branch}")
         :not_implemented
-        
+
       store_pid ->
         store_pid
     end
@@ -527,8 +527,8 @@ defmodule GraphOS.Dev.CodeGraph.Service do
 
   defp rebuild_branch_graph(_repo_path, _branch, _store) do
     # TODO: Implement store clearing and rebuilding
-    # This would require implementing GraphOS.Dev.Graph.Store.Server
-    
+    # This would require implementing GraphOS.Dev.Graph.StoreAdapter.Server
+
     Logger.warning("Branch graph rebuilding not fully implemented")
     :ok
   end
@@ -641,17 +641,20 @@ defmodule GraphOS.Dev.CodeGraph.Service do
   end
 
   defp start_store_system do
-    # TODO: Implement properly with GraphOS.Dev.Graph.Store
+    # TODO: Implement properly with GraphOS.Dev.Graph.StoreAdapter
     Logger.info("Initializing basic registry for store system")
-    
+
     # Just start a basic registry for now
     children = [
-      {Registry, keys: :unique, name: GraphOS.Graph.StoreRegistry}
+      {Registry, keys: :unique, name: GraphOS.Store.StoreAdapterRegistry}
     ]
 
     # Start supervisor without linking (we're inside GenServer init)
     {:ok, _pid} =
-      Supervisor.start_link(children, strategy: :one_for_one, name: GraphOS.Dev.StoreSystem)
+      Supervisor.start_link(children,
+        strategy: :one_for_one,
+        name: GraphOS.Dev.StoreAdapterSystem
+      )
 
     :ok
   end
@@ -732,7 +735,7 @@ defmodule GraphOS.Dev.CodeGraph.Service do
   defp create_branch_stores(repo_path, branches) do
     # TODO: Implement branch store creation
     Logger.warning("Branch store functionality not fully implemented for #{repo_path}")
-    
+
     # Return an empty map for now
     branches
     |> Enum.map(fn branch -> {branch, :not_implemented} end)

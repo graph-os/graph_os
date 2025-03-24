@@ -16,7 +16,7 @@ defmodule GraphOS.Server do
   end
 
   # Initialize the server with the Graph
-  def init(opts) do
+  def init(_opts) do
     {:ok, registry} = Registry.start_link(keys: :unique, name: GraphOS.ConnectionRegistry)
     {:ok, supervisor} = GraphOS.ConnSupervisor.start_link()
 
@@ -29,7 +29,7 @@ defmodule GraphOS.Server do
 
     {:ok,
      %__MODULE__{
-       graph: GraphOS.GraphContextContext,
+       graph: GraphOS.StoreContext,
        connections: %{},
        registry: registry,
        supervisor: supervisor
@@ -47,7 +47,7 @@ defmodule GraphOS.Server do
         # Register the connection in GraphOS.Registry
         {:ok, _} = GraphOS.Registry.register(conn_pid, :connection, client_info)
 
-        # Store connection info
+        # StoreAdapter connection info
         new_connections = Map.put(state.connections, conn_pid, client_info)
         {:reply, {:ok, conn_pid}, %{state | connections: new_connections}}
 
@@ -56,8 +56,13 @@ defmodule GraphOS.Server do
     end
   end
 
+  # Handle request for connections list
+  def handle_call(:connections, _from, state) do
+    {:reply, {:ok, state.connections}, state}
+  end
+
   # Handle connection termination
-  def handle_info({:DOWN, _ref, :process, pid, reason}, state) do
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     # Remove the terminated connection from our tracking
     new_connections = Map.delete(state.connections, pid)
 
@@ -82,11 +87,6 @@ defmodule GraphOS.Server do
   # Get all active connections
   def connections do
     GenServer.call(__MODULE__, :connections)
-  end
-
-  # Handle request for connections list
-  def handle_call(:connections, _from, state) do
-    {:reply, {:ok, state.connections}, state}
   end
 
   # Get all active connections from the registry

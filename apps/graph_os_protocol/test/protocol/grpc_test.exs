@@ -1,10 +1,6 @@
 defmodule GraphOS.Protocol.GRPCTest do
   use ExUnit.Case, async: false
 
-  alias GraphOS.Adapter.Context
-  alias GraphOS.Protocol.GRPC
-  alias GraphOS.Protocol.Schema, as: ProtocolSchema
-
   # Define proto message structs for testing
   defmodule Node do
     @moduledoc "Protocol Buffer message for Node"
