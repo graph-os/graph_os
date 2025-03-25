@@ -5,6 +5,8 @@ defmodule GraphOS.Access do
   Provides functions for creating and managing policies, actors, scopes and permissions.
   """
 
+  use Boundary, deps: [GraphOS.Store, GraphOS.Entity], exports: [Policy, Actor, Scope, Permission]
+
   alias GraphOS.Access.{Policy, Actor, Scope, Permission}
   alias GraphOS.Store
 

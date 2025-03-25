@@ -5,6 +5,7 @@ defmodule GraphOS.Store.Algorithm.ShortestPath do
 
   alias GraphOS.Entity.{Node, Edge}
   alias GraphOS.Store
+  alias GraphOS.Store.Algorithm.Weights
 
   @doc """
   Execute Dijkstra's shortest path algorithm between two nodes.
@@ -149,8 +150,8 @@ defmodule GraphOS.Store.Algorithm.ShortestPath do
       end
 
       if target_id do
-        # Get edge weight
-        weight = Map.get(edge.properties || %{}, weight_prop, default_weight)
+        # Get edge weight using the Weights utility
+        weight = Weights.get_edge_weight(edge, weight_prop, default_weight)
         [{target_id, weight}]
       else
         []

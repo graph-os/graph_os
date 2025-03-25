@@ -10,4 +10,7 @@ defmodule GraphOS.Store.Adapter do
   @callback delete(module(), binary()) :: :ok | {:error, term()}
   @callback get(module(), binary()) :: {:ok, map()} | {:error, term()}
   @callback all(module(), map(), Keyword.t()) :: {:ok, list(term())} | {:error, term()}
+
+  @optional_callbacks [traverse: 2]
+  @callback traverse(atom(), tuple() | list()) :: {:ok, term()} | {:error, term()}
 end

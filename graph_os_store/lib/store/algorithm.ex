@@ -1,206 +1,123 @@
 defmodule GraphOS.Store.Algorithm do
   @moduledoc """
-  Context for graph algorithms.
+  Main entry point for graph algorithms in GraphOS.Store.
 
-  This module provides a unified interface for various graph algorithms,
-  with implementations for different storage backends.
-
-  ## Available Algorithms
-
-  - Breadth-First Search (BFS)
-  - Shortest Path (Dijkstra's Algorithm)
-  - Connected Components
-  - PageRank
-  - Minimum Spanning Tree (MST)
+  This module provides a unified API for executing various graph algorithms
+  on the stored graph data.
   """
 
-  alias GraphOS.Entity.{Node, Edge}
-  alias GraphOS.Store
-
-  @type algorithm_opts :: Keyword.t()
-  @type traversal_result :: {:ok, list(Node.t())} | {:error, term()}
-  @type path_result :: {:ok, list(Node.t()), number()} | {:error, term()}
-  @type components_result :: {:ok, list(list(Node.t()))} | {:error, term()}
-  @type pagerank_result :: {:ok, map()} | {:error, term()}
-  @type mst_result :: {:ok, list(Edge.t()), number()} | {:error, term()}
+  alias GraphOS.Store.Algorithm.{
+    BFS,
+    ConnectedComponents,
+    MinimumSpanningTree,
+    PageRank,
+    ShortestPath
+  }
 
   @doc """
-  Performs a breadth-first search (BFS) starting from the specified node.
+  Execute a breadth-first search algorithm starting from the specified node.
 
-  ## Options
+  ## Parameters
 
-  - `:max_depth` - Maximum traversal depth (default: 10)
-  - `:edge_type` - Filter edges by type
-  - `:direction` - Direction of traversal, one of `:outgoing`, `:incoming`, or `:both` (default: `:outgoing`)
-  - `:weighted` - Whether to consider edge weights (default: false)
-  - `:weight_property` - The property name to use for edge weights (default: "weight")
-  - `:prefer_lower_weights` - Whether lower weights are preferred (default: true)
+  - `start_node_id` - The ID of the starting node
+  - `opts` - Options for the BFS algorithm
+    - `:max_depth` - Maximum depth to traverse (default: 10)
+    - `:direction` - Direction to traverse (:outgoing, :incoming, or :both) (default: :outgoing)
+    - `:edge_type` - Optional filter for specific edge types
 
-  ## Examples
+  ## Returns
 
-      iex> GraphOS.Store.Algorithm.bfs("person1")
-      {:ok, [%Node{id: "person1"}, %Node{id: "person2"}, ...]}
-
-      iex> GraphOS.Store.Algorithm.bfs("person1", max_depth: 2, edge_type: "knows", weighted: true)
-      {:ok, [%Node{id: "person1"}, %Node{id: "person2"}, ...]}
+  - `{:ok, list(Node.t())}` - List of nodes found in BFS order
+  - `{:error, reason}` - Error with reason
   """
-  @spec bfs(Node.id(), algorithm_opts()) :: traversal_result()
+  @spec bfs(binary(), Keyword.t()) :: {:ok, list(GraphOS.Entity.Node.t())} | {:error, term()}
   def bfs(start_node_id, opts \\ []) do
-    # Add weighted flag to options
-    opts =
-      opts
-      |> Keyword.put_new(:algorithm, :bfs)
-      |> Keyword.put_new(:weighted, false)
-      |> Keyword.put_new(:weight_property, "weight")
-      |> Keyword.put_new(:prefer_lower_weights, true)
-
-    adapter = get_current_adapter()
-    apply_algorithm(adapter, :bfs, [start_node_id, opts])
+    BFS.execute(start_node_id, opts)
   end
 
   @doc """
-  Finds the shortest path between two nodes using Dijkstra's algorithm.
+  Find connected components in the graph.
 
-  ## Options
+  ## Parameters
 
-  - `:edge_type` - Filter edges by type
-  - `:direction` - Direction of traversal, one of `:outgoing`, `:incoming`, or `:both` (default: `:outgoing`)
-  - `:weight_property` - The property name to use for edge weights (default: "weight")
-  - `:default_weight` - Default weight to use when a property is not found (default: 1.0)
-  - `:prefer_lower_weights` - Whether lower weights are preferred (default: true)
+  - `opts` - Options for the connected components algorithm
+    - `:edge_type` - Optional filter for specific edge types
+    - `:direction` - Direction to consider edges (:outgoing, :incoming, or :both) (default: :both)
 
-  ## Examples
+  ## Returns
 
-      iex> GraphOS.Store.Algorithm.shortest_path("person1", "person5")
-      {:ok, [%Node{id: "person1"}, %Node{id: "person3"}, %Node{id: "person5"}], 7.5}
-
-      iex> GraphOS.Store.Algorithm.shortest_path("city1", "city3", weight_property: "distance")
-      {:ok, [%Node{id: "city1"}, %Node{id: "city2"}, %Node{id: "city3"}], 350.0}
+  - `{:ok, list(list(Node.t()))}` - List of connected components (each component is a list of nodes)
+  - `{:error, reason}` - Error with reason
   """
-  @spec shortest_path(Node.id(), Node.id(), algorithm_opts()) :: path_result()
-  def shortest_path(source_node_id, target_node_id, opts \\ []) do
-    # Add default options
-    opts =
-      opts
-      |> Keyword.put_new(:weight_property, "weight")
-      |> Keyword.put_new(:default_weight, 1.0)
-      |> Keyword.put_new(:prefer_lower_weights, true)
-
-    adapter = get_current_adapter()
-    apply_algorithm(adapter, :shortest_path, [source_node_id, target_node_id, opts])
-  end
-
-  @doc """
-  Finds all connected components in the graph.
-
-  ## Options
-
-  - `:edge_type` - Filter edges by type
-  - `:direction` - Direction of traversal, one of `:outgoing`, `:incoming`, or `:both` (default: `:both`)
-
-  ## Examples
-
-      iex> GraphOS.Store.Algorithm.connected_components()
-      {:ok, [[%Node{id: "person1"}, %Node{id: "person2"}], [%Node{id: "person3"}]]}
-
-      iex> GraphOS.Store.Algorithm.connected_components(edge_type: "knows")
-      {:ok, [[%Node{id: "person1"}, %Node{id: "person2"}], [%Node{id: "person3"}]]}
-  """
-  @spec connected_components(algorithm_opts()) :: components_result()
+  @spec connected_components(Keyword.t()) :: {:ok, list(list(GraphOS.Entity.Node.t()))} | {:error, term()}
   def connected_components(opts \\ []) do
-    adapter = get_current_adapter()
-    apply_algorithm(adapter, :connected_components, [opts])
+    ConnectedComponents.execute(opts)
   end
 
   @doc """
-  Performs PageRank algorithm on the graph.
+  Find the minimum spanning tree of the graph using Kruskal's algorithm.
 
-  ## Options
+  ## Parameters
 
-  - `:iterations` - Number of iterations to run (default: 20)
-  - `:damping` - Damping factor for the algorithm (default: 0.85)
-  - `:weighted` - Whether to consider edge weights (default: false)
-  - `:weight_property` - The property name to use for edge weights (default: "weight")
+  - `opts` - Options for the MST algorithm
+    - `:weight_property` - Property name to use for edge weights (default: "weight")
+    - `:default_weight` - Default weight to use if the property is not found (default: 1.0)
+    - `:prefer_lower_weights` - Whether lower weights are preferred (default: true)
+    - `:edge_type` - Optional filter for specific edge types
 
-  ## Examples
+  ## Returns
 
-      iex> GraphOS.Store.Algorithm.pagerank()
-      {:ok, %{"node1" => 0.25, "node2" => 0.15, ...}}
-
-      iex> GraphOS.Store.Algorithm.pagerank(iterations: 30, damping: 0.9, weighted: true)
-      {:ok, %{"node1" => 0.22, "node2" => 0.18, ...}}
+  - `{:ok, list(Edge.t()), number()}` - List of edges in the MST and total weight
+  - `{:error, reason}` - Error with reason
   """
-  @spec pagerank(algorithm_opts()) :: pagerank_result()
-  def pagerank(opts \\ []) do
-    # Add weighted flag to options
-    opts =
-      opts
-      |> Keyword.put_new(:weighted, false)
-      |> Keyword.put_new(:weight_property, "weight")
-      |> Keyword.put_new(:iterations, 20)
-      |> Keyword.put_new(:damping, 0.85)
-
-    adapter = get_current_adapter()
-    apply_algorithm(adapter, :pagerank, [opts])
-  end
-
-  @doc """
-  Finds the minimum spanning tree (MST) of the graph using Kruskal's algorithm.
-
-  The minimum spanning tree is a subset of the edges that connects all the nodes
-  together without any cycles and with the minimum possible total edge weight.
-
-  ## Options
-
-  - `:edge_type` - Filter edges by type
-  - `:weight_property` - The property name to use for edge weights (default: "weight")
-  - `:default_weight` - Default weight to use when a property is not found (default: 1.0)
-  - `:prefer_lower_weights` - Whether lower weights are preferred (default: true)
-
-  ## Examples
-
-      iex> GraphOS.Store.Algorithm.minimum_spanning_tree()
-      {:ok, [%Edge{...}, %Edge{...}, ...], 42.5}
-
-      iex> GraphOS.Store.Algorithm.minimum_spanning_tree(weight_property: "distance")
-      {:ok, [%Edge{...}, %Edge{...}, ...], 350.0}
-  """
-  @spec minimum_spanning_tree(algorithm_opts()) :: mst_result()
+  @spec minimum_spanning_tree(Keyword.t()) :: {:ok, list(GraphOS.Entity.Edge.t()), number()} | {:error, term()}
   def minimum_spanning_tree(opts \\ []) do
-    # Add default options
-    opts =
-      opts
-      |> Keyword.put_new(:weight_property, "weight")
-      |> Keyword.put_new(:default_weight, 1.0)
-      |> Keyword.put_new(:prefer_lower_weights, true)
-
-    adapter = get_current_adapter()
-    apply_algorithm(adapter, :minimum_spanning_tree, [opts])
+    MinimumSpanningTree.execute(opts)
   end
 
-  # Helper functions to dispatch to adapter-specific algorithm implementations
+  @doc """
+  Calculate PageRank scores for all nodes in the graph.
 
-  defp get_current_adapter do
-    Application.get_env(:graph_os, :store_adapter, GraphOS.Store.Adapter.ETS)
+  ## Parameters
+
+  - `opts` - Options for the PageRank algorithm
+    - `:iterations` - Number of iterations to run (default: 20)
+    - `:damping` - Damping factor (default: 0.85)
+    - `:weighted` - Whether to use edge weights (default: false)
+    - `:weight_property` - Property name to use for edge weights if weighted (default: "weight")
+
+  ## Returns
+
+  - `{:ok, map()}` - Map of node IDs to PageRank scores
+  - `{:error, reason}` - Error with reason
+  """
+  @spec page_rank(Keyword.t()) :: {:ok, map()} | {:error, term()}
+  def page_rank(opts \\ []) do
+    PageRank.execute(opts)
   end
 
-  defp apply_algorithm(adapter, algorithm, args) do
-    module = get_algorithm_module(algorithm)
-    apply(module, :execute, args)
-  end
+  @doc """
+  Find the shortest path between two nodes using Dijkstra's algorithm.
 
-  defp get_algorithm_module(:bfs), do: GraphOS.Store.Algorithm.BFS
-  defp get_algorithm_module(:shortest_path), do: GraphOS.Store.Algorithm.ShortestPath
-  defp get_algorithm_module(:connected_components), do: GraphOS.Store.Algorithm.ConnectedComponents
-  defp get_algorithm_module(:pagerank), do: GraphOS.Store.Algorithm.PageRank
-  defp get_algorithm_module(:minimum_spanning_tree), do: GraphOS.Store.Algorithm.MinimumSpanningTree
+  ## Parameters
 
-  # Add similar patterns for other adapters
-  # defp get_algorithm_module(GraphOS.Store.Adapter.Neo4j, :bfs), do: GraphOS.Store.Adapter.Neo4j.BFS
-  # ...
+  - `source_node_id` - The ID of the source node
+  - `target_node_id` - The ID of the target node
+  - `opts` - Options for the shortest path algorithm
+    - `:weight_property` - Property name to use for edge weights (default: "weight")
+    - `:default_weight` - Default weight to use if the property is not found (default: 1.0)
+    - `:prefer_lower_weights` - Whether lower weights are preferred (default: true)
+    - `:direction` - Direction to traverse (:outgoing, :incoming, or :both) (default: :outgoing)
+    - `:edge_type` - Optional filter for specific edge types
 
-  # Fallback for missing algorithm implementations
-  defp get_algorithm_module(algorithm) do
-    raise "Algorithm #{algorithm} not implemented for adapter #{get_current_adapter()}"
+  ## Returns
+
+  - `{:ok, list(Node.t()), number()}` - Path of nodes and the total path weight
+  - `{:error, reason}` - Error with reason
+  """
+  @spec shortest_path(binary(), binary(), Keyword.t()) ::
+    {:ok, list(GraphOS.Entity.Node.t()), number()} | {:error, term()}
+  def shortest_path(source_node_id, target_node_id, opts \\ []) do
+    ShortestPath.execute(source_node_id, target_node_id, opts)
   end
 end

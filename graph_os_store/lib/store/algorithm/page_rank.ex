@@ -5,6 +5,7 @@ defmodule GraphOS.Store.Algorithm.PageRank do
 
   alias GraphOS.Entity.{Node, Edge}
   alias GraphOS.Store
+  alias GraphOS.Store.Algorithm.Weights
 
   @doc """
   Execute the PageRank algorithm on the graph.
@@ -51,9 +52,9 @@ defmodule GraphOS.Store.Algorithm.PageRank do
   defp build_adjacency_list(edges, weighted, weight_property) do
     # Group edges by source
     Enum.reduce(edges, %{}, fn edge, acc ->
-      # Get edge weight
+      # Get edge weight using the Weights utility
       weight = if weighted do
-        Map.get(edge.properties || %{}, weight_property, 1.0)
+        Weights.get_edge_weight(edge, weight_property, 1.0)
       else
         1.0
       end
@@ -101,16 +102,8 @@ defmodule GraphOS.Store.Algorithm.PageRank do
         Map.put(acc, node_id, pr)
       end)
 
-    # Normalize ranks
-    total = Enum.reduce(new_ranks, 0.0, fn {_, rank}, sum -> sum + rank end)
-    normalized_ranks =
-      if total > 0 do
-        Enum.reduce(new_ranks, %{}, fn {id, rank}, acc ->
-          Map.put(acc, id, rank / total)
-        end)
-      else
-        new_ranks
-      end
+    # Normalize ranks using the Weights utility
+    normalized_ranks = Weights.normalize_weights(new_ranks)
 
     # Continue iterations
     run_pagerank(adjacency_list, normalized_ranks, iterations - 1, damping, nodes)

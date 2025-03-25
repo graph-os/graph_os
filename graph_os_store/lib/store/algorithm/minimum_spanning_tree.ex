@@ -6,6 +6,7 @@ defmodule GraphOS.Store.Algorithm.MinimumSpanningTree do
   alias GraphOS.Entity.{Node, Edge}
   alias GraphOS.Store
   alias GraphOS.Store.Algorithm.Utils.DisjointSet
+  alias GraphOS.Store.Algorithm.Weights
 
   @doc """
   Execute Kruskal's algorithm to find the minimum spanning tree.
@@ -55,18 +56,17 @@ defmodule GraphOS.Store.Algorithm.MinimumSpanningTree do
   defp sort_edges_by_weight(edges, weight_property, default_weight, prefer_lower_weights) do
     # Extract edge weights
     edges_with_weights = Enum.map(edges, fn edge ->
-      weight = Map.get(edge.properties || %{}, weight_property, default_weight)
+      weight = Weights.get_edge_weight(edge, weight_property, default_weight)
       {edge, weight}
     end)
 
-    # Sort by weight
-    Enum.sort_by(edges_with_weights, fn {_, weight} -> weight end, fn a, b ->
-      if prefer_lower_weights do
-        a <= b
-      else
-        a >= b
-      end
-    end)
+    if prefer_lower_weights do
+      # Sort by weight (lower is better)
+      Enum.sort_by(edges_with_weights, fn {_, weight} -> weight end)
+    else
+      # For prefer higher weights, invert the comparison function
+      Enum.sort_by(edges_with_weights, fn {_, weight} -> weight end, :desc)
+    end
   end
 
   defp kruskal([], _node_set, mst_edges, total_weight), do: {Enum.reverse(mst_edges), total_weight}

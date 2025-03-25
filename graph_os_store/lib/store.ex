@@ -7,6 +7,7 @@ defmodule GraphOS.Store do
   """
 
   use Boundary,
+  deps: [GraphOS.Entity],
     exports: [
       Registry,
       Schema,
@@ -154,5 +155,61 @@ defmodule GraphOS.Store do
   @spec all(module(), map(), Keyword.t()) :: {:ok, list(term())} | {:error, term()}
   def all(module, filter \\ %{}, opts \\ []) do
     @adapter.all(module, filter, opts)
+  end
+
+  @doc """
+  Executes a graph algorithm traversal on the store.
+
+  ## Parameters
+
+  - `algorithm` - The algorithm to execute, one of:
+    - `:bfs` - Breadth-First Search
+    - `:connected_components` - Connected Components
+    - `:minimum_spanning_tree` - Minimum Spanning Tree
+    - `:page_rank` - PageRank
+    - `:shortest_path` - Shortest Path
+  - `params` - The parameters required for the algorithm:
+    - For `:bfs`: `{start_node_id, opts}`
+    - For `:connected_components`: `opts`
+    - For `:minimum_spanning_tree`: `opts`
+    - For `:page_rank`: `opts`
+    - For `:shortest_path`: `{source_node_id, target_node_id, opts}`
+
+  ## Examples
+
+      iex> GraphOS.Store.traverse(:bfs, {"node1", max_depth: 3})
+      {:ok, [%Node{id: "node1"}, %Node{id: "node2"}, ...]}
+
+      iex> GraphOS.Store.traverse(:shortest_path, {"node1", "node5", weight_property: "distance"})
+      {:ok, [%Node{id: "node1"}, %Node{id: "node3"}, %Node{id: "node5"}], 12.5}
+
+      iex> GraphOS.Store.traverse(:connected_components, [])
+      {:ok, [[%Node{id: "node1"}, %Node{id: "node2"}], [%Node{id: "node3"}]]}
+  """
+  @spec traverse(atom(), tuple() | list()) :: {:ok, term()} | {:error, term()}
+  def traverse(algorithm, params)
+
+  def traverse(:bfs, {start_node_id, opts}) do
+    GraphOS.Store.Algorithm.BFS.execute(start_node_id, opts)
+  end
+
+  def traverse(:connected_components, opts) do
+    GraphOS.Store.Algorithm.ConnectedComponents.execute(opts)
+  end
+
+  def traverse(:minimum_spanning_tree, opts) do
+    GraphOS.Store.Algorithm.MinimumSpanningTree.execute(opts)
+  end
+
+  def traverse(:page_rank, opts) do
+    GraphOS.Store.Algorithm.PageRank.execute(opts)
+  end
+
+  def traverse(:shortest_path, {source_node_id, target_node_id, opts}) do
+    GraphOS.Store.Algorithm.ShortestPath.execute(source_node_id, target_node_id, opts)
+  end
+
+  def traverse(algorithm, _params) do
+    {:error, {:unsupported_algorithm, algorithm}}
   end
 end

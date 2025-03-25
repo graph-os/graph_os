@@ -142,6 +142,36 @@ defmodule GraphOS.Store.Adapter.ETS do
   end
 
   @doc """
+  Executes a graph algorithm traversal on the store.
+
+  This function delegates to the implementations in GraphOS.Store.Algorithm modules.
+  """
+  @spec traverse(atom(), tuple() | list()) :: {:ok, term()} | {:error, term()}
+  def traverse(algorithm, params) do
+    case algorithm do
+      :bfs ->
+        {start_node_id, opts} = params
+        GraphOS.Store.Algorithm.BFS.execute(start_node_id, opts)
+
+      :connected_components ->
+        GraphOS.Store.Algorithm.ConnectedComponents.execute(params)
+
+      :minimum_spanning_tree ->
+        GraphOS.Store.Algorithm.MinimumSpanningTree.execute(params)
+
+      :page_rank ->
+        GraphOS.Store.Algorithm.PageRank.execute(params)
+
+      :shortest_path ->
+        {source_node_id, target_node_id, opts} = params
+        GraphOS.Store.Algorithm.ShortestPath.execute(source_node_id, target_node_id, opts)
+
+      _ ->
+        {:error, {:unsupported_algorithm, algorithm}}
+    end
+  end
+
+  @doc """
   Registers a schema with the store.
   """
   @spec register_schema(atom(), map()) :: :ok | {:error, term()}
