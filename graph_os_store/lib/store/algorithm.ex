@@ -14,10 +14,11 @@ defmodule GraphOS.Store.Algorithm do
   - Minimum Spanning Tree (MST)
   """
 
-  alias GraphOS.Store.{Node, Edge}
+  alias GraphOS.Entity.{Node, Edge}
+  alias GraphOS.Store
 
   @type algorithm_opts :: Keyword.t()
-  @type traversal_result :: {:ok, list()} | {:error, term()}
+  @type traversal_result :: {:ok, list(Node.t())} | {:error, term()}
   @type path_result :: {:ok, list(Node.t()), number()} | {:error, term()}
   @type components_result :: {:ok, list(list(Node.t()))} | {:error, term()}
   @type pagerank_result :: {:ok, map()} | {:error, term()}
@@ -53,15 +54,8 @@ defmodule GraphOS.Store.Algorithm do
       |> Keyword.put_new(:weight_property, "weight")
       |> Keyword.put_new(:prefer_lower_weights, true)
 
-    # Create a query operation for the BFS traversal
-    query = %GraphOS.Store.Query{
-      operation: :traverse,
-      start_node_id: start_node_id,
-      opts: opts
-    }
-
-    # Execute the query operation
-    GraphOS.Store.execute(query)
+    adapter = get_current_adapter()
+    apply_algorithm(adapter, :bfs, [start_node_id, opts])
   end
 
   @doc """
@@ -92,16 +86,8 @@ defmodule GraphOS.Store.Algorithm do
       |> Keyword.put_new(:default_weight, 1.0)
       |> Keyword.put_new(:prefer_lower_weights, true)
 
-    # Create a query operation for the shortest path algorithm
-    query = %GraphOS.Store.Query{
-      operation: :shortest_path,
-      start_node_id: source_node_id,
-      target_node_id: target_node_id,
-      opts: opts
-    }
-
-    # Execute the query operation
-    GraphOS.Store.execute(query)
+    adapter = get_current_adapter()
+    apply_algorithm(adapter, :shortest_path, [source_node_id, target_node_id, opts])
   end
 
   @doc """
@@ -122,14 +108,8 @@ defmodule GraphOS.Store.Algorithm do
   """
   @spec connected_components(algorithm_opts()) :: components_result()
   def connected_components(opts \\ []) do
-    # Create a query operation for connected components
-    query = %GraphOS.Store.Query{
-      operation: :connected_components,
-      opts: opts
-    }
-
-    # Execute the query operation
-    GraphOS.Store.execute(query)
+    adapter = get_current_adapter()
+    apply_algorithm(adapter, :connected_components, [opts])
   end
 
   @doc """
@@ -160,14 +140,8 @@ defmodule GraphOS.Store.Algorithm do
       |> Keyword.put_new(:iterations, 20)
       |> Keyword.put_new(:damping, 0.85)
 
-    # Create a query operation for PageRank
-    query = %GraphOS.Store.Query{
-      operation: :pagerank,
-      opts: opts
-    }
-
-    # Execute the query operation
-    GraphOS.Store.execute(query)
+    adapter = get_current_adapter()
+    apply_algorithm(adapter, :pagerank, [opts])
   end
 
   @doc """
@@ -200,13 +174,33 @@ defmodule GraphOS.Store.Algorithm do
       |> Keyword.put_new(:default_weight, 1.0)
       |> Keyword.put_new(:prefer_lower_weights, true)
 
-    # Create a query operation for minimum spanning tree
-    query = %GraphOS.Store.Query{
-      operation: :minimum_spanning_tree,
-      opts: opts
-    }
+    adapter = get_current_adapter()
+    apply_algorithm(adapter, :minimum_spanning_tree, [opts])
+  end
 
-    # Execute the query operation
-    GraphOS.Store.execute(query)
+  # Helper functions to dispatch to adapter-specific algorithm implementations
+
+  defp get_current_adapter do
+    Application.get_env(:graph_os, :store_adapter, GraphOS.Store.Adapter.ETS)
+  end
+
+  defp apply_algorithm(adapter, algorithm, args) do
+    module = get_algorithm_module(algorithm)
+    apply(module, :execute, args)
+  end
+
+  defp get_algorithm_module(:bfs), do: GraphOS.Store.Algorithm.BFS
+  defp get_algorithm_module(:shortest_path), do: GraphOS.Store.Algorithm.ShortestPath
+  defp get_algorithm_module(:connected_components), do: GraphOS.Store.Algorithm.ConnectedComponents
+  defp get_algorithm_module(:pagerank), do: GraphOS.Store.Algorithm.PageRank
+  defp get_algorithm_module(:minimum_spanning_tree), do: GraphOS.Store.Algorithm.MinimumSpanningTree
+
+  # Add similar patterns for other adapters
+  # defp get_algorithm_module(GraphOS.Store.Adapter.Neo4j, :bfs), do: GraphOS.Store.Adapter.Neo4j.BFS
+  # ...
+
+  # Fallback for missing algorithm implementations
+  defp get_algorithm_module(algorithm) do
+    raise "Algorithm #{algorithm} not implemented for adapter #{get_current_adapter()}"
   end
 end

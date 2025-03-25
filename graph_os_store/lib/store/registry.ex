@@ -4,29 +4,33 @@ defmodule GraphOS.Store.Registry do
 
   This module provides functions for registering and looking up store instances
   by name, allowing for multiple stores to coexist in the same application.
+  It also provides a registry for entity types, allowing custom entity modules
+  to register their entity type.
   """
 
   use GenServer
 
-  @table_name :graph_os_store_registry
+  @type adapter_type :: GraphOS.Store.Adapter.ETS # We only support ETS for now
+
+  defguard is_adapter_type(adapter_type) when adapter_type in [GraphOS.Store.Adapter.ETS]
 
   @doc """
   Starts the registry server.
   """
   def start_link(_opts \\ []) do
-    GenServer.start_link(__MODULE__, [], name: __MODULE__)
+    GenServer.start_link(__MODULE__, name: __MODULE__)
   end
 
   @doc """
-  Registers a store with the given name.
+  Registers a store name with a store reference and adapter.
   """
-  @spec register(atom(), term(), module()) :: :ok
+  @spec register(atom(), any(), module()) :: :ok
   def register(name, store_ref, adapter) do
-    GenServer.call(__MODULE__, {:register, name, store_ref, adapter})
+    GenServer.call(__MODULE__, {:register, name, {store_ref, adapter}})
   end
 
   @doc """
-  Unregisters a store with the given name.
+  Unregisters a store name.
   """
   @spec unregister(atom()) :: :ok
   def unregister(name) do
@@ -34,35 +38,38 @@ defmodule GraphOS.Store.Registry do
   end
 
   @doc """
-  Looks up a store by name.
+  Looks up a store by name and returns the store ref and adapter.
   """
-  @spec lookup(atom()) :: {:ok, term(), module()} | {:error, :not_found}
+  @spec lookup(atom()) :: {:ok, any(), module()} | {:error, :not_found}
   def lookup(name) do
-    case :ets.lookup(@table_name, name) do
-      [{^name, store_ref, adapter}] -> {:ok, store_ref, adapter}
-      [] -> {:error, :not_found}
+    case GenServer.call(__MODULE__, {:lookup, name}) do
+      {store_ref, adapter} when not is_nil(adapter) -> {:ok, store_ref, adapter}
+      _ -> {:error, :not_found}
     end
-  rescue
-    ArgumentError -> {:error, :not_found}
   end
 
   # Server callbacks
 
   @impl true
   def init(_) do
-    table = :ets.new(@table_name, [:named_table, :set, :protected, read_concurrency: true])
-    {:ok, %{table: table}}
+    {:ok, %{}}
   end
 
   @impl true
-  def handle_call({:register, name, store_ref, adapter}, _from, state) do
-    :ets.insert(@table_name, {name, store_ref, adapter})
-    {:reply, :ok, state}
+  def handle_call({:register, name, {store_ref, adapter}}, _from, state) do
+    {:reply, :ok, Map.put(state, name, {store_ref, adapter})}
   end
 
   @impl true
   def handle_call({:unregister, name}, _from, state) do
-    :ets.delete(@table_name, name)
-    {:reply, :ok, state}
+    {:reply, :ok, Map.delete(state, name)}
+  end
+
+  @impl true
+  def handle_call({:lookup, name}, _from, state) do
+    case Map.get(state, name) do
+      {store_ref, adapter} -> {:reply, {store_ref, adapter}, state}
+      _ -> {:reply, {:error, :not_found}, state}
+    end
   end
 end

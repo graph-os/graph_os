@@ -5,8 +5,8 @@ defmodule GraphOS.Test.Support.GraphFactory do
   """
 
   alias GraphOS.Store
-  alias GraphOS.Store.Edge
-  alias GraphOS.Store.Node
+  alias GraphOS.Entity.Edge
+  alias GraphOS.Entity.Node
   alias GraphOS.Store.Transaction
 
   @doc """
@@ -34,7 +34,7 @@ defmodule GraphOS.Test.Support.GraphFactory do
       {:ok, _} =
         Store.execute(%Transaction{
           operations: [
-            %GraphOS.Store.Operation{type: :insert, entity: :node, params: node}
+            %GraphOS.Store.Operation{type: :insert, module: GraphOS.Entity.Node, params: node}
           ]
         })
 
@@ -146,7 +146,7 @@ defmodule GraphOS.Test.Support.GraphFactory do
     {:ok, _} =
       Store.execute(%Transaction{
         operations: [
-          %GraphOS.Store.Operation{type: :insert, entity: :edge, params: edge}
+          %GraphOS.Store.Operation{type: :insert, module: GraphOS.Entity.Edge, params: edge}
         ]
       })
 

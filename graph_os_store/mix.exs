@@ -41,7 +41,7 @@ defmodule GraphOS.Store.MixProject do
       {:boundary, "~> 0.10", runtime: false},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
       {:jason, "~> 1.4"},
-      {:uuid, "~> 1.1"}
+      {:uuid_v7, "~> 0.6"}
     ]
   end
 

@@ -7,7 +7,7 @@ defmodule GraphOS.Store.QueryTest do
     test "creates a valid get query" do
       query = Query.get(:node, "node1")
       assert query.operation == :get
-      assert query.entity == :node
+      assert query.module == :node
       assert query.id == "node1"
       assert query.opts == []
     end
@@ -15,7 +15,7 @@ defmodule GraphOS.Store.QueryTest do
     test "creates a get query with options" do
       query = Query.get(:edge, "edge1", include: :data)
       assert query.operation == :get
-      assert query.entity == :edge
+      assert query.module == :edge
       assert query.id == "edge1"
       assert query.opts == [include: :data]
     end
@@ -25,7 +25,7 @@ defmodule GraphOS.Store.QueryTest do
     test "creates a valid list query" do
       query = Query.list(:node)
       assert query.operation == :list
-      assert query.entity == :node
+      assert query.module == :node
       assert query.filter == %{}
       assert query.opts == []
     end
@@ -33,7 +33,7 @@ defmodule GraphOS.Store.QueryTest do
     test "creates a list query with filter" do
       query = Query.list(:node, %{type: "person"})
       assert query.operation == :list
-      assert query.entity == :node
+      assert query.module == :node
       assert query.filter == %{type: "person"}
       assert query.opts == []
     end
@@ -41,7 +41,7 @@ defmodule GraphOS.Store.QueryTest do
     test "creates a list query with filter and options" do
       query = Query.list(:node, %{type: "person"}, limit: 10)
       assert query.operation == :list
-      assert query.entity == :node
+      assert query.module == :node
       assert query.filter == %{type: "person"}
       assert query.opts == [limit: 10]
     end
@@ -130,7 +130,7 @@ defmodule GraphOS.Store.QueryTest do
     end
 
     test "validates an invalid get query" do
-      query = %GraphOS.Store.Query{operation: :get, entity: :node}
+      query = %GraphOS.Store.Query{operation: :get, module: GraphOS.Entity.Node}
       assert Query.validate(query) == {:error, "Missing required parameter: id for get operation"}
     end
 

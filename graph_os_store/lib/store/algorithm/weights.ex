@@ -9,7 +9,7 @@ defmodule GraphOS.Store.Algorithm.Weights do
   If the edge is nil, returns the default_weight.
   If the edge has a weight, returns that weight.
   """
-  @spec get_edge_weight(GraphOS.Store.Edge.t() | nil, any(), number() | nil) :: number()
+  @spec get_edge_weight(GraphOS.Entity.Edge.t() | nil, any(), number() | nil) :: number()
   def get_edge_weight(nil, _property_name, default_weight), do: default_weight
 
   def get_edge_weight(edge, _property_name, default_weight) do

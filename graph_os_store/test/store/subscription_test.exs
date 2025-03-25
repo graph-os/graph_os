@@ -3,11 +3,16 @@ defmodule GraphOS.Store.SubscriptionTest do
   use ExUnit.Case, async: false
 
   alias GraphOS.Store.Subscription
+  alias GraphOS.Store
+  alias GraphOS.Store.Event
 
   setup do
     # Start the GenServer before each test
     start_supervised!(Subscription)
-    :ok
+    # Start a store for testing
+    {:ok, store} = Store.init(table_prefix: "subscription_test_")
+    on_exit(fn -> Store.stop(store) end)
+    %{store: store}
   end
 
   # Test the Subscription subscription implementation (default implementation)
@@ -125,6 +130,135 @@ defmodule GraphOS.Store.SubscriptionTest do
       assert Enum.any?(calls, fn {func, _} -> func == :broadcast end)
       assert Enum.any?(calls, fn {func, _} -> func == :pattern_topic end)
       assert Enum.any?(calls, fn {func, _} -> func == :initialize end)
+    end
+  end
+
+  describe "subscription API" do
+    test "subscribe and receive events for node creation", %{store: store} do
+      # Subscribe to all node events
+      {:ok, subscription_id} = Store.subscribe(:node, store: store)
+
+      # Create a node
+      {:ok, node} = Store.insert(:node, %{data: %{name: "Test Node"}}, store: store)
+
+      # Wait for the event
+      assert_receive {:graph_os_store, topic, event}, 1000
+      assert topic =~ "pattern:node"
+      assert event.type == :create
+      assert event.entity_type == :node
+      assert event.entity_id == node.id
+      assert event.entity == node
+
+      # Clean up
+      Store.unsubscribe(subscription_id, store: store)
+    end
+
+    test "subscribe to specific node events", %{store: store} do
+      # Create a node first
+      {:ok, node} = Store.insert(:node, %{data: %{name: "Specific Node"}}, store: store)
+
+      # Subscribe to specific node events
+      {:ok, subscription_id} = Store.subscribe({:node, node.id}, store: store)
+
+      # Update the node
+      {:ok, updated_node} = Store.update(:node, %{id: node.id, data: %{name: "Updated Node"}}, store: store)
+
+      # Wait for the event
+      assert_receive {:graph_os_store, topic, event}, 1000
+      assert topic =~ "pattern:node:#{node.id}"
+      assert event.type == :update
+      assert event.entity_type == :node
+      assert event.entity_id == node.id
+      assert event.entity == updated_node
+      assert event.previous == node
+      assert event.changes[:data][:name] == "Updated Node"
+
+      # Delete the node
+      :ok = Store.delete(:node, node.id, store: store)
+
+      # Wait for the delete event
+      assert_receive {:graph_os_store, topic, event}, 1000
+      assert topic =~ "pattern:node:#{node.id}"
+      assert event.type == :delete
+      assert event.entity_type == :node
+      assert event.entity_id == node.id
+      assert event.entity == nil
+      assert event.previous != nil
+
+      # Clean up
+      Store.unsubscribe(subscription_id, store: store)
+    end
+
+    test "subscribe to custom topics", %{store: store} do
+      # Subscribe to a custom topic
+      {:ok, subscription_id} = Store.subscribe("custom:login", store: store)
+
+      # Create a custom event
+      custom_event = Event.new(%{
+        type: :custom,
+        topic: "custom:login",
+        entity_type: :node,
+        entity_id: "user123",
+        metadata: %{ip_address: "192.168.1.1"}
+      })
+
+      # Publish the event
+      :ok = Store.publish(custom_event, store: store)
+
+      # Wait for the event
+      assert_receive {:graph_os_store, "custom:login", event}, 1000
+      assert event.type == :custom
+      assert event.topic == "custom:login"
+      assert event.metadata.ip_address == "192.168.1.1"
+
+      # Clean up
+      Store.unsubscribe(subscription_id, store: store)
+    end
+
+    test "unsubscribe stops receiving events", %{store: store} do
+      # Subscribe to all node events
+      {:ok, subscription_id} = Store.subscribe(:node, store: store)
+
+      # Create a node
+      {:ok, node} = Store.insert(:node, %{data: %{name: "Test Node"}}, store: store)
+
+      # Wait for the event
+      assert_receive {:graph_os_store, _topic, _event}, 1000
+
+      # Unsubscribe
+      :ok = Store.unsubscribe(subscription_id, store: store)
+
+      # Create another node - we shouldn't receive this event
+      {:ok, _node2} = Store.insert(:node, %{data: %{name: "Second Node"}}, store: store)
+
+      # Make sure we don't receive the event for the second node
+      refute_receive {:graph_os_store, _topic, _event}, 500
+    end
+
+    test "subscriber process termination automatically unsubscribes", %{store: store} do
+      # Start a process that will subscribe and then terminate
+      task = Task.async(fn ->
+        {:ok, _subscription_id} = Store.subscribe(:node, store: store)
+        # Just return the task PID for verification
+        self()
+      end)
+
+      # Wait for the task to complete and get its PID
+      subscriber_pid = Task.await(task)
+
+      # Give the subscription system time to detect the process termination
+      :timer.sleep(100)
+
+      # Create a node - the subscriber's termination should have unsubscribed it
+      {:ok, _node} = Store.insert(:node, %{data: %{name: "Test Node"}}, store: store)
+
+      # Verify the subscriber was removed from the subscription registry
+      # We'll need to access the state of the Subscription server for this
+      registry_state = :sys.get_state(GraphOS.Store.Subscription)
+
+      # Check that there are no more subscribers for the topic
+      assert Map.get(registry_state.subscribers, "pattern:node", []) == [] or
+             not Enum.member?(Map.get(registry_state.subscribers, "pattern:node", []), subscriber_pid)
     end
   end
 end

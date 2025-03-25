@@ -10,7 +10,8 @@ defmodule GraphOS.Store.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      GraphOS.Store.Registry
+      GraphOS.Store.Registry,
+      GraphOS.Store.Subscription
     ]
 
     opts = [strategy: :one_for_one, name: GraphOS.Store.Supervisor]
