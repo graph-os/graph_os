@@ -67,9 +67,9 @@ config :phoenix_live_view,
   # Enable helpful, but potentially expensive runtime checks
   enable_expensive_runtime_checks: true
 
-# Enable CodeGraph service for development
+# Disable CodeGraph service until refactoring is complete
 config :graph_os_core,
-  enable_code_graph: true,
+  enable_code_graph: false,
   watch_directories: ["apps/graph_os_core/lib", "apps/graph_os_dev/lib", "apps/graph_os_graph/lib"],
   file_pattern: "**/*.ex",
   exclude_pattern: nil,
