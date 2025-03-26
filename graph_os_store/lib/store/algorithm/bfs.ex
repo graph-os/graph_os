@@ -23,8 +23,6 @@ defmodule GraphOS.Store.Algorithm.BFS do
   def execute(start_node_id, opts) do
     with {:ok, start_node} <- Store.get(Node, start_node_id) do
       max_depth = Keyword.get(opts, :max_depth, 10)
-      direction = Keyword.get(opts, :direction, :outgoing)
-      weighted = Keyword.get(opts, :weighted, false)
 
       # Initialize queue with start node and its depth
       queue = :queue.from_list([{start_node, 0}])

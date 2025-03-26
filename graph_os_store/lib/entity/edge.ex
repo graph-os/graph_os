@@ -6,7 +6,6 @@ defmodule GraphOS.Entity.Edge do
   source and target node IDs.
   """
 
-  alias GraphOS.Entity.Node
   alias GraphOS.Entity.Metadata
   alias GraphOS.Entity.Binding
 
@@ -54,7 +53,7 @@ defmodule GraphOS.Entity.Edge do
       key: Map.get(attrs, :key),
       weight: Map.get(attrs, :weight),
       data: Map.get(attrs, :data, %{}),
-      metadata: Map.get(attrs, :metadata, Metadata.new(%{entity: :edge, module: __MODULE__}))
+      metadata: Map.get(attrs, :metadata, %Metadata{})
     }
   end
 
@@ -190,6 +189,15 @@ defmodule GraphOS.Entity.Edge do
 
       def entity, do: @entity
 
+      # Override new to set the module in metadata
+      def new(attrs) do
+        # Create empty metadata and let the store populate it
+        metadata = Map.get(attrs, :metadata, %GraphOS.Entity.Metadata{})
+        # Pass to parent new function
+        attrs_with_metadata = Map.put(attrs, :metadata, metadata)
+        GraphOS.Entity.Edge.new(attrs_with_metadata)
+      end
+
       # Override schema only if data_schema is defined
       if Module.defines?(__MODULE__, {:data_schema, 0}) do
         def schema do
@@ -250,8 +258,7 @@ defmodule GraphOS.Entity.Edge do
             {_, {:error, target_reason}} -> {:error, target_reason}
           end
         else
-          {:error, reason} -> {:error, reason}
-          nil -> {:error, "Source or target node not found"}
+          _error -> {:error, "Source or target node not found"}
         end
       end
 

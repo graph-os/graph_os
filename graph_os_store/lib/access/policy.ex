@@ -25,7 +25,7 @@ defmodule GraphOS.Access.Policy do
       {:ok, [%GraphOS.Entity.Node{}]}
   """
   def list_actors(policy_id) do
-    Store.query(Actor, [graph_id: policy_id])
+    Store.all(Actor, %{graph_id: policy_id})
   end
 
   @doc """
@@ -37,7 +37,7 @@ defmodule GraphOS.Access.Policy do
       {:ok, [%GraphOS.Entity.Node{}]}
   """
   def list_scopes(policy_id) do
-    Store.query(Scope, [graph_id: policy_id])
+    Store.all(Scope, %{graph_id: policy_id})
   end
 
   @doc """
@@ -49,7 +49,7 @@ defmodule GraphOS.Access.Policy do
       {:ok, [%GraphOS.Entity.Edge{}]}
   """
   def list_permissions(policy_id) do
-    Store.query(Permission, [graph_id: policy_id])
+    Store.all(Permission, %{graph_id: policy_id})
   end
 
   @doc """

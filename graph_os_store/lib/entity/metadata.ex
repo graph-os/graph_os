@@ -34,30 +34,6 @@ defmodule GraphOS.Entity.Metadata do
   end
 
   @doc """
-  Set the updated_at field to the current time.
-  """
-  @spec touch(t()) :: t()
-  def touch(%__MODULE__{} = metadata) do
-    %{metadata | updated_at: DateTime.utc_now()}
-  end
-
-  @doc """
-  Set the deleted flag to true and the deleted_at field to the current time.
-  """
-  @spec set_deleted(t() | map()) :: t()
-  def set_deleted(%__MODULE__{ deleted: false } = metadata) do
-    %{metadata | deleted_at: DateTime.utc_now(), deleted: true}
-  end
-
-  @doc """
-  Increment the version number.
-  """
-  @spec increment_version(t() | map()) :: t()
-  def increment_version(%__MODULE__{} = metadata) do
-    %{metadata | version: metadata.version + 1}
-  end
-
-  @doc """
   Check if the entity is deleted.
   """
   @spec deleted?(t() | map()) :: boolean()

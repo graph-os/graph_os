@@ -66,7 +66,7 @@ defmodule GraphOS.Store.Algorithm.PageRank do
     end)
   end
 
-  defp run_pagerank(adjacency_list, ranks, 0, _damping, _nodes), do: ranks
+  defp run_pagerank(_adjacency_list, ranks, 0, _damping, _nodes), do: ranks
   defp run_pagerank(adjacency_list, ranks, iterations, damping, nodes) do
     # Calculate total number of nodes
     n = length(nodes)

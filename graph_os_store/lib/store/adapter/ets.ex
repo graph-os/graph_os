@@ -29,18 +29,32 @@ defmodule GraphOS.Store.Adapter.ETS do
   Initializes a new ETS store with the given name and options.
   Returns a tuple with the process PID.
   """
-  @spec init(atom(), Keyword.t()) :: {:ok, pid()} | {:error, term()}
-  def init(name, opts \\ []) do
+  @spec start(atom(), Keyword.t()) :: {:ok, pid()} | {:error, term()}
+  def start(name, opts \\ []) do
     case start_link(name, opts) do
-      {:ok, pid} -> {:ok, pid}
+      {:ok, pid} ->
+        # Initialize tables after GenServer is started
+        GenServer.call(via_tuple(name), {:init_tables, opts})
+        {:ok, pid}
       {:error, {:already_started, pid}} -> {:ok, pid}
       error -> error
     end
   end
 
   @doc """
+  Initializes a new ETS store with the given name and options.
+  This function is the callback for the Adapter behaviour.
+  """
+  @impl GraphOS.Store.Adapter
+  @spec init(atom(), Keyword.t()) :: {:ok, pid()} | {:error, term()}
+  def init(name, opts) do
+    start(name, opts)
+  end
+
+  @doc """
   Inserts a new entity into the store.
   """
+  @impl GraphOS.Store.Adapter
   @spec insert(module(), map()) :: {:ok, struct()} | {:error, term()}
   def insert(module, data) do
     with {:ok, table_key} <- get_table_for_module(module),
@@ -60,6 +74,7 @@ defmodule GraphOS.Store.Adapter.ETS do
   @doc """
   Updates an existing entity in the store.
   """
+  @impl GraphOS.Store.Adapter
   @spec update(module(), map()) :: {:ok, struct()} | {:error, term()}
   def update(module, data) do
     with {:ok, table_key} <- get_table_for_module(module),
@@ -85,6 +100,7 @@ defmodule GraphOS.Store.Adapter.ETS do
   @doc """
   Deletes an entity from the store.
   """
+  @impl GraphOS.Store.Adapter
   @spec delete(module(), binary()) :: :ok | {:error, term()}
   def delete(module, id) do
     with {:ok, table_key} <- get_table_for_module(module) do
@@ -97,6 +113,7 @@ defmodule GraphOS.Store.Adapter.ETS do
   @doc """
   Gets an entity from the store by ID.
   """
+  @impl GraphOS.Store.Adapter
   @spec get(module(), binary()) :: {:ok, struct()} | {:error, term()}
   def get(module, id) do
     with {:ok, table_key} <- get_table_for_module(module) do
@@ -122,6 +139,7 @@ defmodule GraphOS.Store.Adapter.ETS do
   When a parent entity type is provided (e.g., GraphOS.Entity.Node),
   it returns all entities of that type regardless of their specific module.
   """
+  @impl GraphOS.Store.Adapter
   @spec all(module(), map(), Keyword.t()) :: {:ok, list(struct())} | {:error, term()}
   def all(module, filter \\ %{}, opts \\ []) do
     with {:ok, table_key} <- get_table_for_module(module) do
@@ -146,6 +164,7 @@ defmodule GraphOS.Store.Adapter.ETS do
 
   This function delegates to the implementations in GraphOS.Store.Algorithm modules.
   """
+  @impl GraphOS.Store.Adapter
   @spec traverse(atom(), tuple() | list()) :: {:ok, term()} | {:error, term()}
   def traverse(algorithm, params) do
     case algorithm do
@@ -174,6 +193,7 @@ defmodule GraphOS.Store.Adapter.ETS do
   @doc """
   Registers a schema with the store.
   """
+  @impl GraphOS.Store.Adapter
   @spec register_schema(atom(), map()) :: :ok | {:error, term()}
   def register_schema(name, schema) do
     GenServer.call(via_tuple(name), {:register_schema, schema})
@@ -182,7 +202,15 @@ defmodule GraphOS.Store.Adapter.ETS do
   # Server callbacks
 
   @impl GenServer
-  def handle_init(opts) do
+  def init(opts) do
+    # Initial state without tables
+    # Ensure opts is a keyword list
+    schema = if is_list(opts), do: Keyword.get(opts, :schema), else: nil
+    {:ok, %{tables: [], schema: schema}}
+  end
+
+  @impl GenServer
+  def handle_call({:init_tables, _opts}, _from, state) do
     table_opts = [
       :set,
       :public,
@@ -200,10 +228,9 @@ defmodule GraphOS.Store.Adapter.ETS do
         end
       end)
 
-    schema = Keyword.get(opts, :schema)
-    state = %{tables: tables, schema: schema}
+    new_state = %{state | tables: tables}
 
-    {:ok, state}
+    {:reply, :ok, new_state}
   end
 
   @impl GenServer
@@ -231,14 +258,35 @@ defmodule GraphOS.Store.Adapter.ETS do
   end
 
   defp prepare_record(module, data) do
-    record = if Map.has_key?(data, :id) do
-      data
-    else
-      Map.put(data, :id, GraphOS.Entity.generate_id())
+    # Handle both maps and structs
+    record = cond do
+      # If it's already a struct of the right type
+      is_struct(data, module) ->
+        data
+
+      # If it's a map with an id
+      is_map(data) && Map.has_key?(data, :id) ->
+        data
+
+      # If it's a map without an id
+      is_map(data) ->
+        Map.put(data, :id, GraphOS.Entity.generate_id())
+
+      true ->
+        {:error, :invalid_data}
     end
 
-    # Make sure we return a struct of the proper type
-    {:ok, struct(module, record)}
+    case record do
+      {:error, reason} -> {:error, reason}
+      _ ->
+        # Make sure we return a struct of the proper type
+        # Only convert to struct if it's not already a struct
+        if is_struct(record, module) do
+          {:ok, record}
+        else
+          {:ok, struct(module, record)}
+        end
+    end
   end
 
   defp is_parent_entity_module?(module, specific_module \\ nil) do
@@ -286,8 +334,37 @@ defmodule GraphOS.Store.Adapter.ETS do
   defp apply_filter(records, filter) when map_size(filter) == 0, do: records
   defp apply_filter(records, filter) do
     Enum.filter(records, fn record ->
-      Enum.all?(filter, fn {key, value} ->
-        Map.get(record, key) == value
+      Enum.all?(filter, fn {key, filter_value} ->
+        # Handle both direct map values and nested data field
+        record_value = cond do
+          # If key is :data and we have a nested field
+          key == :data && is_map(filter_value) ->
+            # For each field in the filter's data map, check against record's data
+            Enum.all?(filter_value, fn {data_key, data_value} ->
+              record_data = Map.get(record, :data, %{})
+              record_data_value = Map.get(record_data, data_key)
+
+              cond do
+                # If filter value is a function, apply it to the record value
+                is_function(data_value) -> data_value.(record_data_value)
+                # Otherwise do a direct comparison
+                true -> record_data_value == data_value
+              end
+            end)
+
+          # Direct field access
+          true ->
+            record_value = Map.get(record, key)
+
+            cond do
+              # If filter value is a function, apply it to the record value
+              is_function(filter_value) -> filter_value.(record_value)
+              # Otherwise do a direct comparison
+              true -> record_value == filter_value
+            end
+        end
+
+        record_value
       end)
     end)
   end

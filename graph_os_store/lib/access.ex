@@ -100,7 +100,7 @@ defmodule GraphOS.Access do
   """
   @spec has_permission?(GraphOS.Entity.id(), GraphOS.Entity.id(), atom()) :: boolean()
   def has_permission?(scope_id, actor_id, permission) when is_atom(permission) do
-    case Store.query(Permission, [source: scope_id, target: actor_id]) do
+    case Store.all(Permission, %{source: scope_id, target: actor_id}) do
       {:ok, []} -> false
       {:ok, edges} ->
         # Check if any edge grants the requested permission
@@ -122,7 +122,7 @@ defmodule GraphOS.Access do
   @spec list_actor_permissions(GraphOS.Entity.id()) ::
     {:ok, list(map())} | {:error, any()}
   def list_actor_permissions(actor_id) do
-    case Store.query(Permission, [target: actor_id]) do
+    case Store.all(Permission, %{target: actor_id}) do
       {:ok, edges} ->
         result = Enum.map(edges, fn edge ->
           %{
@@ -146,7 +146,7 @@ defmodule GraphOS.Access do
   @spec list_scope_permissions(GraphOS.Entity.id()) ::
     {:ok, list(map())} | {:error, any()}
   def list_scope_permissions(scope_id) do
-    case Store.query(Permission, [source: scope_id]) do
+    case Store.all(Permission, %{source: scope_id}) do
       {:ok, edges} ->
         result = Enum.map(edges, fn edge ->
           %{

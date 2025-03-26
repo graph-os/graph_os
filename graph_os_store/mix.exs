@@ -30,7 +30,6 @@ defmodule GraphOS.Store.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      mod: {GraphOS.Store.Application, []},
       extra_applications: [:logger]
     ]
   end

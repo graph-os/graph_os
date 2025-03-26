@@ -38,15 +38,12 @@ defmodule GraphOS.Entity.Node do
   """
   @spec new(map()) :: t()
   def new(attrs) do
-    # Get the module from the attrs or use this module as the default
-    module = Map.get(attrs, :module, __MODULE__)
-
     %__MODULE__{
       id: Map.get(attrs, :id, UUIDv7.generate()),
       graph_id: Map.get(attrs, :graph_id),
       type: Map.get(attrs, :type),
       data: Map.get(attrs, :data, %{}),
-      metadata: Map.get(attrs, :metadata, Metadata.new(%{entity: :node, module: module}))
+      metadata: Map.get(attrs, :metadata, %Metadata{})
     }
   end
 
@@ -142,10 +139,11 @@ defmodule GraphOS.Entity.Node do
 
       # Override new to set the module in metadata
       def new(attrs) do
-        metadata = Map.get(attrs, :metadata,
-          GraphOS.Entity.Metadata.new(%{entity: :node, module: __MODULE__}))
-
-        GraphOS.Entity.Node.new(%{attrs | metadata: metadata})
+        # Create empty metadata and let the store populate it
+        metadata = Map.get(attrs, :metadata, %GraphOS.Entity.Metadata{})
+        # Pass to parent new function
+        attrs_with_metadata = Map.put(attrs, :metadata, metadata)
+        GraphOS.Entity.Node.new(attrs_with_metadata)
       end
     end
   end

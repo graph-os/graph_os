@@ -3,7 +3,15 @@ defmodule GraphOS.Entity do
   Utility functions for defining entities.
   """
 
-  use Boundary, deps: [GraphOS.Store], exports: [Graph, Node, Edge, Binding]
+  use Boundary,
+    exports: [
+      Graph,
+      Graph.Behaviour,
+      Node,
+      Edge,
+      Binding,
+      Metadata
+    ]
 
   require Logger
 

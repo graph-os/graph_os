@@ -23,8 +23,8 @@ defmodule GraphOS.Store.Algorithm.ShortestPath do
   """
   @spec execute(Node.id(), Node.id(), Keyword.t()) :: {:ok, list(Node.t()), number()} | {:error, term()}
   def execute(source_node_id, target_node_id, opts) do
-    with {:ok, source_node} <- Store.get(Node, source_node_id),
-         {:ok, target_node} <- Store.get(Node, target_node_id) do
+    with {:ok, _source_node} <- Store.get(Node, source_node_id),
+         {:ok, _target_node} <- Store.get(Node, target_node_id) do
 
       # Extract options
       weight_property = Keyword.get(opts, :weight_property, "weight")

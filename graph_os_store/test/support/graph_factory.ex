@@ -7,7 +7,6 @@ defmodule GraphOS.Test.Support.GraphFactory do
   alias GraphOS.Store
   alias GraphOS.Entity.Edge
   alias GraphOS.Entity.Node
-  alias GraphOS.Store.Transaction
 
   @doc """
   Initializes the graph store and creates a graph with the specified number of nodes and edges.
@@ -15,7 +14,7 @@ defmodule GraphOS.Test.Support.GraphFactory do
   Returns :ok when successful.
   """
   def create_graph(node_count \\ 10, edge_count \\ 10, connection_type \\ :acyclic) do
-    {:ok, _} = Store.start()
+    {:ok, _} = Store.init()
     create_nodes(node_count)
     create_edges(node_count, edge_count, connection_type)
     :ok
@@ -31,12 +30,8 @@ defmodule GraphOS.Test.Support.GraphFactory do
       node_id = "#{i}"
       node = Node.new(%{id: node_id, data: %{}})
 
-      {:ok, _} =
-        Store.execute(%Transaction{
-          operations: [
-            %GraphOS.Store.Operation{type: :insert, module: GraphOS.Entity.Node, params: node}
-          ]
-        })
+      # Use direct Store.insert instead of Transaction/Operation
+      {:ok, _} = Store.insert(GraphOS.Entity.Node, node)
 
       node_id
     end)
@@ -48,7 +43,7 @@ defmodule GraphOS.Test.Support.GraphFactory do
   Returns :ok when successful.
   """
   def create_large_cyclic_graph(node_count \\ 1000) do
-    {:ok, _} = Store.start()
+    {:ok, _} = Store.init()
 
     # Create nodes
     node_ids = create_nodes(node_count)
@@ -143,12 +138,8 @@ defmodule GraphOS.Test.Support.GraphFactory do
   def create_edge(source_id, target_id) do
     edge = Edge.new(%{source: source_id, target: target_id})
 
-    {:ok, _} =
-      Store.execute(%Transaction{
-        operations: [
-          %GraphOS.Store.Operation{type: :insert, module: GraphOS.Entity.Edge, params: edge}
-        ]
-      })
+    # Use direct Store.insert instead of Transaction/Operation
+    {:ok, _} = Store.insert(GraphOS.Entity.Edge, edge)
 
     :ok
   end

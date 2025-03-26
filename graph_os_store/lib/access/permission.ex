@@ -50,7 +50,7 @@ defmodule GraphOS.Access.Permission do
       {:ok, [%GraphOS.Entity.Edge{}]}
   """
   def find_between(scope_id, actor_id) do
-    GraphOS.Store.query(__MODULE__, [source: scope_id, target: actor_id])
+    GraphOS.Store.all(__MODULE__, %{source: scope_id, target: actor_id})
   end
 
   @doc """
