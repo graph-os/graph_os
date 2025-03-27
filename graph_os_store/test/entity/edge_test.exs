@@ -171,5 +171,42 @@ defmodule GraphOS.Entity.EdgeTest do
       # Target node validation should fail for SourceNode
       {:error, _} = Edge.validate_target_type(edge, source_node_module, edge_config.target)
     end
+
+    test "edge without binding configuration allows all nodes" do
+      # Define a new edge with no binding configuration
+      defmodule UnrestrictedEdge do
+        use GraphOS.Entity.Edge
+      end
+
+      # Create an edge
+      edge = UnrestrictedEdge.new(%{
+        source: "source1",
+        target: "target1"
+      })
+
+      # Get the binding configuration
+      edge_config = UnrestrictedEdge.entity()
+
+      # Binding should be empty (unconfigured)
+      assert edge_config.source.include == []
+      assert edge_config.source.exclude == []
+      assert edge_config.target.include == []
+      assert edge_config.target.exclude == []
+
+      # Any node type should be allowed
+      source_node_module = SourceNode
+      target_node_module = TargetNode
+      random_module = String
+
+      # All node types should be allowed as source
+      assert :ok == Edge.validate_source_type(edge, source_node_module, edge_config.source)
+      assert :ok == Edge.validate_source_type(edge, target_node_module, edge_config.source)
+      assert :ok == Edge.validate_source_type(edge, random_module, edge_config.source)
+
+      # All node types should be allowed as target
+      assert :ok == Edge.validate_target_type(edge, source_node_module, edge_config.target)
+      assert :ok == Edge.validate_target_type(edge, target_node_module, edge_config.target)
+      assert :ok == Edge.validate_target_type(edge, random_module, edge_config.target)
+    end
   end
 end

@@ -9,6 +9,31 @@ defmodule GraphOS.Test.Support.GraphFactory do
   alias GraphOS.Entity.Node
 
   @doc """
+  Clears all ETS tables used by the store.
+  Useful for resetting the state between tests.
+  """
+  def reset_store do
+    # Tables we need to clear
+    tables = [
+      :graph_os_graphs,
+      :graph_os_nodes,
+      :graph_os_edges,
+      :graph_os_metadata,
+      :graph_os_events
+    ]
+
+    # Initialize store if not already done
+    {:ok, _} = Store.init()
+
+    # Clear all tables
+    Enum.each(tables, fn table ->
+      :ets.delete_all_objects(table)
+    end)
+
+    :ok
+  end
+
+  @doc """
   Initializes the graph store and creates a graph with the specified number of nodes and edges.
 
   Returns :ok when successful.

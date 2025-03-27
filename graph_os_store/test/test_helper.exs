@@ -2,10 +2,28 @@
 Code.require_file("support/graph_factory.ex", __DIR__)
 
 # Start the Registry for Store adapter tests
-{:ok, _} = Registry.start_link(keys: :unique, name: GraphOS.Store.Registry)
+{:ok, _registry} = Registry.start_link(keys: :unique, name: GraphOS.Store.Registry)
 
-# Exclude incomplete implementations unless explicitly enabled
+# Define ExUnit.start options
 run_incomplete = System.get_env("MIX_RUN_INCOMPLETE") == "true"
 exclude = if run_incomplete, do: [], else: [:incomplete_implementation]
 
-ExUnit.start(exclude: exclude)
+# Create a setup handler to reset ETS tables before each test
+ExUnit.configure(
+  exclude: exclude,
+  setup_all: fn _tags ->
+    # Setup for each test module
+    {:ok, _} = GraphOS.Store.init()
+
+    # We'll still reset before each individual test too
+    GraphOS.Test.Support.GraphFactory.reset_store()
+    :ok
+  end,
+  setup: fn _tags ->
+    # Reset the ETS store before each individual test
+    GraphOS.Test.Support.GraphFactory.reset_store()
+    :ok
+  end
+)
+
+ExUnit.start()

@@ -1,8 +1,8 @@
 defmodule GraphOS.Access.Permission do
   use GraphOS.Entity.Edge,
     graph: GraphOS.Access.Policy,
-    source: [include: GraphOS.Access.Scope], # Only allow scopes as sources
-    target: [include: GraphOS.Access.Actor] # Only allow actors as targets
+    source: [include: [GraphOS.Access.Scope]], # Only allow scopes as sources
+    target: [include: [GraphOS.Access.Actor, GraphOS.Access.Group]] # Allow actors or groups as targets
 
   def data_schema do
     [
@@ -42,15 +42,15 @@ defmodule GraphOS.Access.Permission do
   end
 
   @doc """
-  Finds permission edges between a scope and an actor.
+  Finds permission edges between a scope and an actor or group.
 
   ## Examples
 
       iex> GraphOS.Access.Permission.find_between("scope_id", "actor_id")
       {:ok, [%GraphOS.Entity.Edge{}]}
   """
-  def find_between(scope_id, actor_id) do
-    GraphOS.Store.all(__MODULE__, %{source: scope_id, target: actor_id})
+  def find_between(scope_id, target_id) do
+    GraphOS.Store.all(__MODULE__, %{source: scope_id, target: target_id})
   end
 
   @doc """
@@ -66,5 +66,17 @@ defmodule GraphOS.Access.Permission do
   """
   def grants?(permission, permission_type) when is_atom(permission_type) do
     Map.get(permission.data, permission_type, false)
+  end
+
+  @doc """
+  Creates a new permission edge between a scope and an actor or group.
+
+  ## Examples
+
+      iex> GraphOS.Access.Permission.grant("policy_id", "scope_id", "user_1", %{read: true})
+      {:ok, %GraphOS.Entity.Edge{}}
+  """
+  def grant(policy_id, scope_id, target_id, permissions) do
+    GraphOS.Access.grant_permission(policy_id, scope_id, target_id, permissions)
   end
 end

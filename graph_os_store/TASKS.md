@@ -1,52 +1,68 @@
-# GraphOS.Store Next Tasks
+# GraphOS Module Testing Status
 
-> NOTE: Full reference can be found in [REFACTORING.md](REFACTORING.md)
+This document tracks the testing status of modules in the GraphOS project.
 
-## 1. Query API Extensions
-- [x] Implement `all/1` function to retrieve all entities of a type (e.g., `GraphOS.Store.all(GraphOS.Store.Graph)`)
-- [x] Add support for filtering in the `all/1` function
-- [x] Ensure entity modules can define efficient query methods using Store's execute API
-- [x] Consider adding helper methods for common query patterns
+## Entity Modules
 
-## 2. Documentation and Examples
-- [x] Document entity type integration through macros (`__entity__/0`, `__store__/0`)
-- [ ] Complete API documentation for all modules
-- [ ] Add comprehensive examples for each feature
-- [ ] Create user guide and cookbook
-- [ ] Document the subscription API usage with Phoenix Channels
+| Module | Test File | Testing Status | Testing Keywords |
+|--------|-----------|----------------|-----------------|
+| GraphOS.Entity.Graph | test/entity/graph_test.exs | ✅ Tested | Creating graphs, schema validation, behavior callbacks, custom implementations |
+| GraphOS.Entity.Node | test/entity/node_test.exs | ✅ Tested | Creating nodes, custom node types, schema validation, data_schema implementation |
+| GraphOS.Entity.Edge | test/entity/edge_test.exs | ✅ Tested | Creating edges, binding constraints, schema validation, data_schema implementation |
+| GraphOS.Entity.Metadata | test/entity/metadata_test.exs | ✅ Tested | Schema validation, deleted? function, manual metadata handling |
+| GraphOS.Entity.Binding | test/entity/binding_test.exs | ✅ Tested | Creating bindings, allowed? function, included?/excluded? functions, validate! function |
+| GraphOS.Entity.SchemaBehaviour | None | ❌ Not Tested | Should test implementations of callbacks |
+| GraphOS.Entity (main module) | None | ❌ Not Tested | from_module_opts/1, get_type/1, generate_id/0 |
 
-## 3. Testing
-- [ ] Fix edge type restrictions tests
-- [x] Add tests for entity type detection and integration
-- [ ] Add more tests for complex queries and algorithms
-- [ ] Add tests for subscription backpressure scenarios
-- [ ] Add performance tests for critical operations
+## Store Modules
 
-## 4. Performance Optimization
-- [ ] Benchmark all core operations
-- [ ] Identify and optimize bottlenecks
-- [ ] Implement subscription backpressure handling
-- [ ] Optimize event delivery for many subscribers
+| Module | Test File | Testing Status | Testing Keywords |
+|--------|-----------|----------------|-----------------|
+| GraphOS.Store | test/store_test.exs | ✅ Tested | Basic CRUD operations, transactions, queries |
+| GraphOS.Store.Adapter.ETS | test/store/adapter/ets_test.exs | ✅ Tested | Initialization, CRUD operations, querying |
 
-## 5. Example Applications
-- [ ] Create a simple web application using the subscription API with Phoenix channels
-- [ ] Build an example graph visualization with real-time updates
-- [ ] Implement a collaborative graph editing example
+## Algorithm Modules
 
-## 6. Subscription API Enhancements
-- [ ] Add support for backpressure control in subscription handlers
-- [ ] Implement subscription batching for high-volume events
-- [ ] Create helper functions for Phoenix channel integration
-- [ ] Add metrics and monitoring for subscription performance
+| Module | Test File | Testing Status | Testing Keywords |
+|--------|-----------|----------------|-----------------|
+| GraphOS.Store.Algorithm.BFS | test/store/algorithm/bfs_test.exs | ✅ Tested | Path traversal, options, filtering |
+| GraphOS.Store.Algorithm.ShortestPath | None | ❌ Not Tested | Path finding, edge weights, disconnected graphs |
+| GraphOS.Store.Algorithm.PageRank | None | ❌ Not Tested | Ranking nodes, convergence, damping factor |
+| GraphOS.Store.Algorithm.ConnectedComponents | None | ❌ Not Tested | Component identification, large graphs |
+| GraphOS.Store.Algorithm.MinimumSpanningTree | None | ❌ Not Tested | Tree building, edge weights, disconnected graphs |
+| GraphOS.Store.Algorithm.Weights | None | ❌ Not Tested | Weight calculations, property mapping |
 
-## 7. Advanced Search Capabilities
-- [ ] Implement graph pattern matching search (similar to Cypher)
-- [ ] Add support for property-based indexing to speed up lookups
-- [ ] Create query optimization mechanisms for complex traversals
-- [ ] Support for graph aggregation operations (count, min, max, etc.)
+## Access Modules
 
-## 8. Persistence Layer
-- [ ] Design persistence adapter interface
-- [ ] Implement ETS backup/restore functionality
-- [ ] Create a PostgreSQL adapter implementation
-- [ ] Add support for incremental persistence (journaling)
+| Module | Test File | Testing Status | Testing Keywords |
+|--------|-----------|----------------|-----------------|
+| GraphOS.Access | test/access/access_test.exs, test/access/access_basic_test.exs | ✅ Tested | High-level API, policy creation, permission checks |
+| GraphOS.Access.Policy | test/access/access_test.exs | ✅ Tested | Creation, retrieval, management |
+| GraphOS.Access.Actor | test/access/actor_scope_test.exs | ✅ Tested | Creation, validation |
+| GraphOS.Access.Scope | test/access/actor_scope_test.exs | ✅ Tested | Creation, validation |
+| GraphOS.Access.Permission | test/access/access_test.exs | ✅ Tested | Permission grants, permission checks |
+| GraphOS.Access.Group | test/access/group_membership_test.exs | ✅ Tested | Group management, membership |
+| GraphOS.Access.Membership | test/access/group_membership_test.exs | ✅ Tested | Member operations, group relationships |
+| GraphOS.Access.OperationGuard | test/access/operation_guard_test.exs | ✅ Tested | Permission enforcement, access control |
+
+## Testing Priorities
+
+1. **High Priority**
+   - GraphOS.Entity (main module)
+   - GraphOS.Store.Algorithm modules beyond BFS
+
+2. **Medium Priority**
+   - GraphOS.Entity.SchemaBehaviour
+   - Any utility modules
+   - Entity.Protocol implementations
+
+3. **Low Priority**
+   - Test refinement for existing tests
+   - Performance testing
+
+## Test Focus Areas
+
+- **Entity Modules**: Focus on proper creation, schema validation, and behavior implementations
+- **Store Modules**: Focus on data integrity, CRUD operations, and querying
+- **Algorithm Modules**: Focus on correctness with various graph sizes and structures
+- **Access Modules**: Focus on permission models and security guarantees

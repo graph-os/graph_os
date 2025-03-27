@@ -75,36 +75,17 @@ defmodule GraphOS.Store.Adapter.ETSTest do
 
   # Initialize the ETS tables directly for testing
   setup do
-    # Create tables manually
-    table_opts = [
-      :set,
-      :public,
-      :named_table,
-      {:read_concurrency, true},
-      {:write_concurrency, true}
-    ]
-
-    tables = %{
-      graph: :graph_os_graphs,
-      node: :graph_os_nodes,
-      edge: :graph_os_edges,
-      metadata: :graph_os_metadata,
-      events: :graph_os_events
-    }
-
-    # Create each table if it doesn't exist
-    Enum.each(tables, fn {_key, name} ->
-      case :ets.info(name) do
-        :undefined -> :ets.new(name, table_opts)
-        _ -> name
-      end
-    end)
+    # Clean up and reinitialize the ETS adapter for every test
+    GraphOS.Test.Support.GraphFactory.reset_store()
 
     # Use a unique name for each test
     adapter_name = :"test_adapter_#{:erlang.unique_integer([:positive])}"
     {:ok, _pid} = ETSAdapter.start_link(adapter_name, [])
 
-    {:ok, adapter_name: adapter_name}
+    # Initialize the adapter directly
+    {:ok, _adapter} = ETSAdapter.init(adapter_name, [])
+
+    {:ok, %{adapter_name: adapter_name}}
   end
 
   describe "ETS adapter initialization" do

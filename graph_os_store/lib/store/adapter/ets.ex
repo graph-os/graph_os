@@ -284,9 +284,128 @@ defmodule GraphOS.Store.Adapter.ETS do
         if is_struct(record, module) do
           {:ok, record}
         else
-          {:ok, struct(module, record)}
+          # Handle various entity types manually to avoid circular dependencies
+          record_as_map = if is_struct(record), do: Map.from_struct(record), else: record
+
+          # Create the appropriate struct based on entity type
+          result = case module do
+            # Basic entity types
+            GraphOS.Entity.Graph ->
+              create_graph_struct(module, record_as_map)
+
+            GraphOS.Entity.Node ->
+              create_node_struct(module, record_as_map)
+
+            GraphOS.Entity.Edge ->
+              create_edge_struct(module, record_as_map)
+
+            # Special entity types
+            GraphOS.Access.Policy ->
+              create_graph_struct(module, record_as_map)
+
+            GraphOS.Access.Actor ->
+              create_node_struct(module, record_as_map)
+
+            GraphOS.Access.Group ->
+              create_node_struct(module, record_as_map)
+
+            GraphOS.Access.Scope ->
+              create_node_struct(module, record_as_map)
+
+            GraphOS.Access.Membership ->
+              create_edge_struct(module, record_as_map)
+
+            GraphOS.Access.Permission ->
+              create_edge_struct(module, record_as_map)
+
+            # Default case - try to use struct/2 but catch errors
+            _ ->
+              try do
+                struct(module, record_as_map)
+              rescue
+                # Fall back to a generic approach if struct/2 fails
+                e ->
+                  IO.puts("Warning: Error creating struct for #{inspect(module)}: #{inspect(e)}")
+
+                  # Try to infer the entity type from the module name
+                  module_name = Atom.to_string(module)
+                  cond do
+                    String.contains?(module_name, "Graph") ||
+                    String.contains?(module_name, "Policy") ->
+                      create_graph_struct(module, record_as_map)
+
+                    String.contains?(module_name, "Edge") ||
+                    String.contains?(module_name, "Membership") ||
+                    String.contains?(module_name, "Permission") ||
+                    String.contains?(module_name, "Relation") ->
+                      create_edge_struct(module, record_as_map)
+
+                    true ->
+                      # Default to Node type
+                      create_node_struct(module, record_as_map)
+                  end
+              end
+          end
+
+          {:ok, result}
         end
     end
+  end
+
+  # Helper to create a Graph struct
+  defp create_graph_struct(module, data) do
+    # Extract fields from data map
+    id = Map.get(data, :id)
+    name = Map.get(data, :name)
+    metadata = Map.get(data, :metadata, %{})
+
+    # Create a struct with the minimal required fields
+    %{
+      __struct__: module,
+      id: id,
+      name: name,
+      metadata: metadata
+    }
+  end
+
+  # Helper to create a Node struct
+  defp create_node_struct(module, data) do
+    # Extract fields from data map
+    id = Map.get(data, :id)
+    type = Map.get(data, :type)
+    graph_id = Map.get(data, :graph_id)
+    node_data = Map.get(data, :data, %{})
+    metadata = Map.get(data, :metadata, %{})
+
+    # Create a struct with the minimal required fields
+    %{
+      __struct__: module,
+      id: id,
+      type: type,
+      graph_id: graph_id,
+      data: node_data,
+      metadata: metadata
+    }
+  end
+
+  # Helper to create an Edge struct
+  defp create_edge_struct(module, data) do
+    # Extract fields from data map
+    id = Map.get(data, :id)
+    source = Map.get(data, :source)
+    target = Map.get(data, :target)
+    edge_data = Map.get(data, :data, %{})
+    metadata = Map.get(data, :metadata, %{})
+
+    # Create a struct with the minimal required fields
+    %{
+      __struct__: module,
+      id: id,
+      source: source,
+      target: target,
+      data: edge_data,
+      metadata: metadata
+    }
   end
 
   defp is_parent_entity_module?(module, specific_module \\ nil) do
@@ -297,13 +416,26 @@ defmodule GraphOS.Store.Adapter.ETS do
     ]
 
     if specific_module do
-      # Check if module is a parent of specific_module
+      # Check if module is a parent of specific_module, using a more direct approach
       module in parent_modules &&
-        (try do
-          GraphOS.Entity.get_type(module) == GraphOS.Entity.get_type(specific_module)
-        rescue
+        case {module, specific_module} do
+          {GraphOS.Entity.Graph, _} ->
+            # Try to match against modules under GraphOS.Access that are graphs
+            parts = Module.split(specific_module)
+            Enum.at(parts, 1) == "Access" && List.last(parts) == "Policy"
+
+          {GraphOS.Entity.Node, _} ->
+            # Try to match against modules under GraphOS.Access that are nodes
+            parts = Module.split(specific_module)
+            Enum.at(parts, 1) == "Access" && List.last(parts) in ["Actor", "Group", "Scope"]
+
+          {GraphOS.Entity.Edge, _} ->
+            # Try to match against modules under GraphOS.Access that are edges
+            parts = Module.split(specific_module)
+            Enum.at(parts, 1) == "Access" && List.last(parts) in ["Membership", "Permission"]
+
           _ -> false
-        end)
+        end
     else
       # Just check if module is a parent entity type
       module in parent_modules
@@ -312,17 +444,44 @@ defmodule GraphOS.Store.Adapter.ETS do
 
   defp filter_by_module(records, module, true) do
     # For parent entity types (Node, Edge, Graph), return all entities of that type
-    try do
-      parent_type = GraphOS.Entity.get_type(module)
+    # Directly check what kind of entity this is based on the module name
+    entity_type = cond do
+      module == GraphOS.Entity.Graph -> :graph
+      module == GraphOS.Entity.Node -> :node
+      module == GraphOS.Entity.Edge -> :edge
+      true -> nil
+    end
+
+    if entity_type do
+      # We have a parent entity type, filter records that match this type
       Enum.filter(records, fn record ->
-        try do
-          GraphOS.Entity.get_type(record.module) == parent_type
-        rescue
+        record_module = record.module
+
+        # Convert module names to strings for easier pattern matching
+        module_name = Atom.to_string(record_module)
+
+        case entity_type do
+          :graph ->
+            String.contains?(module_name, "Graph") || String.contains?(module_name, "Policy")
+
+          :node ->
+            String.contains?(module_name, "Node") ||
+            String.contains?(module_name, "Actor") ||
+            String.contains?(module_name, "Group") ||
+            String.contains?(module_name, "Scope")
+
+          :edge ->
+            String.contains?(module_name, "Edge") ||
+            String.contains?(module_name, "Membership") ||
+            String.contains?(module_name, "Permission") ||
+            String.contains?(module_name, "Relation")
+
           _ -> false
         end
       end)
-    rescue
-      _ -> records
+    else
+      # Not a known parent entity type, just return all records
+      records
     end
   end
 

@@ -1,5 +1,13 @@
 defmodule GraphOS.Access.Policy do
-  use GraphOS.Entity.Graph
+  @moduledoc """
+  Represents an access control policy graph that contains actors, groups, scopes, and permissions.
+
+  A policy serves as a container for all the access control entities and relationships.
+  """
+
+  defstruct [:id, :name, :data, :metadata]
+
+  use GraphOS.Entity.Graph, skip_struct: true
 
   alias GraphOS.Store
   alias GraphOS.Access.{Actor, Scope, Permission}
@@ -98,5 +106,23 @@ defmodule GraphOS.Access.Policy do
   """
   def verify_permission?(scope_id, actor_id, permission) do
     GraphOS.Access.has_permission?(scope_id, actor_id, permission)
+  end
+
+  def schema do
+    fields = GraphOS.Entity.Graph.schema().fields ++
+      [
+        %{name: :metadata, type: :map, default: %{
+          description: "Access Control Policy Graph"
+        }}
+      ]
+
+    %{GraphOS.Entity.Graph.schema() | fields: fields}
+  end
+
+  def data_schema do
+    [
+      %{name: :description, type: :string, default: "Access Control Policy"},
+      %{name: :created_at, type: :datetime, default: DateTime.utc_now()}
+    ]
   end
 end
