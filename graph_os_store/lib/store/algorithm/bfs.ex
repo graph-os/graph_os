@@ -91,14 +91,20 @@ defmodule GraphOS.Store.Algorithm.BFS do
   end
 
   defp build_edge_filter(node_id, direction, edge_type) do
+    # The base filter depends on the direction
     base_filter = case direction do
       :outgoing -> %{source: node_id}
       :incoming -> %{target: node_id}
-      :both -> %{} # Special handling in extract_neighbor_ids
+      :both ->
+        # For both direction, we need to find edges where either source or target is node_id
+        # But Ecto/SQL can't do OR conditions easily, so we'll filter in extract_neighbor_ids
+        %{}
     end
 
+    # Add the edge type to the filter if provided
     if edge_type do
-      Map.put(base_filter, :type, edge_type)
+      # Use the data: %{type: edge_type} format that works
+      Map.put(base_filter, :data, %{type: edge_type})
     else
       base_filter
     end
@@ -111,8 +117,8 @@ defmodule GraphOS.Store.Algorithm.BFS do
         :incoming when edge.target == node_id -> [edge.source]
         :both ->
           cond do
-            edge.source == node_id -> [edge.target]
-            edge.target == node_id -> [edge.source]
+            Map.get(edge, :source) == node_id -> [edge.target]
+            Map.get(edge, :target) == node_id -> [edge.source]
             true -> []
           end
         _ -> []

@@ -79,7 +79,7 @@ defmodule GraphOS.Entity.Edge do
   """
   @spec schema() :: map()
   def schema do
-    GraphOS.Store.Schema.define(:edge, [
+    GraphOS.Entity.Schema.define(:edge, [
       %{name: :id, type: :string, required: true},
       %{name: :graph_id, type: :string},
       %{name: :source, type: :string, required: true},
@@ -209,7 +209,13 @@ defmodule GraphOS.Entity.Edge do
           # Update the :data field in the edge schema to use our data_schema validation
           updated_fields = Enum.map(edge_schema.fields, fn field ->
             if field.name == :data do
-              Map.put(field, :schema, data_fields)
+              # Create a new map with a schema key instead of updating the existing one
+              %{
+                name: :data,
+                type: :map,
+                default: %{},
+                schema: data_fields
+              }
             else
               field
             end

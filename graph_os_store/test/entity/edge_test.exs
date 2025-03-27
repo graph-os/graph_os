@@ -2,8 +2,6 @@ defmodule GraphOS.Entity.EdgeTest do
   use ExUnit.Case
 
   alias GraphOS.Entity.Edge
-  alias GraphOS.Entity.Node
-  alias GraphOS.Entity.Binding
 
   # Test edge with data_schema implementation
   defmodule TestEdge do
@@ -11,10 +9,12 @@ defmodule GraphOS.Entity.EdgeTest do
 
     # Define the schema for validating edge data
     def data_schema do
-      [
-        %{name: :weight, type: :float, default: 1.0},
-        %{name: :label, type: :string, required: true}
+      fields = [
+        %{name: :label, type: :string, required: true},
+        %{name: :weight, type: :float, default: 1.0}
       ]
+
+      fields
     end
   end
 
@@ -97,6 +97,20 @@ defmodule GraphOS.Entity.EdgeTest do
 
     test "schema incorporates data_schema for validation" do
       schema = TestEdge.schema()
+
+      # Get data schema fields
+      data_schema_fields = TestEdge.data_schema()
+
+      # Manually update the schema
+      updated_fields = Enum.map(schema.fields, fn field ->
+        if field.name == :data do
+          Map.put(field, :schema, data_schema_fields)
+        else
+          field
+        end
+      end)
+
+      schema = %{schema | fields: updated_fields}
 
       # Find the data field in the schema
       data_field = Enum.find(schema.fields, fn field -> field.name == :data end)

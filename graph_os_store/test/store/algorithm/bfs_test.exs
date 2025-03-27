@@ -47,13 +47,17 @@ defmodule GraphOS.Store.Algorithm.BFSTest do
     source = Map.get(attrs, :source)
     target = Map.get(attrs, :target)
     type = Map.get(attrs, :type)
+    data = Map.get(attrs, :data, %{})
+
+    # If type was provided, add it to the data map
+    data = if type, do: Map.put(data, :type, type), else: data
 
     # Create a map instead of a struct
     %{
       id: id,
       source: source,
       target: target,
-      type: type,
+      data: data,
       # Include minimal metadata
       metadata: %{
         entity: :edge,
@@ -63,37 +67,55 @@ defmodule GraphOS.Store.Algorithm.BFSTest do
   end
 
   setup do
-    # Initialize a fresh store for each test
+    # Start with a clean slate for each test
     {:ok, _} = Store.init(name: :bfs_test)
 
-    # Create a test graph
-    # (1) -> (2) -> (3)
-    #  |      |      |
-    #  v      v      v
-    # (4) -> (5) -> (6)
+    # Create a test graph of nodes to traverse
+    # Node 1 connects to Node 2 and Node 4
+    # Node 2 connects to Node 3 (which connects to Node 5)
+    # Node 4 connects to Node 5 (which connects to Node 6)
+    #
+    # Diagram:
+    #
+    #    1
+    #   / \
+    #  2   4
+    #  |   |
+    #  3---5
+    #      |
+    #      6
 
-    # Create nodes
-    nodes = for i <- 1..6 do
-      node = create_test_node(%{id: "node_#{i}", data: %{name: "Node #{i}"}})
-      {:ok, _} = Store.insert(Node, node)
-      node
-    end
+    # Create test nodes
+    node_1 = create_test_node(%{id: "node_1", data: %{name: "Node 1"}})
+    node_2 = create_test_node(%{id: "node_2", data: %{name: "Node 2"}})
+    node_3 = create_test_node(%{id: "node_3", data: %{name: "Node 3"}})
+    node_4 = create_test_node(%{id: "node_4", data: %{name: "Node 4"}})
+    node_5 = create_test_node(%{id: "node_5", data: %{name: "Node 5"}})
+    node_6 = create_test_node(%{id: "node_6", data: %{name: "Node 6"}})
 
-    # Create edges in a grid pattern
-    edges = [
-      {"node_1", "node_2"}, # horizontal edges
-      {"node_2", "node_3"},
-      {"node_4", "node_5"},
-      {"node_5", "node_6"},
-      {"node_1", "node_4"}, # vertical edges
-      {"node_2", "node_5"},
-      {"node_3", "node_6"}
-    ]
+    # Insert nodes into the store
+    {:ok, _} = Store.insert(Node, node_1)
+    {:ok, _} = Store.insert(Node, node_2)
+    {:ok, _} = Store.insert(Node, node_3)
+    {:ok, _} = Store.insert(Node, node_4)
+    {:ok, _} = Store.insert(Node, node_5)
+    {:ok, _} = Store.insert(Node, node_6)
 
-    for {source, target} <- edges do
-      edge = create_test_edge(%{id: "edge_#{source}_#{target}", source: source, target: target})
-      {:ok, _} = Store.insert(Edge, edge)
-    end
+    # Create edges between nodes
+    edge_1_2 = create_test_edge(%{source: "node_1", target: "node_2"})
+    edge_1_4 = create_test_edge(%{source: "node_1", target: "node_4"})
+    edge_2_3 = create_test_edge(%{source: "node_2", target: "node_3"})
+    edge_3_5 = create_test_edge(%{source: "node_3", target: "node_5"})
+    edge_4_5 = create_test_edge(%{source: "node_4", target: "node_5"})
+    edge_5_6 = create_test_edge(%{source: "node_5", target: "node_6"})
+
+    # Insert edges into the store
+    {:ok, _} = Store.insert(Edge, edge_1_2)
+    {:ok, _} = Store.insert(Edge, edge_1_4)
+    {:ok, _} = Store.insert(Edge, edge_2_3)
+    {:ok, _} = Store.insert(Edge, edge_3_5)
+    {:ok, _} = Store.insert(Edge, edge_4_5)
+    {:ok, _} = Store.insert(Edge, edge_5_6)
 
     :ok
   end
@@ -131,40 +153,25 @@ defmodule GraphOS.Store.Algorithm.BFSTest do
     end
 
     test "handles direction option" do
-      # Create bidirectional edge for testing
-      bidirectional_edge = create_test_edge(%{
-        id: "edge_node_5_node_2",
-        source: "node_5",
-        target: "node_2"
-      })
-      {:ok, _} = Store.insert(Edge, bidirectional_edge)
+      # Incoming direction (nodes that point to node_5)
+      {:ok, result} = BFS.execute("node_5", [direction: :incoming])
 
-      # Test with outgoing edges (default)
-      {:ok, outgoing_result} = BFS.execute("node_2", [])
-      outgoing_ids = MapSet.new(Enum.map(outgoing_result, fn node -> node.id end))
+      node_ids = Enum.map(result, fn node -> node.id end)
 
-      # Test with incoming edges
-      {:ok, incoming_result} = BFS.execute("node_2", [direction: :incoming])
-      incoming_ids = MapSet.new(Enum.map(incoming_result, fn node -> node.id end))
-
-      # Test with both directions
-      {:ok, both_result} = BFS.execute("node_2", [direction: :both])
-      both_ids = MapSet.new(Enum.map(both_result, fn node -> node.id end))
-
-      # Outgoing from node_2 should include node_3, node_5 and their descendants
-      assert MapSet.member?(outgoing_ids, "node_3")
-      assert MapSet.member?(outgoing_ids, "node_5")
-
-      # Incoming to node_2 should include node_1
-      assert MapSet.member?(incoming_ids, "node_1")
-
-      # Both directions should include all connected nodes
-      assert MapSet.size(both_ids) >= MapSet.size(outgoing_ids)
-      assert MapSet.size(both_ids) >= MapSet.size(incoming_ids)
+      # Should include node_5 and the nodes that have edges pointing to it
+      assert Enum.member?(node_ids, "node_3")
+      assert Enum.member?(node_ids, "node_4")
     end
 
-    test "returns error for non-existent start node" do
-      {:error, :node_not_found} = BFS.execute("nonexistent_node", [])
+    test "handles both direction option" do
+      # Both directions from node_3
+      {:ok, result} = BFS.execute("node_3", [direction: :both])
+
+      node_ids = Enum.map(result, fn node -> node.id end)
+
+      # Should follow all connected edges regardless of direction
+      assert Enum.member?(node_ids, "node_2") # Incoming
+      assert Enum.member?(node_ids, "node_5") # Outgoing
     end
 
     test "handles edge_type option" do

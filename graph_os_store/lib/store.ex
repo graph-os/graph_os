@@ -9,7 +9,7 @@ defmodule GraphOS.Store do
   use Boundary,
   deps: [GraphOS.Entity],
     exports: [
-      Schema
+
     ]
 
   @adapter Application.compile_env(__MODULE__, :adapter, GraphOS.Store.Adapter.ETS)

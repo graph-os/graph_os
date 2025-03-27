@@ -1,4 +1,4 @@
-defmodule GraphOS.Store.Schema do
+defmodule GraphOS.Entity.Schema do
   @moduledoc """
   Schema definition and validation for GraphOS.Store.
 
@@ -28,7 +28,7 @@ defmodule GraphOS.Store.Schema do
 
   ## Examples
 
-      iex> GraphOS.Store.Schema.define(:user, [
+      iex> GraphOS.Entity.Schema.define(:user, [
       ...>   %{name: :id, type: :string, required: true},
       ...>   %{name: :name, type: :string, default: "Anonymous"}
       ...> ])
@@ -58,18 +58,18 @@ defmodule GraphOS.Store.Schema do
 
   ## Examples
 
-      iex> schema = GraphOS.Store.Schema.define(:user, [
+      iex> schema = GraphOS.Entity.Schema.define(:user, [
       ...>   %{name: :id, type: :string, required: true},
       ...>   %{name: :name, type: :string, default: "Anonymous"}
       ...> ])
-      iex> GraphOS.Store.Schema.validate(schema, %{id: "user1"})
+      iex> GraphOS.Entity.Schema.validate(schema, %{id: "user1"})
       {:ok, %{id: "user1", name: "Anonymous"}}
 
-      iex> schema = GraphOS.Store.Schema.define(:user, [
+      iex> schema = GraphOS.Entity.Schema.define(:user, [
       ...>   %{name: :id, type: :string, required: true},
       ...>   %{name: :name, type: :string}
       ...> ])
-      iex> GraphOS.Store.Schema.validate(schema, %{name: "John"})
+      iex> GraphOS.Entity.Schema.validate(schema, %{name: "John"})
       {:error, "Missing required field: id"}
   """
   @spec validate(map(), map()) :: {:ok, map()} | {:error, String.t()}
@@ -112,7 +112,10 @@ defmodule GraphOS.Store.Schema do
           value = Map.get(data, field.name)
 
           if !type_valid?(field.type, value) do
-            "Invalid type for field #{field.name}: expected #{field.type}, got #{typeof(value)}"
+            # Use inspect for complex types like tuples
+            type_str = inspect(field.type)
+            value_type = typeof(value)
+            "Invalid type for field #{field.name}: expected #{type_str}, got #{value_type}"
           else
             nil
           end
@@ -132,9 +135,13 @@ defmodule GraphOS.Store.Schema do
   defp type_valid?(:map, value), do: is_map(value)
   defp type_valid?(:list, value), do: is_list(value)
   defp type_valid?(:atom, value), do: is_atom(value)
+  defp type_valid?(:any, _value), do: true
 
   defp type_valid?({:list, type}, value) when is_list(value),
     do: Enum.all?(value, &type_valid?(type, &1))
+
+  defp type_valid?({:enum, values}, value) when is_list(values),
+    do: value in values
 
   defp type_valid?(_, _), do: false
 
@@ -146,6 +153,7 @@ defmodule GraphOS.Store.Schema do
   defp typeof(value) when is_map(value), do: "map"
   defp typeof(value) when is_list(value), do: "list"
   defp typeof(value) when is_atom(value), do: "atom"
+  defp typeof(value) when is_tuple(value), do: inspect(value)
   defp typeof(_), do: "unknown"
 
   @doc """
@@ -153,7 +161,7 @@ defmodule GraphOS.Store.Schema do
 
   ## Parameters
 
-  - `schema_module` - Module implementing GraphOS.Store.SchemaBehaviour
+  - `schema_module` - Module implementing GraphOS.Entity.SchemaBehaviour
 
   ## Returns
 

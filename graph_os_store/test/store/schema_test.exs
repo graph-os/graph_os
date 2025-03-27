@@ -1,7 +1,7 @@
-defmodule GraphOS.Store.SchemaTest do
+defmodule GraphOS.Entity.SchemaTest do
   use ExUnit.Case, async: true
 
-  alias GraphOS.Store.Schema
+  alias GraphOS.Entity.Schema
 
   describe "Schema.define/2" do
     test "defines a schema with name and fields" do

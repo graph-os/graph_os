@@ -1,4 +1,4 @@
-defmodule GraphOS.Store.SchemaBehaviour do
+defmodule GraphOS.Entity.SchemaBehaviour do
   @moduledoc """
   Behaviour for schema modules in GraphOS.Store.
 

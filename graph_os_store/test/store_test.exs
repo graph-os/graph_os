@@ -4,6 +4,15 @@ defmodule GraphOS.StoreTest do
   alias GraphOS.Store
   alias GraphOS.Entity.{Node, Edge}
 
+  defmodule CustomNode do
+    use GraphOS.Entity.Node
+
+    # Should only validate the node.data object
+    def data_schema do
+      GraphOS.Entity.Schema.define(:data, [])
+    end
+  end
+
   # Create a simple test metadata map for our tests
   def test_metadata(module) do
     entity_type = case module do
@@ -166,7 +175,7 @@ defmodule GraphOS.StoreTest do
   describe "Store graph operations" do
     setup do
       # Create a small graph with nodes and edges
-      nodes = for i <- 1..5 do
+      _nodes = for i <- 1..5 do
         node = create_test_node(%{id: "node_#{i}", data: %{name: "Node #{i}"}})
         {:ok, _} = Store.insert(Node, node)
         node

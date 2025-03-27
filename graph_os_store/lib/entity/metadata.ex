@@ -21,7 +21,7 @@ defmodule GraphOS.Entity.Metadata do
   """
   @spec schema() :: map()
   def schema do
-    GraphOS.Store.Schema.define(:metadata, [
+    GraphOS.Entity.Schema.define(:metadata, [
       %{name: :id, type: :string},
       %{name: :entity, type: :string},
       %{name: :module, type: :atom},

@@ -16,6 +16,11 @@ BFS traverses a graph starting from a specified node, exploring all neighboring 
 {:ok, nodes} = GraphOS.Store.traverse(:bfs, {"node1", [max_depth: 3]})
 ```
 
+BFS supports the following options:
+- `:max_depth` - Maximum depth to traverse (default: 10)
+- `:direction` - Direction to traverse (:outgoing, :incoming, or :both) (default: :outgoing)
+- `:edge_type` - Optional filter for specific edge types
+
 ### 2. Shortest Path (Dijkstra's Algorithm)
 
 Finds the shortest path between two nodes in the graph using Dijkstra's algorithm.

@@ -66,7 +66,7 @@ defmodule GraphOS.Entity.Node do
   """
   @spec schema() :: map()
   def schema do
-    GraphOS.Store.Schema.define(:node, [
+    GraphOS.Entity.Schema.define(:node, [
       %{name: :id, type: :string, required: true},
       %{name: :graph_id, type: :string},
       %{name: :type, type: :string},
@@ -125,7 +125,13 @@ defmodule GraphOS.Entity.Node do
           # Update the :data field in the node schema to use our data_schema validation
           updated_fields = Enum.map(node_schema.fields, fn field ->
             if field.name == :data do
-              Map.put(field, :schema, data_fields)
+              # Create a new map with schema key
+              %{
+                name: :data,
+                type: :map,
+                default: %{},
+                schema: data_fields
+              }
             else
               field
             end
