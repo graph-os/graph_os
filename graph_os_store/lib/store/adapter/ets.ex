@@ -190,17 +190,17 @@ defmodule GraphOS.Store.Adapter.ETS do
 
   @impl GenServer
   def handle_call({:traverse, algorithm, params}, _from, state) do
-    # Note: Algorithms might need the store_name or need refactoring
-    # if they directly interact with ETS instead of going via the Store API.
-    # Assuming they use Store API calls which will route back here correctly.
     store_name = state.name
     result = do_traverse(store_name, algorithm, params)
     {:reply, result, state}
   end
 
-  # --- Private Helper Functions (Core Logic Implementation) ---
+  @impl GenServer
+  def handle_call(:get_name, _from, state) do
+    {:reply, state.name, state}
+  end
 
-  # Renamed internal helpers to do_* to avoid clash with public API
+  # --- GenServer Call Handlers (Core Logic Implementation) ---
 
   @spec do_insert_record(atom(), struct()) :: {:ok, struct()} | {:error, term()}
   defp do_insert_record(store_name, %{__struct__: module, id: id} = record) do
@@ -320,33 +320,84 @@ defmodule GraphOS.Store.Adapter.ETS do
     end
   end
 
-  @spec do_traverse(atom(), atom(), tuple() | list()) :: {:ok, term()} | {:error, term()}
+  @spec do_traverse(atom(), atom(), tuple() | list() | map()) :: {:ok, term()} | {:error, term()}
   defp do_traverse(store_name, algorithm, params) do
-    # This implementation assumes Algorithm modules use GraphOS.Store API calls
-    # which will route back to the correct store instance.
-    # If Algorithms need direct ETS access, they would need the store_name/
-    # table names passed explicitly, or this function would need to provide
-    # access/context based on the store_name.
     case algorithm do
       :bfs ->
-        {start_node_id, opts} = params
-        # Pass the store_name to the BFS algorithm
-        GraphOS.Store.Algorithm.BFS.execute(store_name, {start_node_id, opts})
+        case params do
+          {start_node_id, opts} when is_list(opts) ->
+            # Ensure store reference is in opts
+            opts_with_store = Keyword.put(opts, :store, store_name)
+            GraphOS.Store.Algorithm.BFS.execute(store_name, {start_node_id, opts_with_store})
+          _ ->
+            {:error, {:invalid_params, :bfs, params}}
+        end
+        
       :connected_components ->
-        GraphOS.Store.Algorithm.ConnectedComponents.execute(params)
+        # Make sure algorithms can find the correct store
+        store_before = Process.get(:current_algorithm_store)
+        Process.put(:current_algorithm_store, store_name)
+        
+        # This fixes the issue with Store.all calls inside the algorithm
+        result = GraphOS.Store.Algorithm.ConnectedComponents.execute(
+          if is_list(params), do: Keyword.put(params, :store, store_name), else: [store: store_name]
+        )
+        
+        # Restore the previous store context
+        case store_before do
+          nil -> Process.delete(:current_algorithm_store)
+          store -> Process.put(:current_algorithm_store, store)
+        end
+        
+        result
+        
       :minimum_spanning_tree ->
-        GraphOS.Store.Algorithm.MinimumSpanningTree.execute(params)
+        # Same approach as connected_components
+        store_before = Process.get(:current_algorithm_store)
+        Process.put(:current_algorithm_store, store_name)
+        
+        result = GraphOS.Store.Algorithm.MinimumSpanningTree.execute(
+          if is_list(params), do: Keyword.put(params, :store, store_name), else: [store: store_name]
+        )
+        
+        # Restore the previous store context
+        case store_before do
+          nil -> Process.delete(:current_algorithm_store)
+          store -> Process.put(:current_algorithm_store, store)
+        end
+        
+        result
+        
       :page_rank ->
-        GraphOS.Store.Algorithm.PageRank.execute(params)
+        # Same approach as connected_components
+        store_before = Process.get(:current_algorithm_store)
+        Process.put(:current_algorithm_store, store_name)
+        
+        result = GraphOS.Store.Algorithm.PageRank.execute(
+          if is_list(params), do: Keyword.put(params, :store, store_name), else: [store: store_name]
+        )
+        
+        # Restore the previous store context
+        case store_before do
+          nil -> Process.delete(:current_algorithm_store)
+          store -> Process.put(:current_algorithm_store, store)
+        end
+        
+        result
+        
       :shortest_path ->
-        {source_node_id, target_node_id, opts} = params
-        # Make sure the store name is in the options
-        opts_with_store = Keyword.put(opts, :store, store_name)
-        GraphOS.Store.Algorithm.ShortestPath.execute(source_node_id, target_node_id, opts_with_store)
+        case params do
+          {source_node_id, target_node_id, opts} when is_list(opts) ->
+            # Make sure the store name is in the options
+            opts_with_store = Keyword.put(opts, :store, store_name)
+            GraphOS.Store.Algorithm.ShortestPath.execute(source_node_id, target_node_id, opts_with_store)
+          _ ->
+            {:error, {:invalid_params, :shortest_path, params}}
+        end
+        
       _ ->
         {:error, {:unsupported_algorithm, algorithm}}
     end
-    # Consider adding try/rescue block for algorithm execution
   end
 
   # --- Utility Functions --- Requires store_name passed from state ---

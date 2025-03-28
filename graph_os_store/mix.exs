@@ -23,7 +23,16 @@ defmodule GraphOS.Store.MixProject do
       name: "GraphOS.Store",
 
       # Boundary enforcement
-      compilers: [:boundary | Mix.compilers()]
+      compilers: [:boundary | Mix.compilers()],
+      
+      # Test coverage
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ]
     ]
   end
 
@@ -40,7 +49,9 @@ defmodule GraphOS.Store.MixProject do
       {:boundary, "~> 0.10", runtime: false},
       {:ex_doc, "~> 0.29", only: :dev, runtime: false},
       {:jason, "~> 1.4"},
-      {:uuid_v7, "~> 0.6"}
+      {:uuid_v7, "~> 0.6"},
+      {:excoveralls, "~> 0.18", only: :test},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 

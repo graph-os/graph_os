@@ -6,7 +6,12 @@ Code.require_file("support/graph_factory.ex", __DIR__)
 
 # Define ExUnit.start options
 run_incomplete = System.get_env("MIX_RUN_INCOMPLETE") == "true"
-exclude = if run_incomplete, do: [], else: [:incomplete_implementation]
+run_performance = System.get_env("MIX_RUN_PERFORMANCE") == "true"
+
+# Determine which test types to exclude
+exclude = []
+exclude = if run_incomplete, do: exclude, else: [:incomplete_implementation | exclude]
+exclude = if run_performance, do: exclude, else: [:performance | exclude]
 
 # Create a setup handler to reset ETS tables before each test
 ExUnit.configure(

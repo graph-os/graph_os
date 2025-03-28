@@ -53,6 +53,8 @@ defmodule GraphOS.Store do
 
   require Logger
   alias GraphOS.Store.Registry
+  alias GraphOS.Store.SubscriptionManager
+  alias GraphOS.Store.Subscription
 
   # Define the default store name here
   @default_store_name :default
@@ -69,24 +71,27 @@ defmodule GraphOS.Store do
   @spec start_link(Keyword.t()) :: GenServer.on_start()
   def start_link(opts) do
     name = Keyword.fetch!(opts, :name)
-    adapter = Keyword.fetch!(opts, :adapter)
+    adapter = Keyword.get(opts, :adapter, GraphOS.Store.Adapter.ETS)
     adapter_opts = Keyword.delete(opts, :adapter)
 
     # Start the adapter process - rely on adapter's :via for registration
-    case adapter.start_link(name, adapter_opts) do
+    result = case adapter.start_link(name, adapter_opts) do
       {:ok, pid} ->
         # Registration handled by adapter via :via tuple
         Logger.info(
           "Store '#{name}' started with adapter #{inspect(adapter)} (PID: #{inspect(pid)})"
         )
 
+        # Start the subscription manager for this store
+        SubscriptionManager.start_link(name)
+        
         {:ok, pid}
 
       # Capture the original error tuple
       {:error, {:already_started, pid}} = error ->
         # :via tuple in adapter handles this case. If start_link returns {:error, {:already_started, pid}},
         # it means the GenServer machinery (using Registry) found an existing process.
-        Logger.info("Store '#{name}' already started and registered (PID: #{inspect(pid)})")
+        Logger.info("Store '#{name}' already started and registered (PID: #{inspect(pid)})") 
         # IMPORTANT: Return the original error tuple for supervisors
         error
 
@@ -97,6 +102,8 @@ defmodule GraphOS.Store do
 
         error
     end
+
+    result
   end
 
   @doc """
@@ -266,26 +273,158 @@ defmodule GraphOS.Store do
     traverse(@default_store_name, algorithm, params)
   end
 
+  # --- Subscription API ---
+
+  @doc """
+  Subscribes to events in the specified store.
+  
+  ## Parameters
+  
+  * `store_ref` - The store reference to subscribe to. Defaults to the default store.
+  * `topic` - The topic to subscribe to. Can be an entity type, a specific entity ID, or a custom topic.
+  * `opts` - Options for the subscription. See `GraphOS.Store.Subscription.new/3` for details.
+  
+  ## Examples
+  
+      # Subscribe to all node events
+      {:ok, sub_id} = GraphOS.Store.subscribe(:node)
+      
+      # Subscribe to events for a specific node type
+      {:ok, sub_id} = GraphOS.Store.subscribe({:node, "person"})
+      
+      # Subscribe to updates only
+      {:ok, sub_id} = GraphOS.Store.subscribe(:node, events: [:update])
+      
+      # Subscribe with a filter
+      {:ok, sub_id} = GraphOS.Store.subscribe(:node, filter: %{entity_type: :node})
+  """
+  @spec subscribe(topic :: Subscription.topic(), opts :: keyword()) :: {:ok, Subscription.id()} | {:error, term()}
+  def subscribe(topic, opts \\ []) do
+    subscribe(@default_store_name, topic, opts)
+  end
+  
+  @doc """
+  Subscribes to events in the specified store.
+  """
+  @spec subscribe(store_ref :: term(), topic :: Subscription.topic(), opts :: keyword()) :: 
+    {:ok, Subscription.id()} | {:error, term()}
+  def subscribe(store_ref, topic, opts) do
+    with {:ok, _} <- get_store_pid(store_ref) do
+      # The subscriber is the current process by default
+      subscriber = Keyword.get(opts, :subscriber, self())
+      SubscriptionManager.subscribe(store_ref, subscriber, topic, opts)
+    end
+  end
+  
+  @doc """
+  Unsubscribes from events in the default store.
+  
+  ## Examples
+  
+      # Unsubscribe using a subscription ID
+      :ok = GraphOS.Store.unsubscribe(subscription_id)
+  """
+  @spec unsubscribe(subscription_id :: Subscription.id()) :: :ok | {:error, term()}
+  def unsubscribe(subscription_id) do
+    unsubscribe(@default_store_name, subscription_id)
+  end
+  
+  @doc """
+  Unsubscribes from events in the specified store.
+  """
+  @spec unsubscribe(store_ref :: term(), subscription_id :: Subscription.id()) :: :ok | {:error, term()}
+  def unsubscribe(store_ref, subscription_id) do
+    with {:ok, _} <- get_store_pid(store_ref) do
+      SubscriptionManager.unsubscribe(store_ref, subscription_id)
+    end
+  end
+  
+  @doc """
+  Lists all active subscriptions for the default store.
+  """
+  @spec list_subscriptions() :: {:ok, [Subscription.t()]} | {:error, term()}
+  def list_subscriptions() do
+    list_subscriptions(@default_store_name)
+  end
+  
+  @doc """
+  Lists all active subscriptions for the specified store.
+  """
+  @spec list_subscriptions(store_ref :: term()) :: {:ok, [Subscription.t()]} | {:error, term()}
+  def list_subscriptions(store_ref) do
+    with {:ok, _} <- get_store_pid(store_ref) do
+      SubscriptionManager.list_subscriptions(store_ref)
+    end
+  end
+  
+  @doc """
+  Publishes an event to the default store.
+  
+  This function is typically used internally by the store implementation.
+  """
+  @spec publish(event :: GraphOS.Store.Event.t()) :: :ok
+  def publish(%GraphOS.Store.Event{} = event) do
+    publish(@default_store_name, event)
+  end
+  
+  @doc """
+  Publishes an event to the specified store.
+  
+  This function is typically used internally by the store implementation.
+  """
+  @spec publish(store_ref :: term(), event :: GraphOS.Store.Event.t()) :: :ok
+  def publish(store_ref, %GraphOS.Store.Event{} = event) do
+    case get_store_pid(store_ref) do
+      {:ok, _} -> SubscriptionManager.publish(store_ref, event)
+      {:error, _} -> :ok  # Silently ignore if store doesn't exist
+    end
+  end
+
   # --- Private Utilities ---
+
+  # Helper function to get store reference, checking process dictionary first
+  defp get_current_store_ref(explicit_ref) do
+    case explicit_ref do
+      # If a specific store reference was provided, use it
+      ref when ref != nil -> ref
+      # Otherwise check process dictionary for current algorithm store context
+      nil -> Process.get(:current_algorithm_store, :default)
+    end
+  end
+
+  @doc false
+  @spec get_store_pid(store_ref :: term()) :: {:ok, pid()} | {:error, term()}
+  defp get_store_pid(store_ref) do
+    # Check process dictionary for store context first
+    ref = get_current_store_ref(store_ref)
+    
+    # Try to get the store PID using the proper registry function
+    case GraphOS.Store.Registry.lookup(ref) do
+      [{pid, _}] -> {:ok, pid}
+      _ -> {:error, {:store_not_found, ref}}
+    end
+  end
 
   @doc false
   defp call_adapter(store_ref, call_args) do
-    case Registry.lookup(store_ref) do
-      [{pid, _}] ->
-        case GenServer.call(pid, call_args) do
-          {:ok, result} -> {:ok, result}
-          {:error, reason} -> {:error, reason}
-          other -> other
+    store_ref = get_current_store_ref(store_ref)
+    case get_store_pid(store_ref) do
+      {:ok, pid} ->
+        try do
+          case GenServer.call(pid, call_args) do
+            {:ok, result} -> {:ok, result}
+            :ok -> :ok
+            other -> other
+          end
+        catch
+          :exit, _ -> {:error, {:store_not_found, store_ref}}
         end
-
-      [] ->
-        {:error, {:store_not_found, store_ref}}
+      error -> error
     end
   rescue
-    error in [RuntimeError, ArgumentError, KeyError] ->
-      reraise(error, __STACKTRACE__)
-
-    _ ->
+    e in [ArgumentError, FunctionClauseError, MatchError] ->
+      require Logger
+      Logger.error("Error calling store adapter: #{inspect(e)}")
       {:error, {:internal_error, store_ref}}
   end
 
@@ -388,6 +527,22 @@ defmodule GraphOS.Store do
       @spec traverse(atom(), tuple() | list()) :: {:ok, term()} | {:error, term()}
       def traverse(algorithm, params) do
         GraphOS.Store.traverse(@store_name, algorithm, params)
+      end
+
+      @doc """
+      Subscribes to events in the `#{@store_name}` store.
+      """
+      @spec subscribe(module(), Keyword.t()) :: {:ok, Subscription.t()} | {:error, term()}
+      def subscribe(module, opts \\ []) do
+        GraphOS.Store.subscribe(@store_name, module, opts)
+      end
+
+      @doc """
+      Unsubscribes from events in the `#{@store_name}` store.
+      """
+      @spec unsubscribe(Subscription.t()) :: :ok | {:error, term()}
+      def unsubscribe(subscription) do
+        GraphOS.Store.unsubscribe(@store_name, subscription)
       end
 
       # --- Admin API ---

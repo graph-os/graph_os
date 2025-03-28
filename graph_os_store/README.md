@@ -15,6 +15,16 @@ storage adapters to be added in the future.
 - Schema-based data validation
 - Support for custom node and edge types
 - Subscription system for real-time updates
+- Access control and permission management
+- Graph algorithms for data analysis and traversal
+
+## Development Status
+
+- **Tests**: 123 tests, 0 failures, 1 skipped (related to OperationGuard hooks)
+- **Coverage**: 52.4% overall test coverage (run `mix coveralls.html` for detailed report)
+- **Code Quality**: Monitored via Credo (run `mix credo` for analysis)
+
+See [TASKS.md](TASKS.md) for a detailed breakdown of module status and future development plans.
 
 ## Usage
 
@@ -109,6 +119,55 @@ defmodule MyApp.Friendship do
 end
 ```
 
+### Access Control
+
+```elixir
+# Create a policy
+{:ok, policy} = GraphOS.Access.create_policy(%{name: "document_policy"})
+
+# Add an actor (user)
+{:ok, actor} = GraphOS.Access.create_actor(%{id: "user_123", type: "user"})
+
+# Grant permissions
+GraphOS.Access.grant_permission(policy.id, actor.id, "document", "read")
+GraphOS.Access.grant_permission(policy.id, actor.id, "document", "write")
+
+# Check permissions
+GraphOS.Access.has_permission?(policy.id, actor.id, "document", "read") # true
+GraphOS.Access.has_permission?(policy.id, actor.id, "document", "delete") # false
+
+# Create a group and add members
+{:ok, group} = GraphOS.Access.create_group(%{id: "editors", name: "Editors"})
+GraphOS.Access.add_to_group(group.id, actor.id)
+
+# Grant permissions to a group
+GraphOS.Access.grant_permission(policy.id, group.id, "document", "edit")
+
+# Members inherit group permissions
+GraphOS.Access.has_permission?(policy.id, actor.id, "document", "edit") # true
+```
+
+### Graph Algorithms
+
+```elixir
+# Find all paths using BFS
+{:ok, paths} = GraphOS.Store.execute(%{
+  type: :algorithm,
+  algorithm: :bfs,
+  start: start_node_id,
+  options: %{max_depth: 3, direction: :outgoing}
+})
+
+# Find shortest path
+{:ok, path} = GraphOS.Store.execute(%{
+  type: :algorithm,
+  algorithm: :shortest_path,
+  start: start_node_id,
+  target: target_node_id,
+  options: %{weight_property: :distance}
+})
+```
+
 ## Installation
 
 The package can be installed by adding `graph_os_graph` to your list of dependencies in `mix.exs`:
@@ -121,118 +180,51 @@ def deps do
 end
 ```
 
+## Development
+
+### Testing
+
+Run the test suite:
+
+```bash
+mix test
+```
+
+Generate a test coverage report:
+
+```bash
+mix coveralls.html
+```
+
+Run code analysis:
+
+```bash
+mix credo
+```
+
 ## Documentation
 
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc).
+Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc):
 
-## GraphOS.Store API
-
-GraphOS.Store provides a minimal interface for storing and retrieving data using different storage engines (adapters).
-
-### Main API
-
-```elixir
-# Initialize a store
-{:ok, store_name} = GraphOS.Store.init()
-
-# Insert a record
-{:ok, user} = GraphOS.Store.insert(MyApp.User, %{data: %{name: "John"}})
-
-# Get a record by ID
-{:ok, user} = GraphOS.Store.get(MyApp.User, user_id)
-
-# Update a record
-{:ok, updated_user} = GraphOS.Store.update(MyApp.User, %{id: user_id, data: %{name: "John Updated"}})
-
-# Delete a record
-:ok = GraphOS.Store.delete(MyApp.User, user_id)
-
-# Execute complex operations
-query = GraphOS.Store.Query.traverse(node_id, algorithm: :bfs, max_depth: 3)
-{:ok, result} = GraphOS.Store.execute(query)
+```bash
+mix docs
 ```
 
-### Custom Entity Definitions
-
-You can define custom entities using the provided macros:
-
-```elixir
-# Define a graph
-defmodule MyApp.Graph do
-  use GraphOS.Store.Graph, temp: false
-
-  @impl GraphOS.Store.Graph
-  def on_start(options) do
-    # Initialize graph on start
-    {:ok, %{started_at: DateTime.utc_now()}}
-  end
-  
-  @impl GraphOS.Store.Graph
-  def on_stop(state) do
-    # Cleanup when graph stops
-    {:ok, state}
-  end
-end
-
-# Define a node
-defmodule MyApp.User do
-  use GraphOS.Store.Node, graph: MyApp.Graph
-
-  # Custom functions for this node type
-  def set_name(user, name) do
-    GraphOS.Store.update(__MODULE__, %{id: user.id, data: %{name: name}})
-  end
-end
-
-# Define an edge with type restrictions
-defmodule MyApp.Friendship do
-  use GraphOS.Store.Edge,
-    graph: MyApp.Graph,
-    source: MyApp.User,
-    target: MyApp.User
-
-  # Custom functions for this edge type
-  def set_strength(friendship, strength) do
-    GraphOS.Store.update(__MODULE__, %{id: friendship.id, data: %{strength: strength}})
-  end
-end
-```
-
-### Transactions
-
-For operations that need to be executed atomically:
+## Transactions
 
 ```elixir
 # Create operations
-op1 = %GraphOS.Store.Operation{type: :insert, module: MyApp.User, params: %{data: %{name: "Alice"}}}
-op2 = %GraphOS.Store.Operation{type: :insert, module: MyApp.User, params: %{data: %{name: "Bob"}}}
+op1 = %{type: :insert, entity_type: :node, data: %{type: "person", data: %{name: "John"}}}
+op2 = %{type: :insert, entity_type: :node, data: %{type: "person", data: %{name: "Jane"}}}
 
-# Create a transaction
+# Build a transaction
 transaction = GraphOS.Store.Transaction.new([op1, op2])
 
 # Execute the transaction
 {:ok, results} = GraphOS.Store.execute(transaction)
 ```
 
-### Advanced Queries
-
-For more complex graph operations:
-
-```elixir
-# Traverse the graph from a node
-query = GraphOS.Store.Query.traverse(start_node_id, algorithm: :bfs, max_depth: 3)
-{:ok, nodes} = GraphOS.Store.execute(query)
-
-# Find shortest path between nodes
-query = GraphOS.Store.Query.shortest_path(source_id, target_id, weight_property: "distance")
-{:ok, path, distance} = GraphOS.Store.execute(query)
-
-# Find connected components
-query = GraphOS.Store.Query.connected_components(edge_type: "friend")
-{:ok, components} = GraphOS.Store.execute(query)
-```
-
-### Subscription API
+## Subscription API
 
 The subscription API allows you to subscribe to changes in the store and receive real-time notifications.
 
@@ -264,6 +256,3 @@ event = %GraphOS.Store.Event{
 
 # Unsubscribe when done
 :ok = GraphOS.Store.unsubscribe(sub_id)
-```
-
-For more details, see the [documentation](https://hexdocs.pm/graph_os_store).
