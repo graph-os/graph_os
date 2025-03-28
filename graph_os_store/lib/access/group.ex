@@ -42,14 +42,18 @@ defmodule GraphOS.Access.Group do
   def members(group_id) do
     case GraphOS.Store.all(GraphOS.Access.Membership, %{target: group_id}) do
       {:ok, memberships} ->
-        result = Enum.map(memberships, fn edge ->
-          %{
-            actor_id: edge.source,
-            joined_at: Map.get(edge.data, :joined_at)
-          }
-        end)
+        result =
+          Enum.map(memberships, fn edge ->
+            %{
+              actor_id: edge.source,
+              joined_at: Map.get(edge.data, :joined_at)
+            }
+          end)
+
         {:ok, result}
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -82,8 +86,12 @@ defmodule GraphOS.Access.Group do
     case GraphOS.Store.all(GraphOS.Access.Membership, %{source: actor_id, target: group_id}) do
       {:ok, [membership | _]} ->
         GraphOS.Store.delete(GraphOS.Access.Membership, membership.id)
-      {:ok, []} -> {:error, :not_a_member}
-      error -> error
+
+      {:ok, []} ->
+        {:error, :not_a_member}
+
+      error ->
+        error
     end
   end
 

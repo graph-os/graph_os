@@ -162,6 +162,7 @@ defmodule GraphOS.Entity do
   """
   @spec get_type(module()) :: entity_type()
   def get_type(module) when is_atom(module) do
-    module.entity().entity_type
+    module.entity()
+    |> Keyword.get(:entity_type, :error)
   end
 end

@@ -9,6 +9,12 @@ defmodule GraphOS.Entity.Edge do
   alias GraphOS.Entity.Metadata
   alias GraphOS.Entity.Binding
 
+  @entity GraphOS.Entity.from_module_opts(
+            entity_type: :edge,
+            entity_module: __MODULE__,
+            schema_module: __MODULE__
+          )
+
   @type t :: %__MODULE__{
           id: GraphOS.Entity.id(),
           graph_id: GraphOS.Entity.id() | nil,
@@ -16,6 +22,7 @@ defmodule GraphOS.Entity.Edge do
           target: GraphOS.Entity.id(),
           key: atom() | nil,
           weight: number() | nil,
+          type: String.t() | atom() | nil,
           data: map(),
           metadata: Metadata.t()
         }
@@ -27,6 +34,7 @@ defmodule GraphOS.Entity.Edge do
     :target,
     :key,
     :weight,
+    :type,
     data: %{},
     metadata: %Metadata{}
   ]
@@ -52,10 +60,18 @@ defmodule GraphOS.Entity.Edge do
       target: Map.get(attrs, :target),
       key: Map.get(attrs, :key),
       weight: Map.get(attrs, :weight),
+      type: Map.get(attrs, :type),
       data: Map.get(attrs, :data, %{}),
       metadata: Map.get(attrs, :metadata, %Metadata{})
     }
   end
+
+  @doc """
+  Returns the entity configuration for the Edge module.
+  This is needed by the Store adapter to identify the entity type.
+  """
+  @spec entity() :: GraphOS.Entity.t()
+  def entity, do: @entity
 
   @doc """
   Creates a schema for validating Edge attributes.
@@ -72,6 +88,7 @@ defmodule GraphOS.Entity.Edge do
           %{name: :target, type: :string, required: true},
           %{name: :key, type: :atom},
           %{name: :weight, type: :number},
+          %{name: :type, type: :string},
           %{name: :data, type: :map, default: %{}},
           %{name: :metadata, type: :map, default: %{}}
         ]
@@ -86,6 +103,7 @@ defmodule GraphOS.Entity.Edge do
       %{name: :target, type: :string, required: true},
       %{name: :key, type: :atom},
       %{name: :weight, type: :number},
+      %{name: :type, type: :string},
       %{name: :data, type: :map, default: %{}},
       %{name: :metadata, type: :map, default: %{}}
     ])
@@ -107,7 +125,8 @@ defmodule GraphOS.Entity.Edge do
   - `:ok` if the edge is valid
   - `{:error, reason}` if the edge is invalid
   """
-  @spec validate_types(t(), module(), module(), Binding.t(), Binding.t()) :: :ok | {:error, String.t()}
+  @spec validate_types(t(), module(), module(), Binding.t(), Binding.t()) ::
+          :ok | {:error, String.t()}
   def validate_types(edge, source_module, target_module, source_binding, target_binding) do
     with :ok <- validate_source_type(edge, source_module, source_binding),
          :ok <- validate_target_type(edge, target_module, target_binding) do
@@ -130,9 +149,13 @@ defmodule GraphOS.Entity.Edge do
     else
       cond do
         source_binding.include != [] and source_module not in source_binding.include ->
-          {:error, "Source node module #{inspect(source_module)} is not in the allowed include list for this edge type"}
+          {:error,
+           "Source node module #{inspect(source_module)} is not in the allowed include list for this edge type"}
+
         source_binding.exclude != [] and source_module in source_binding.exclude ->
-          {:error, "Source node module #{inspect(source_module)} is explicitly excluded for this edge type"}
+          {:error,
+           "Source node module #{inspect(source_module)} is explicitly excluded for this edge type"}
+
         true ->
           {:error, "Source node module #{inspect(source_module)} is not allowed by edge binding"}
       end
@@ -154,9 +177,13 @@ defmodule GraphOS.Entity.Edge do
     else
       cond do
         target_binding.include != [] and target_module not in target_binding.include ->
-          {:error, "Target node module #{inspect(target_module)} is not in the allowed include list for this edge type"}
+          {:error,
+           "Target node module #{inspect(target_module)} is not in the allowed include list for this edge type"}
+
         target_binding.exclude != [] and target_module in target_binding.exclude ->
-          {:error, "Target node module #{inspect(target_module)} is explicitly excluded for this edge type"}
+          {:error,
+           "Target node module #{inspect(target_module)} is explicitly excluded for this edge type"}
+
         true ->
           {:error, "Target node module #{inspect(target_module)} is not allowed by edge binding"}
       end
@@ -165,16 +192,34 @@ defmodule GraphOS.Entity.Edge do
 
   defmacro __using__(opts) do
     quote do
-      import GraphOS.Entity.Edge, only: [schema: 0, validate_types: 5, validate_source_type: 3, validate_target_type: 3]
+      import GraphOS.Entity.Edge,
+        only: [schema: 0, validate_types: 5, validate_source_type: 3, validate_target_type: 3]
 
-      # Ensure entity_type is set
-      opts_with_type = [entity_type: :edge] ++ Keyword.delete(unquote(opts), :entity_type)
+      # Define the struct for the using module
+      defstruct [
+        :id,
+        :graph_id,
+        :source,
+        :target,
+        :key,
+        :weight,
+        :type,
+        data: %{},
+        metadata: %GraphOS.Entity.Metadata{}
+      ]
 
-      # Add the entity module
-      opts_with_modules = Keyword.merge(opts_with_type, [
-        entity_module: __MODULE__,
-        schema_module: GraphOS.Entity.Edge
-      ])
+      # Define module type spec
+      @type t :: %__MODULE__{
+              id: GraphOS.Entity.id(),
+              graph_id: GraphOS.Entity.id() | nil,
+              source: GraphOS.Entity.id(),
+              target: GraphOS.Entity.id(),
+              key: atom() | nil,
+              weight: number() | nil,
+              type: String.t() | atom() | nil,
+              data: map(),
+              metadata: GraphOS.Entity.Metadata.t()
+            }
 
       # Parse source/target binding options
       @source_binding_opts Keyword.get(unquote(opts), :source, [])
@@ -184,47 +229,35 @@ defmodule GraphOS.Entity.Edge do
       @source_binding GraphOS.Entity.Binding.new(@source_binding_opts)
       @target_binding GraphOS.Entity.Binding.new(@target_binding_opts)
 
-      # Create entity configuration
-      @entity GraphOS.Entity.from_module_opts(opts_with_modules)
+      @entity unquote(opts)
+              |> Keyword.put(:module, __MODULE__)
+              |> Keyword.put(:entity_type, :edge)
+              |> Keyword.put(:entity_module, __MODULE__)
+              |> GraphOS.Entity.from_module_opts()
 
       def entity, do: @entity
 
-      # Override new to set the module in metadata
-      def new(attrs) do
-        # Create empty metadata and let the store populate it
-        metadata = Map.get(attrs, :metadata, %GraphOS.Entity.Metadata{})
-        # Pass to parent new function
-        attrs_with_metadata = Map.put(attrs, :metadata, metadata)
-        GraphOS.Entity.Edge.new(attrs_with_metadata)
-      end
+      # Always define schema function, but it can be overridden later
+      def schema, do: GraphOS.Entity.Edge.schema()
 
-      # Override schema only if data_schema is defined
-      if Module.defines?(__MODULE__, {:data_schema, 0}) do
+      # Override schema to include data_schema if defined
+      if Module.defines?(__MODULE__, {:data_schema, 0}, :def) do
         def schema do
           edge_schema = GraphOS.Entity.Edge.schema()
-
-          # Get the data schema fields from this module
           data_fields = data_schema()
 
-          # Update the :data field in the edge schema to use our data_schema validation
-          updated_fields = Enum.map(edge_schema.fields, fn field ->
-            if field.name == :data do
-              # Create a new map with a schema key instead of updating the existing one
-              %{
-                name: :data,
-                type: :map,
-                default: %{},
-                schema: data_fields
-              }
-            else
-              field
-            end
-          end)
+          # Update fields to include data_schema
+          updated_fields =
+            Enum.map(edge_schema.fields, fn field ->
+              if field.name == :data do
+                Map.put(field, :schema, data_fields)
+              else
+                field
+              end
+            end)
 
           %{edge_schema | fields: updated_fields}
         end
-      else
-        def schema, do: GraphOS.Entity.Edge.schema()
       end
 
       @doc """
@@ -248,7 +281,6 @@ defmodule GraphOS.Entity.Edge do
         # First, we need to fetch the nodes from the store
         with {:ok, source_node} <- GraphOS.Store.get(GraphOS.Entity.Node, source_id),
              {:ok, target_node} <- GraphOS.Store.get(GraphOS.Entity.Node, target_id) do
-
           # Extract the module from metadata
           source_module = source_node.metadata.module
           target_module = target_node.metadata.module
@@ -282,6 +314,20 @@ defmodule GraphOS.Entity.Edge do
           {:error, reason} -> {:error, reason}
         end
       end
+
+      # Override new to set the module in metadata
+      def new(attrs) do
+        # Create empty metadata and let the store populate it
+        metadata = Map.get(attrs, :metadata, %GraphOS.Entity.Metadata{})
+        # Pass to parent new function with metadata
+        attrs_with_metadata = Map.put(attrs, :metadata, metadata)
+
+        edge = GraphOS.Entity.Edge.new(attrs_with_metadata)
+        struct(__MODULE__, Map.from_struct(edge))
+      end
+
+      # Make functions overridable
+      defoverridable new: 1, schema: 0
     end
   end
 end

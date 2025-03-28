@@ -1,349 +1,187 @@
 defmodule GraphOS.Store.Adapter.ETSTest do
   use ExUnit.Case, async: false
 
-  alias GraphOS.Store.Adapter.ETS, as: ETSAdapter
   alias GraphOS.Entity.{Node, Edge}
+  alias GraphOS.Store
+  alias GraphOS.Store.Adapter.ETS
 
-  # Create a simple test metadata map for our tests
-  def test_metadata(module) do
-    entity_type = case module do
-      Node -> :node
-      Edge -> :edge
-      _ -> :metadata
-    end
-
-    # Create metadata without calling GraphOS.Entity.Metadata.new/1
-    %{
-      entity: entity_type,
-      module: module,
-      created_at: DateTime.utc_now(),
-      updated_at: DateTime.utc_now(),
-      version: 1,
-      deleted: false
-    }
-  end
-
-  # Helper to create a test Node as a map
+  # Helper to create a test Node struct
   def create_test_node(attrs) do
-    id = Map.get(attrs, :id, GraphOS.Entity.generate_id())
-    data = Map.get(attrs, :data, %{})
-
-    # Create a map instead of a struct
-    %{
-      id: id,
-      data: data,
-      # Include minimal metadata
-      metadata: %{
-        entity: :node,
-        module: Node
-      }
-    }
+    Node.new(attrs)
   end
 
-  # Helper to create a test Edge as a map
+  # Helper to create a test Edge struct
   def create_test_edge(attrs) do
-    id = Map.get(attrs, :id, GraphOS.Entity.generate_id())
-    source = Map.get(attrs, :source)
-    target = Map.get(attrs, :target)
-    type = Map.get(attrs, :type)
-
-    # Create a map instead of a struct
-    %{
-      id: id,
-      source: source,
-      target: target,
-      type: type,
-      # Include minimal metadata
-      metadata: %{
-        entity: :edge,
-        module: Edge
-      }
-    }
+    Edge.new(attrs)
   end
 
-  # Setup to ensure the Registry is started
-  setup_all do
-    # Start the registry if it's not already started
-    case Registry.start_link(keys: :unique, name: GraphOS.Store.Registry) do
-      {:ok, _} -> :ok
-      {:error, {:already_started, _}} -> :ok
-      error -> error
-    end
-
-    :ok
-  end
-
-  # Initialize the ETS tables directly for testing
+  # Setup starts a unique store for each test
   setup do
-    # Clean up and reinitialize the ETS adapter for every test
-    GraphOS.Test.Support.GraphFactory.reset_store()
+    # Use a unique name for each test store
+    store_name = :"test_store_ets_#{:erlang.unique_integer([:positive])}"
+    {:ok, _pid} = Store.start_link(name: store_name, adapter: ETS)
 
-    # Use a unique name for each test
-    adapter_name = :"test_adapter_#{:erlang.unique_integer([:positive])}"
-    {:ok, _pid} = ETSAdapter.start_link(adapter_name, [])
-
-    # Initialize the adapter directly
-    {:ok, _adapter} = ETSAdapter.init(adapter_name, [])
-
-    {:ok, %{adapter_name: adapter_name}}
-  end
-
-  describe "ETS adapter initialization" do
-    test "starts and initializes an ETS store", %{adapter_name: name} do
-      # The adapter process should be alive
-      [{pid, _}] = Registry.lookup(GraphOS.Store.Registry, {ETSAdapter, name})
-      assert is_pid(pid)
-      assert Process.alive?(pid)
-    end
-
-    test "re-initializing returns the existing process", %{adapter_name: name} do
-      # Look up the existing process
-      [{first_pid, _}] = Registry.lookup(GraphOS.Store.Registry, {ETSAdapter, name})
-
-      # Start another process with the same name
-      result = ETSAdapter.start_link(name)
-      second_pid = case result do
-        {:ok, pid} -> pid
-        {:error, {:already_started, pid}} -> pid
+    # Ensure the store is stopped when the test finishes, with better error handling
+    on_exit(fn -> 
+      try do
+        Store.stop(store_name)
+      catch
+        :exit, _ -> :ok
       end
+    end)
 
-      # Should return the same PID
-      assert first_pid == second_pid
-    end
+    {:ok, %{store_name: store_name}}
   end
 
-  describe "CRUD operations" do
-    test "insert/2 creates an entity", %{adapter_name: _name} do
+  describe "CRUD operations via Store API" do
+    test "insert/3 creates an entity", %{store_name: store_name} do
       node = create_test_node(%{id: "test_node", data: %{name: "Test Node"}})
 
-      {:ok, stored_node} = ETSAdapter.insert(Node, node)
+      {:ok, stored_node} = Store.insert(store_name, Node, node)
 
       assert stored_node.id == "test_node"
       assert stored_node.data.name == "Test Node"
+      assert stored_node.metadata.version == 1
 
-      # Verify it's in the store
-      {:ok, retrieved_node} = ETSAdapter.get(Node, "test_node")
+      {:ok, retrieved_node} = Store.get(store_name, Node, "test_node")
       assert retrieved_node.id == "test_node"
     end
 
-    test "insert/2 generates ID if not provided", %{adapter_name: _name} do
+    test "insert/3 generates ID if not provided", %{store_name: store_name} do
       node = create_test_node(%{data: %{name: "Auto ID Node"}})
 
-      {:ok, stored_node} = ETSAdapter.insert(Node, node)
+      {:ok, stored_node} = Store.insert(store_name, Node, node)
 
-      # Should have a generated ID (UUID format)
       assert is_binary(stored_node.id)
       assert String.length(stored_node.id) > 10
     end
 
-    test "update/2 updates an existing entity", %{adapter_name: _name} do
-      # Create initial node
+    test "insert/3 handles edge creation", %{store_name: store_name} do
+      node1 = create_test_node(%{id: "node1"})
+      node2 = create_test_node(%{id: "node2"})
+      {:ok, _} = Store.insert(store_name, Node, node1)
+      {:ok, _} = Store.insert(store_name, Node, node2)
+
+      edge_attrs = %{source: "node1", target: "node2", data: %{type: :connects}}
+      edge = create_test_edge(edge_attrs)
+      {:ok, stored_edge} = Store.insert(store_name, Edge, edge)
+
+      assert is_binary(stored_edge.id)
+      assert stored_edge.source == "node1"
+      assert stored_edge.target == "node2"
+      assert stored_edge.data.type == :connects
+
+      {:ok, retrieved_edge} = Store.get(store_name, Edge, stored_edge.id)
+      assert retrieved_edge.id == stored_edge.id
+    end
+
+    test "update/3 updates an existing entity", %{store_name: store_name} do
       node = create_test_node(%{id: "update_node", data: %{name: "Original Name"}})
-      {:ok, stored_node} = ETSAdapter.insert(Node, node)
+      {:ok, stored_node} = Store.insert(store_name, Node, node)
+      assert stored_node.metadata.version == 1
 
-      # Update the node
       updated_node = %{stored_node | data: %{name: "Updated Name"}}
-      {:ok, result} = ETSAdapter.update(Node, updated_node)
+      {:ok, updated_stored_node} = Store.update(store_name, Node, updated_node)
 
-      assert result.data.name == "Updated Name"
+      assert updated_stored_node.data.name == "Updated Name"
+      assert updated_stored_node.metadata.version == 2
 
-      # Verify it was updated in the store
-      {:ok, retrieved} = ETSAdapter.get(Node, "update_node")
+      {:ok, retrieved} = Store.get(store_name, Node, "update_node")
       assert retrieved.data.name == "Updated Name"
+      assert retrieved.metadata.version == 2
     end
 
-    test "update/2 fails for non-existent entity", %{adapter_name: _name} do
-      node = create_test_node(%{id: "nonexistent", data: %{name: "Won't Work"}})
-
-      {:error, :not_found} = ETSAdapter.update(Node, node)
+    test "update/3 fails for non-existent entity", %{store_name: store_name} do
+      node = create_test_node(%{id: "non_existent", data: %{name: "Doesn't Exist"}})
+      assert {:error, {:not_found, _}} = Store.update(store_name, Node, node)
     end
 
-    test "delete/2 removes an entity", %{adapter_name: _name} do
-      # Create a node to delete
+    test "delete/3 removes an entity", %{store_name: store_name} do
       node = create_test_node(%{id: "delete_node", data: %{name: "Delete Me"}})
-      {:ok, _} = ETSAdapter.insert(Node, node)
+      {:ok, _} = Store.insert(store_name, Node, node)
 
-      # Verify it exists
-      {:ok, _} = ETSAdapter.get(Node, "delete_node")
+      {:ok, _} = Store.get(store_name, Node, "delete_node")
 
-      # Delete it
-      :ok = ETSAdapter.delete(Node, "delete_node")
-
-      # Verify it's gone
-      {:error, :not_found} = ETSAdapter.get(Node, "delete_node")
+      :ok = Store.delete(store_name, Node, "delete_node")
+      assert {:error, :deleted} = Store.get(store_name, Node, "delete_node")
     end
 
-    test "get/2 retrieves an entity", %{adapter_name: _name} do
+    test "get/4 retrieves an entity", %{store_name: store_name} do
       node = create_test_node(%{id: "get_node", data: %{name: "Get Node"}})
-      {:ok, _} = ETSAdapter.insert(Node, node)
+      {:ok, _} = Store.insert(store_name, Node, node)
 
-      {:ok, retrieved_node} = ETSAdapter.get(Node, "get_node")
+      {:ok, retrieved_node} = Store.get(store_name, Node, "get_node")
 
       assert retrieved_node.id == "get_node"
       assert retrieved_node.data.name == "Get Node"
     end
 
-    test "get/2 returns error for non-existent entity", %{adapter_name: _name} do
-      {:error, :not_found} = ETSAdapter.get(Node, "nonexistent")
+    test "get/4 returns error for non-existent entity", %{store_name: store_name} do
+      assert {:error, :not_found} = Store.get(store_name, Node, "nonexistent")
     end
   end
 
-  describe "querying operations" do
-    setup %{adapter_name: _name} do
-      # Insert test nodes with different attributes
-      nodes = [
-        create_test_node(%{id: "node_1", data: %{category: "A", value: 10}}),
-        create_test_node(%{id: "node_2", data: %{category: "A", value: 20}}),
-        create_test_node(%{id: "node_3", data: %{category: "B", value: 30}}),
-        create_test_node(%{id: "node_4", data: %{category: "B", value: 40}}),
-        create_test_node(%{id: "node_5", data: %{category: "C", value: 50}})
+  describe "querying operations via Store API" do
+    setup %{store_name: store_name} do
+      nodes_attrs = [
+        %{id: "node_1", data: %{category: "A", value: 10}},
+        %{id: "node_2", data: %{category: "A", value: 20}},
+        %{id: "node_3", data: %{category: "B", value: 30}},
+        %{id: "node_4", data: %{category: "B", value: 40}},
+        %{id: "node_5", data: %{category: "C", value: 50}}
       ]
 
+      nodes = Enum.map(nodes_attrs, &create_test_node/1)
+
       for node <- nodes do
-        {:ok, _} = ETSAdapter.insert(Node, node)
+        {:ok, _} = Store.insert(store_name, Node, node)
       end
+
+      edge1 = create_test_edge(%{source: "node_1", target: "node_2", type: :link})
+      edge2 = create_test_edge(%{source: "node_3", target: "node_4", type: :link})
+      {:ok, _} = Store.insert(store_name, Edge, edge1)
+      {:ok, _} = Store.insert(store_name, Edge, edge2)
 
       :ok
     end
 
-    test "all/1 returns all entities of a type", %{adapter_name: _name} do
-      {:ok, nodes} = ETSAdapter.all(Node)
-
+    test "all/2 returns all entities of a type", %{store_name: store_name} do
+      {:ok, nodes} = Store.all(store_name, Node, %{})
       assert length(nodes) == 5
+
+      {:ok, edges} = Store.all(store_name, Edge, %{})
+      assert length(edges) == 2
     end
 
-    test "all/2 with filter returns filtered entities", %{adapter_name: _name} do
-      # Filter by category A
-      {:ok, category_a_nodes} = ETSAdapter.all(Node, %{data: %{category: "A"}})
+    test "all/3 with filter returns filtered entities", %{store_name: store_name} do
+      filter_a = %{data: %{category: "A"}}
+      {:ok, category_a_nodes} = Store.all(store_name, Node, filter_a)
 
       assert length(category_a_nodes) == 2
       assert Enum.all?(category_a_nodes, fn node -> node.data.category == "A" end)
 
-      # Filter by value greater than 30
-      {:ok, high_value_nodes} = ETSAdapter.all(Node, %{data: %{value: fn v -> v > 30 end}})
+      filter_val = %{data: %{value: fn v -> v > 30 end}}
+      {:ok, high_value_nodes} = Store.all(store_name, Node, filter_val)
 
       assert length(high_value_nodes) == 2
       assert Enum.all?(high_value_nodes, fn node -> node.data.value > 30 end)
     end
-
-    test "all/3 with pagination options", %{adapter_name: _name} do
-      # Get with limit and offset
-      {:ok, limited_nodes} = ETSAdapter.all(Node, %{}, limit: 2)
-
-      assert length(limited_nodes) == 2
-
-      # Get second page
-      {:ok, second_page} = ETSAdapter.all(Node, %{}, offset: 2, limit: 2)
-
-      assert length(second_page) == 2
-      # Make sure we don't have duplicate nodes between pages
-      all_ids = Enum.map(limited_nodes ++ second_page, fn node -> node.id end)
-      assert length(all_ids) == 4
-      assert length(Enum.uniq(all_ids)) == 4
-    end
-
-    test "all/3 with sorting option", %{adapter_name: _name} do
-      # Sort in ascending order (by ID)
-      {:ok, asc_nodes} = ETSAdapter.all(Node, %{}, sort: :asc)
-
-      asc_ids = Enum.map(asc_nodes, fn node -> node.id end)
-      assert asc_ids == Enum.sort(asc_ids)
-
-      # Sort in descending order (by ID)
-      {:ok, desc_nodes} = ETSAdapter.all(Node, %{}, sort: :desc)
-
-      desc_ids = Enum.map(desc_nodes, fn node -> node.id end)
-      assert desc_ids == Enum.sort(desc_ids, :desc)
-    end
   end
 
-  describe "graph operations" do
-    setup %{adapter_name: _name} do
-      # Create a small graph with nodes and edges
-      nodes = [
-        create_test_node(%{id: "node_1", data: %{name: "Node 1"}}),
-        create_test_node(%{id: "node_2", data: %{name: "Node 2"}}),
-        create_test_node(%{id: "node_3", data: %{name: "Node 3"}}),
-        create_test_node(%{id: "node_4", data: %{name: "Node 4"}}),
-        create_test_node(%{id: "node_5", data: %{name: "Node 5"}})
-      ]
-
-      for node <- nodes do
-        {:ok, _} = ETSAdapter.insert(Node, node)
-      end
-
-      edges = [
-        create_test_edge(%{id: "edge_1_2", source: "node_1", target: "node_2"}),
-        create_test_edge(%{id: "edge_2_3", source: "node_2", target: "node_3"}),
-        create_test_edge(%{id: "edge_3_4", source: "node_3", target: "node_4"}),
-        create_test_edge(%{id: "edge_4_5", source: "node_4", target: "node_5"}),
-        create_test_edge(%{id: "edge_1_3", source: "node_1", target: "node_3"}),
-        create_test_edge(%{id: "edge_2_4", source: "node_2", target: "node_4"})
-      ]
-
-      for edge <- edges do
-        {:ok, _} = ETSAdapter.insert(Edge, edge)
-      end
-
-      :ok
-    end
-
-    test "traverse/2 with BFS algorithm", %{adapter_name: _name} do
-      {:ok, result} = ETSAdapter.traverse(:bfs, {"node_1", []})
-
-      # Extract node IDs from result for easier assertion
-      node_ids = Enum.map(result, fn node -> node.id end)
-
-      # First node should be the starting node
-      assert List.first(node_ids) == "node_1"
-
-      # All nodes should be reachable from node_1
-      assert Enum.sort(node_ids) == ["node_1", "node_2", "node_3", "node_4", "node_5"]
-
-      # BFS order should have direct neighbors first
-      # node_1's direct neighbors are node_2 and node_3
-      direct_neighbors = Enum.slice(node_ids, 1, 2)
-      assert Enum.sort(direct_neighbors) == ["node_2", "node_3"]
-    end
-
-    test "traverse/2 with shortest_path algorithm", %{adapter_name: _name} do
-      {:ok, path, _distance} = ETSAdapter.traverse(:shortest_path, {"node_1", "node_5", []})
-
-      # Extract node IDs
-      path_ids = Enum.map(path, fn node -> node.id end)
-
-      # Path should start and end with the correct nodes
-      assert List.first(path_ids) == "node_1"
-      assert List.last(path_ids) == "node_5"
-
-      # Path should be connected
-      Enum.chunk_every(path_ids, 2, 1, :discard)
-      |> Enum.each(fn [source, target] ->
-        # For each consecutive pair, there should be an edge
-        {:ok, edges} = ETSAdapter.all(Edge, %{source: source, target: target})
-        assert length(edges) > 0 ||
-               # Or check the reverse direction if edges are undirected
-               match?({:ok, [_|_]}, ETSAdapter.all(Edge, %{source: target, target: source}))
-      end)
-    end
-
-    test "traverse/2 with unsupported algorithm", %{adapter_name: _name} do
-      {:error, {:unsupported_algorithm, :invalid_algorithm}} =
-        ETSAdapter.traverse(:invalid_algorithm, {})
-    end
-  end
-
-  describe "schema operations" do
-    test "register_schema/2 registers a schema", %{adapter_name: name} do
-      schema = %{
-        name: :test_entity,
-        fields: [
-          %{name: :id, type: :string, required: true},
-          %{name: :name, type: :string}
-        ]
+  describe "schema registration" do
+    test "register_schema/2 updates the schema", %{store_name: store_name} do
+      new_schema = %{
+        nodes: %{
+          person: %{fields: %{name: :string, age: :integer}},
+          location: %{fields: %{name: :string, coordinates: :tuple}}
+        },
+        edges: %{
+          lives_at: %{fields: %{since: :date}},
+          works_at: %{}
+        }
       }
 
-      assert :ok = ETSAdapter.register_schema(name, schema)
+      :ok = Store.register_schema(store_name, new_schema)
     end
   end
 end

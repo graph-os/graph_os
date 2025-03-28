@@ -2,13 +2,25 @@ defmodule GraphOS.Entity.MetadataTest do
   use ExUnit.Case, async: false
 
   alias GraphOS.Entity.Metadata
-  alias GraphOS.Entity.{Node, Edge}
   alias GraphOS.Store
+  alias GraphOS.Store.Adapter.ETS
+  alias GraphOS.Entity.{Node, Edge}
 
   setup do
-    # Initialize a fresh store for each test
-    {:ok, _} = Store.init(name: :test_store)
-    :ok
+    # Use a unique store name for each test run to avoid conflicts
+    store_name = :"metadata_test_store_#{System.unique_integer([])}"
+    {:ok, _pid} = GraphOS.Store.start_link(name: store_name, adapter: ETS)
+    
+    # Add safer stop process with error handling
+    on_exit(fn -> 
+      try do
+        GraphOS.Store.stop(store_name)
+      catch
+        _kind, _value -> :ok
+      end
+    end)
+    
+    {:ok, %{store_name: store_name}}
   end
 
   describe "Metadata basics" do
@@ -59,151 +71,133 @@ defmodule GraphOS.Entity.MetadataTest do
   end
 
   describe "Manual metadata handling" do
-    test "creating a node with manual metadata" do
-      # Create metadata for a node
-      metadata = %Metadata{
+    test "creating a node with manual metadata", %{store_name: store_name} do
+      manual_metadata = %Metadata{
+        id: "manual_node_1",
         entity: :node,
         module: Node,
+        version: 1,
+        deleted: false,
         created_at: DateTime.utc_now(),
         updated_at: DateTime.utc_now(),
-        version: 1,
-        deleted: false
+        deleted_at: nil
       }
 
-      # Create a node with this metadata
-      node = Node.new(%{
-        data: %{name: "Test Node"},
-        metadata: metadata
-      })
+      node = %Node{
+        id: "manual_node_1",
+        data: %{test: "data"},
+        metadata: manual_metadata
+      }
 
-      # Insert the node into the store
-      {:ok, stored_node} = Store.insert(Node, node)
+      {:ok, _} = Store.insert(store_name, Node, node)
+      {:ok, stored_node} = Store.get(store_name, Node, "manual_node_1")
 
-      # Verify the metadata was preserved
-      assert stored_node.metadata != nil
-      assert stored_node.metadata.entity == :node
-      assert stored_node.metadata.module == Node
-      assert stored_node.metadata.version == 1
-      assert stored_node.metadata.deleted == false
+      # Compare only the important fields, not the timestamps
+      assert stored_node.metadata.id == manual_metadata.id
+      assert stored_node.metadata.entity == manual_metadata.entity
+      assert stored_node.metadata.module == manual_metadata.module
+      assert stored_node.metadata.version == manual_metadata.version
+      assert stored_node.metadata.deleted == manual_metadata.deleted
     end
 
-    test "creating an edge with manual metadata" do
-      # Create source and target nodes first
-      source_node = Node.new(%{data: %{name: "Source Node"}})
-      target_node = Node.new(%{data: %{name: "Target Node"}})
+    test "creating an edge with manual metadata", %{store_name: store_name} do
+      # First create source and target nodes
+      source_node = %Node{id: "source1", data: %{}, metadata: %Metadata{}}
+      target_node = %Node{id: "target1", data: %{}, metadata: %Metadata{}}
+      {:ok, _} = Store.insert(store_name, Node, source_node)
+      {:ok, _} = Store.insert(store_name, Node, target_node)
 
-      {:ok, source} = Store.insert(Node, source_node)
-      {:ok, target} = Store.insert(Node, target_node)
-
-      # Create metadata for an edge
-      metadata = %Metadata{
+      manual_metadata = %Metadata{
+        id: "manual_edge_1",
         entity: :edge,
         module: Edge,
+        version: 1,
+        deleted: false,
         created_at: DateTime.utc_now(),
         updated_at: DateTime.utc_now(),
-        version: 1,
-        deleted: false
+        deleted_at: nil
       }
 
-      # Create an edge with this metadata
-      edge = Edge.new(%{
-        source: source.id,
-        target: target.id,
-        metadata: metadata
-      })
+      edge = %Edge{
+        id: "manual_edge_1",
+        source: "source1",
+        target: "target1",
+        data: %{},
+        metadata: manual_metadata
+      }
 
-      # Insert the edge into the store
-      {:ok, stored_edge} = Store.insert(Edge, edge)
+      {:ok, _} = Store.insert(store_name, Edge, edge)
+      {:ok, stored_edge} = Store.get(store_name, Edge, "manual_edge_1")
 
-      # Verify the metadata was preserved
-      assert stored_edge.metadata != nil
-      assert stored_edge.metadata.entity == :edge
-      assert stored_edge.metadata.module == Edge
-      assert stored_edge.metadata.version == 1
-      assert stored_edge.metadata.deleted == false
+      # Compare only the important fields, not the timestamps
+      assert stored_edge.metadata.id == manual_metadata.id
+      assert stored_edge.metadata.entity == manual_metadata.entity
+      assert stored_edge.metadata.module == manual_metadata.module
+      assert stored_edge.metadata.version == manual_metadata.version
+      assert stored_edge.metadata.deleted == manual_metadata.deleted
     end
 
-    test "manually updating metadata on entity updates" do
-      # Create initial node with metadata
-      metadata = %Metadata{
-        entity: :node,
-        module: Node,
-        created_at: DateTime.utc_now(),
-        updated_at: DateTime.utc_now(),
-        version: 1,
-        deleted: false
+    test "manually updating metadata on entity updates", %{store_name: store_name} do
+      # Insert initial node
+      node = %Node{
+        id: "update_meta_node",
+        data: %{value: 1},
+        metadata: %Metadata{
+          id: "update_meta_node",
+          entity: :node,
+          module: Node,
+          created_at: DateTime.utc_now(),
+          updated_at: DateTime.utc_now(),
+          version: 1,
+          deleted: false
+        }
       }
 
-      node = Node.new(%{
-        data: %{name: "Original Name"},
-        metadata: metadata
-      })
+      {:ok, _} = Store.insert(store_name, Node, node)
 
-      {:ok, stored_node} = Store.insert(Node, node)
+      # Retrieve the node
+      {:ok, stored_node} = Store.get(store_name, Node, "update_meta_node")
+      
+      # Update the node with modified data to trigger metadata update
+      updated_node = Map.update!(stored_node, :data, fn data -> Map.put(data, :updated, true) end)
+      {:ok, updated_stored_node} = Store.update(store_name, Node, updated_node)
 
-      # Extract and update the metadata for the update operation
-      original_metadata = stored_node.metadata
-      updated_metadata = %Metadata{
-        original_metadata |
-        updated_at: DateTime.utc_now(),
-        version: original_metadata.version + 1
-      }
-
-      # Update the node with new data and updated metadata
-      {:ok, updated_node} = Store.update(Node, %{
-        id: stored_node.id,
-        data: %{name: "Updated Name"},
-        metadata: updated_metadata
-      })
-
-      # Verify the metadata was updated correctly
-      assert updated_node.metadata.created_at == original_metadata.created_at
-      assert updated_node.metadata.updated_at != original_metadata.updated_at
-      assert DateTime.compare(updated_node.metadata.updated_at, original_metadata.updated_at) == :gt
-      assert updated_node.metadata.version == original_metadata.version + 1
-      assert updated_node.metadata.deleted == false
+      # Verify the version was incremented automatically
+      assert updated_stored_node.metadata.version == 2
+      # Verify updated_at was changed
+      assert DateTime.compare(updated_stored_node.metadata.updated_at, stored_node.metadata.updated_at) == :gt
     end
 
-    test "manually marking an entity as deleted" do
-      # Create initial node with metadata
-      metadata = %Metadata{
-        entity: :node,
-        module: Node,
-        created_at: DateTime.utc_now(),
-        updated_at: DateTime.utc_now(),
-        version: 1,
-        deleted: false
+    test "manually marking an entity as deleted", %{store_name: store_name} do
+      # Insert initial node
+      node = %Node{
+        id: "deleted_meta_node",
+        data: %{value: 1},
+        metadata: %Metadata{
+          id: "deleted_meta_node",
+          entity: :node,
+          module: Node,
+          created_at: DateTime.utc_now(),
+          updated_at: DateTime.utc_now(),
+          version: 1,
+          deleted: false
+        }
       }
 
-      node = Node.new(%{
-        data: %{name: "To Be Soft Deleted"},
-        metadata: metadata
-      })
+      {:ok, _} = Store.insert(store_name, Node, node)
 
-      {:ok, stored_node} = Store.insert(Node, node)
+      # Retrieve the node before deletion
+      {:ok, stored_node} = Store.get(store_name, Node, "deleted_meta_node")
+      assert stored_node.metadata.deleted == false
+      
+      # Soft delete the node using the Store.delete function
+      :ok = Store.delete(store_name, Node, "deleted_meta_node")
 
-      # Mark as deleted by updating metadata
-      original_metadata = stored_node.metadata
-      deleted_metadata = %Metadata{
-        original_metadata |
-        deleted_at: DateTime.utc_now(),
-        updated_at: DateTime.utc_now(),
-        version: original_metadata.version + 1,
-        deleted: true
-      }
+      # Verify normal get returns :deleted error
+      assert {:error, :deleted} = Store.get(store_name, Node, "deleted_meta_node")
 
-      # Update the node with deleted metadata
-      {:ok, soft_deleted_node} = Store.update(Node, %{
-        id: stored_node.id,
-        metadata: deleted_metadata
-      })
-
-      # Verify the node is marked as deleted
-      assert soft_deleted_node.metadata.deleted == true
-      assert soft_deleted_node.metadata.deleted_at != nil
-
-      # Verify the deleted?/1 function works correctly
-      assert Metadata.deleted?(soft_deleted_node) == true
+      # We can't directly access deleted nodes through Store.all since it filters them out,
+      # so we'll just verify that the delete operation worked by checking the error
     end
   end
 end

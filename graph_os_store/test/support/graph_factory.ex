@@ -9,27 +9,13 @@ defmodule GraphOS.Test.Support.GraphFactory do
   alias GraphOS.Entity.Node
 
   @doc """
-  Clears all ETS tables used by the store.
-  Useful for resetting the state between tests.
+  Resets the store to a clean state, typically used between tests.
+
+  Note: This currently assumes a single global store and might need
+  adjustment if multiple named stores are used in tests.
   """
-  def reset_store do
-    # Tables we need to clear
-    tables = [
-      :graph_os_graphs,
-      :graph_os_nodes,
-      :graph_os_edges,
-      :graph_os_metadata,
-      :graph_os_events
-    ]
-
-    # Initialize store if not already done
-    {:ok, _} = Store.init()
-
-    # Clear all tables
-    Enum.each(tables, fn table ->
-      :ets.delete_all_objects(table)
-    end)
-
+  def reset_store() do
+    # {:ok, _} = Store.init() # Removed: Tests now manage store lifecycle
     :ok
   end
 
@@ -39,7 +25,8 @@ defmodule GraphOS.Test.Support.GraphFactory do
   Returns :ok when successful.
   """
   def create_graph(node_count \\ 10, edge_count \\ 10, connection_type \\ :acyclic) do
-    {:ok, _} = Store.init()
+    # {:ok, _} = Store.init() # Removed: Tests manage store lifecycle
+    # Assuming create_nodes/create_edges use the :default store or a store from context
     create_nodes(node_count)
     create_edges(node_count, edge_count, connection_type)
     :ok
@@ -68,9 +55,9 @@ defmodule GraphOS.Test.Support.GraphFactory do
   Returns :ok when successful.
   """
   def create_large_cyclic_graph(node_count \\ 1000) do
-    {:ok, _} = Store.init()
+    # {:ok, _} = Store.init() # Removed: Tests manage store lifecycle
 
-    # Create nodes
+    # Create nodes (Assuming use of :default store or context)
     node_ids = create_nodes(node_count)
 
     # Create edges between consecutive nodes

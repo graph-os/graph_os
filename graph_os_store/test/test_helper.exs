@@ -13,7 +13,7 @@ ExUnit.configure(
   exclude: exclude,
   setup_all: fn _tags ->
     # Setup for each test module
-    {:ok, _} = GraphOS.Store.init()
+    # {:ok, _} = GraphOS.Store.init()
 
     # We'll still reset before each individual test too
     GraphOS.Test.Support.GraphFactory.reset_store()
@@ -27,3 +27,9 @@ ExUnit.configure(
 )
 
 ExUnit.start()
+
+# Setup for all tests
+# We removed the global Store.init() here as tests manage their own stores
+# Each test module using the Store should implement its own setup
+# using GraphOS.Store.start_link and on_exit.
+# Ecto.Adapters.SQL.Sandbox.mode(GraphOS.Repo, :manual) # Removed: Ecto is not a dependency

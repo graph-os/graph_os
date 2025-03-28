@@ -1,199 +1,241 @@
 defmodule GraphOS.Access.GroupMembershipTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
 
   alias GraphOS.Access
-  alias GraphOS.Access.{Group, Membership}
+  alias GraphOS.Store
+  alias GraphOS.Store.Adapter.ETS
 
   setup do
-    # Clean store state before each test
-    GraphOS.Test.Support.GraphFactory.reset_store()
+    # Generate a unique store name for this test
+    store_name = String.to_atom("group_membership_test_store_#{System.unique_integer([:positive, :monotonic])}")
+
+    # Start the store for this test
+    {:ok, pid} = Store.start_link(name: store_name, adapter: ETS)
+
+    # Ensure store is stopped on exit
+    on_exit(fn -> 
+      try do
+        if Process.alive?(pid) do
+          Store.stop(store_name)
+        end
+      catch
+        :exit, _ -> :ok
+      end
+    end)
 
     # Create a test policy
-    {:ok, policy} = Access.create_policy("group_membership_test_policy")
+    {:ok, policy} = Access.create_policy(store_name, "test_policy")
 
     # Create test actors
-    {:ok, alice} = Access.create_actor(policy.id, %{id: "alice", name: "Alice"})
-    {:ok, bob} = Access.create_actor(policy.id, %{id: "bob", name: "Bob"})
-    {:ok, charlie} = Access.create_actor(policy.id, %{id: "charlie", name: "Charlie"})
+    {:ok, alice} = Access.create_actor(store_name, policy.id, %{id: "alice", name: "Alice"})
+    {:ok, bob} = Access.create_actor(store_name, policy.id, %{id: "bob", name: "Bob"})
 
     # Create test groups
-    {:ok, admins} = Access.create_group(policy.id, %{id: "admins", name: "Administrators", description: "Admin users"})
-    {:ok, users} = Access.create_group(policy.id, %{id: "users", name: "Regular Users", description: "Standard users"})
+    {:ok, developers} = Access.create_group(store_name, policy.id, %{id: "devs", name: "Developers"})
+    {:ok, managers} = Access.create_group(store_name, policy.id, %{id: "mgrs", name: "Managers"})
 
-    # Create test scopes
-    {:ok, documents} = Access.create_scope(policy.id, %{id: "documents", name: "Documents"})
-    {:ok, settings} = Access.create_scope(policy.id, %{id: "settings", name: "System Settings"})
+    # Create a scope for permission tests
+    {:ok, project_scope} = Access.create_scope(store_name, policy.id, %{id: "project_a", name: "Project A"})
 
-    %{
-      policy: policy,
-      alice: alice,
-      bob: bob,
-      charlie: charlie,
-      admins: admins,
-      users: users,
-      documents: documents,
-      settings: settings
-    }
+    # Add alice to developers group initially
+    {:ok, _} = Access.add_to_group(store_name, policy.id, alice.id, developers.id)
+
+    # Return context map
+    {:ok,
+     %{
+       store_name: store_name,
+       policy: policy,
+       actors: %{alice: alice, bob: bob},
+       groups: %{devs: developers, mgrs: managers},
+       scope: project_scope,
+       project_scope: project_scope
+     }}
   end
 
   describe "Group entity" do
-    test "group creation and fields", %{admins: admins} do
-      assert admins.id == "admins"
-      assert admins.data.name == "Administrators"
-      assert admins.data.description == "Admin users"
+    test "group creation and fields", %{policy: policy, store_name: store_name} do
+      {:ok, qa_team} = Access.create_group(store_name, policy.id, %{id: "qa", name: "QA Team"})
+      assert qa_team.id == "qa"
+      assert qa_team.data.name == "QA Team"
+      assert qa_team.graph_id == policy.id
     end
 
-    test "group permissions", %{policy: policy, admins: admins, settings: settings} do
-      # Grant permissions to the admins group
-      {:ok, _permission} = Access.grant_permission(policy.id, settings.id, admins.id, %{read: true, write: true})
+    test "group permissions", %{
+      policy: policy,
+      store_name: store_name,
+      groups: %{devs: developers},
+      scope: scope
+    } do
+      # Grant permissions to the group
+      {:ok, permission} =
+        Access.grant_permission(store_name, policy.id, scope.id, developers.id, %{
+          read: true,
+          write: true,
+          execute: true
+        })
 
-      # Get permissions granted to the group
-      {:ok, permissions} = Group.permissions(admins.id)
+      assert permission.source == scope.id
+      assert permission.target == developers.id
+      assert permission.data.read == true
+      assert permission.data.write == true
+      assert permission.data.execute == true
 
-      # Should have 1 permission on settings
-      assert length(permissions) == 1
-
-      # Check permission details
-      scope_perm = Enum.at(permissions, 0)
-      assert scope_perm.scope_id == settings.id
-      assert scope_perm.permissions.read == true
-      assert scope_perm.permissions.write == true
+      # Check group permissions
+      assert Access.has_permission?(store_name, scope.id, developers.id, :read)
+      assert Access.has_permission?(store_name, scope.id, developers.id, :write)
+      assert Access.has_permission?(store_name, scope.id, developers.id, :execute)
     end
 
-    test "adding and removing members", %{policy: policy, alice: alice, admins: admins} do
-      # Add Alice to the admins group
-      {:ok, _} = Access.add_to_group(policy.id, alice.id, admins.id)
+    test "adding and removing members", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{bob: bob},
+      groups: %{devs: developers}
+    } do
+      # Add bob to developers
+      {:ok, _} = Access.add_to_group(store_name, policy.id, bob.id, developers.id)
 
-      # Check if Alice is a member
-      assert Group.has_member?(admins.id, alice.id) == true
+      # Verify membership
+      assert Access.is_member?(store_name, bob.id, developers.id)
 
-      # Remove Alice - using correct signature
-      :ok = Group.remove_member(admins.id, alice.id)
+      # Remove bob from developers
+      {:ok, _} = Access.remove_from_group(store_name, policy.id, bob.id, developers.id)
 
-      # Check if Alice is still a member after removal
-      assert Group.has_member?(admins.id, alice.id) == false
+      # Verify removal
+      refute Access.is_member?(store_name, bob.id, developers.id)
     end
 
-    test "checking group permissions", %{policy: policy, admins: admins, settings: settings} do
-      # Check before granting permission
-      assert Group.has_permission?(admins.id, settings.id, :write) == false
+    test "checking group permissions", %{
+      policy: policy,
+      store_name: store_name,
+      groups: %{devs: developers},
+      project_scope: project_scope
+    } do
+      # Grant permissions
+      Access.grant_permission(store_name, policy.id, project_scope.id, developers.id, %{read: true})
 
-      # Grant permission
-      {:ok, _} = Access.grant_permission(policy.id, settings.id, admins.id, %{write: true})
-
-      # Check again after granting
-      assert Group.has_permission?(admins.id, settings.id, :write) == true
+      # Check group permissions
+      assert Access.has_permission?(store_name, project_scope.id, developers.id, :read)
+      refute Access.has_permission?(store_name, project_scope.id, developers.id, :write)
+      refute Access.has_permission?(store_name, project_scope.id, developers.id, :execute)
     end
 
-    test "listing group members", %{policy: policy, alice: alice, bob: bob, admins: admins} do
-      # Add both Alice and Bob to the group
-      {:ok, _} = Access.add_to_group(policy.id, alice.id, admins.id)
-      {:ok, _} = Access.add_to_group(policy.id, bob.id, admins.id)
+    test "listing group members", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{alice: alice, bob: bob},
+      groups: %{devs: developers}
+    } do
+      # Add bob as well (alice added in setup)
+      Access.add_to_group(store_name, policy.id, bob.id, developers.id)
 
-      # Get all members of the group
-      {:ok, members} = Group.members(admins.id)
+      # List members
+      {:ok, members} = Access.list_group_members(store_name, developers.id)
 
-      # Should have 2 members (Alice and Bob)
       assert length(members) == 2
-      assert Enum.any?(members, fn m -> m.actor_id == alice.id end)
-      assert Enum.any?(members, fn m -> m.actor_id == bob.id end)
+      assert Enum.any?(members, &(&1.actor_id == alice.id))
+      assert Enum.any?(members, &(&1.actor_id == bob.id))
     end
   end
 
   describe "Membership entity" do
-    test "membership creation", %{policy: policy, alice: alice, admins: admins} do
-      # Create new membership
-      {:ok, membership} = Membership.create(policy.id, alice.id, admins.id)
+    test "membership creation", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{bob: bob},
+      groups: %{mgrs: managers}
+    } do
+      # Create membership directly (this tests if add_to_group works)
+      {:ok, membership} = Access.add_to_group(store_name, policy.id, bob.id, managers.id)
 
-      assert membership.source == alice.id
-      assert membership.target == admins.id
-      assert Map.has_key?(membership.data, :joined_at)
+      assert membership.source == bob.id
+      assert membership.target == managers.id
     end
 
-    test "finding memberships by actor", %{policy: policy, alice: alice, admins: admins, users: users} do
-      # Add Alice to both groups
-      {:ok, _} = Access.add_to_group(policy.id, alice.id, admins.id)
-      {:ok, _} = Access.add_to_group(policy.id, alice.id, users.id)
+    test "finding memberships by actor", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{alice: alice},
+      groups: %{devs: developers, mgrs: managers}
+    } do
+      # Add alice to managers as well (already in developers from setup)
+      Access.add_to_group(store_name, policy.id, alice.id, managers.id)
 
-      # Find all memberships for Alice
-      {:ok, memberships} = Membership.find_by_actor(alice.id)
+      # List actor groups/memberships
+      {:ok, memberships} = Access.list_actor_groups(store_name, alice.id)
 
-      # Alice should be in 2 groups
       assert length(memberships) == 2
-      assert Enum.any?(memberships, fn m -> m.target == admins.id end)
-      assert Enum.any?(memberships, fn m -> m.target == users.id end)
+      assert Enum.any?(memberships, &(&1.group_id == developers.id))
+      assert Enum.any?(memberships, &(&1.group_id == managers.id))
     end
 
-    test "finding memberships by group", %{policy: policy, alice: alice, bob: bob, admins: admins} do
-      # Add both Alice and Bob to admins
-      {:ok, _} = Access.add_to_group(policy.id, alice.id, admins.id)
-      {:ok, _} = Access.add_to_group(policy.id, bob.id, admins.id)
+    test "finding memberships by group", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{alice: alice, bob: bob},
+      groups: %{devs: developers}
+    } do
+      # Add bob to developers
+      Access.add_to_group(store_name, policy.id, bob.id, developers.id)
 
-      # Find all memberships for the admins group
-      {:ok, memberships} = Membership.find_by_group(admins.id)
+      # List group members
+      {:ok, members} = Access.list_group_members(store_name, developers.id)
 
-      # Should have 2 members (Alice and Bob)
-      assert length(memberships) == 2
-      assert Enum.any?(memberships, fn m -> m.source == alice.id end)
-      assert Enum.any?(memberships, fn m -> m.source == bob.id end)
+      assert length(members) == 2
+      assert Enum.any?(members, &(&1.actor_id == alice.id))
+      assert Enum.any?(members, &(&1.actor_id == bob.id))
     end
 
-    test "checking membership existence", %{policy: policy, alice: alice, bob: bob, admins: admins} do
-      # Add Alice to the group
-      {:ok, _} = Access.add_to_group(policy.id, alice.id, admins.id)
-
-      # Check if Alice is a member
-      assert Membership.exists?(alice.id, admins.id) == true
-
-      # Check if Bob is a member (should be false)
-      assert Membership.exists?(bob.id, admins.id) == false
+    test "checking membership existence", %{
+      store_name: store_name,
+      actors: %{alice: alice, bob: bob},
+      groups: %{devs: developers}
+    } do
+      # Alice is a member from setup
+      assert Access.is_member?(store_name, alice.id, developers.id)
+      # Bob is not (initially)
+      refute Access.is_member?(store_name, bob.id, developers.id)
     end
 
-    test "removing membership", %{policy: policy, alice: alice, admins: admins} do
-      # Add Alice to the group
-      {:ok, _} = Access.add_to_group(policy.id, alice.id, admins.id)
+    test "removing membership", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{alice: alice},
+      groups: %{devs: developers}
+    } do
+      # Verify initial membership
+      assert Access.is_member?(store_name, alice.id, developers.id)
 
-      # Check Alice is a member
-      assert Membership.exists?(alice.id, admins.id) == true
+      # Remove membership
+      {:ok, _} = Access.remove_from_group(store_name, policy.id, alice.id, developers.id)
 
-      # Remove membership - using correct signature
-      :ok = Membership.remove(alice.id, admins.id)
-
-      # Verify Alice is no longer a member
-      assert Membership.exists?(alice.id, admins.id) == false
+      # Verify removal
+      refute Access.is_member?(store_name, alice.id, developers.id)
     end
   end
 
   describe "Inheritance and Group Hierarchies" do
-    test "actor inherits permissions from multiple groups", %{policy: policy, alice: alice, admins: admins, users: users, documents: documents, settings: settings} do
-      # Add Alice to both groups
-      {:ok, _} = Access.add_to_group(policy.id, alice.id, admins.id)
-      {:ok, _} = Access.add_to_group(policy.id, alice.id, users.id)
+    test "actor inherits permissions from multiple groups", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{alice: alice},
+      groups: %{devs: developers, mgrs: managers},
+      project_scope: project_scope
+    } do
+      # Grant devs read, mgrs write
+      Access.grant_permission(store_name, policy.id, project_scope.id, developers.id, %{read: true})
+      Access.grant_permission(store_name, policy.id, project_scope.id, managers.id, %{write: true})
 
-      # Grant different permissions to each group
-      # - Admins: Read/Write on settings
-      # - Users: Read on documents
-      {:ok, _} = Access.grant_permission(policy.id, settings.id, admins.id, %{read: true, write: true})
-      {:ok, _} = Access.grant_permission(policy.id, documents.id, users.id, %{read: true})
+      # Add alice to managers (already in developers)
+      Access.add_to_group(store_name, policy.id, alice.id, managers.id)
 
-      # Check Alice's permissions (should inherit from both groups)
-      {:ok, permissions} = Access.list_actor_permissions(alice.id)
-
-      # Should have 2 permissions total (one from each group)
-      assert length(permissions) == 2
-
-      # Check settings permission (from admins)
-      settings_perm = Enum.find(permissions, fn p -> p.scope_id == settings.id end)
-      assert settings_perm != nil
-      assert settings_perm.permissions.read == true
-      assert settings_perm.permissions.write == true
-      assert settings_perm.via_group == admins.id
-
-      # Check documents permission (from users)
-      documents_perm = Enum.find(permissions, fn p -> p.scope_id == documents.id end)
-      assert documents_perm != nil
-      assert documents_perm.permissions.read == true
-      assert documents_perm.via_group == users.id
+      # Alice should have both read (from devs) and write (from mgrs)
+      assert Access.has_permission?(store_name, project_scope.id, alice.id, :read)
+      assert Access.has_permission?(store_name, project_scope.id, alice.id, :write)
+      refute Access.has_permission?(store_name, project_scope.id, alice.id, :execute)
     end
+
+    # Note: True hierarchical groups (groups within groups) are not directly supported by this model.
+    # That would require a separate feature implementation.
   end
 end

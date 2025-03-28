@@ -1,218 +1,246 @@
 defmodule GraphOS.Access.ActorScopeTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: false
 
   alias GraphOS.Access
-  alias GraphOS.Access.{Actor, Scope}
-  alias GraphOS.Entity.Node
   alias GraphOS.Store
+  alias GraphOS.Store.Adapter.ETS
+  alias GraphOS.Entity.Node
 
   setup do
-    # Clean store state before each test
-    GraphOS.Test.Support.GraphFactory.reset_store()
+    # Generate a truly unique store name for this test
+    store_name = String.to_atom("actor_scope_test_store_#{System.unique_integer([:positive, :monotonic])}")
 
-    # Create a test policy
-    {:ok, policy} = Access.create_policy("actor_scope_test_policy")
+    # Start the store for this test
+    {:ok, _pid} = Store.start_link(name: store_name, adapter: ETS)
+
+    # Create a test policy for all tests within this store
+    {:ok, policy} = Access.create_policy(store_name, "test_policy")
 
     # Create test actors
-    {:ok, alice} = Access.create_actor(policy.id, %{id: "alice", name: "Alice"})
-    {:ok, bob} = Access.create_actor(policy.id, %{id: "bob", name: "Bob"})
+    {:ok, alice} = Access.create_actor(store_name, policy.id, %{id: "alice", name: "Alice"})
+    {:ok, bob} = Access.create_actor(store_name, policy.id, %{id: "bob", name: "Bob"})
 
     # Create test groups
-    {:ok, admins} = Access.create_group(policy.id, %{id: "admins", name: "Administrators"})
-    {:ok, users} = Access.create_group(policy.id, %{id: "users", name: "Regular Users"})
+    {:ok, admins} = Access.create_group(store_name, policy.id, %{id: "admins", name: "Administrators"})
+    {:ok, users} = Access.create_group(store_name, policy.id, %{id: "users", name: "Regular Users"})
 
     # Create test scopes
-    {:ok, documents} = Access.create_scope(policy.id, %{id: "documents", name: "Documents"})
-    {:ok, settings} = Access.create_scope(policy.id, %{id: "settings", name: "System Settings"})
+    {:ok, documents} = Access.create_scope(store_name, policy.id, %{id: "documents", name: "Documents"})
+    {:ok, settings} = Access.create_scope(store_name, policy.id, %{id: "settings", name: "System Settings"})
 
-    # Create test document node
-    doc1 = Node.new(%{id: "doc1", data: %{title: "Document 1"}})
-    {:ok, doc1} = Store.insert(Node, doc1)
+    # Create a test node (resource)
+    test_node = Node.new(%{id: "test_node_1", data: %{content: "Some data"}})
+    {:ok, stored_test_node} = Store.insert(store_name, Node, test_node)
 
-    # Bind documents to scope
-    {:ok, _} = Access.bind_scope_to_node(policy.id, documents.id, doc1.id)
-
-    %{
+    # Bind the test node to the documents scope
+    {:ok, _} = Access.bind_scope_to_node(store_name, policy.id, documents.id, stored_test_node.id)
+    
+    # Return context map for tests
+    context = %{
+      store_name: store_name,
       policy: policy,
-      alice: alice,
-      bob: bob,
-      admins: admins,
-      users: users,
-      documents: documents,
-      settings: settings,
-      doc1: doc1
+      actors: %{alice: alice, bob: bob},
+      groups: %{admins: admins, users: users},
+      scopes: %{documents: documents, settings: settings},
+      test_node: stored_test_node
     }
+
+    # Ensure we clean up after the test
+    on_exit(fn -> 
+      try do
+        Store.stop(store_name)
+      catch
+        :exit, _ -> :ok
+      end
+    end)
+
+    # Return the context
+    {:ok, context}
   end
 
   describe "Actor entity" do
-    test "actor creation and fields", %{alice: alice} do
-      assert alice.id == "alice"
-      assert alice.data.name == "Alice"
+    test "actor creation and fields", %{policy: policy, store_name: store_name} do
+      {:ok, charlie} = Access.create_actor(store_name, policy.id, %{id: "charlie", name: "Charlie"})
+      assert charlie.id == "charlie"
+      assert charlie.data.name == "Charlie"
+      assert charlie.graph_id == policy.id
     end
 
-    test "actor permissions", %{policy: policy, alice: alice, documents: documents, settings: settings} do
-      # Grant permissions to Alice
-      {:ok, _} = Access.grant_permission(policy.id, documents.id, alice.id, %{read: true, write: true})
-      {:ok, _} = Access.grant_permission(policy.id, settings.id, alice.id, %{read: true})
-
-      # List permissions that Alice has
-      {:ok, permissions} = Actor.permissions(alice.id)
-
-      # Should have 2 permissions total
-      assert length(permissions) == 2
-
-      # Check documents permission
-      doc_perm = Enum.find(permissions, fn p -> p.scope_id == documents.id end)
-      assert doc_perm != nil
-      assert doc_perm.permissions.read == true
-      assert doc_perm.permissions.write == true
-
-      # Check settings permission
-      settings_perm = Enum.find(permissions, fn p -> p.scope_id == settings.id end)
-      assert settings_perm != nil
-      assert settings_perm.permissions.read == true
-      assert Map.get(settings_perm.permissions, :write, nil) == nil || Map.get(settings_perm.permissions, :write, false) == false
-    end
-
-    test "checking permissions", %{policy: policy, alice: alice, documents: documents} do
-      # Grant read-only permission to Alice
-      {:ok, _} = Access.grant_permission(policy.id, documents.id, alice.id, %{read: true})
+    test "actor permissions", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{alice: alice},
+      scopes: %{documents: documents}
+    } do
+      # Grant read permission to Alice on documents
+      Access.grant_permission(store_name, policy.id, documents.id, alice.id, %{read: true})
 
       # Check permissions
-      assert Actor.has_permission?(alice.id, documents.id, :read) == true
-      assert Actor.has_permission?(alice.id, documents.id, :write) == false
+      assert Access.has_permission?(store_name, documents.id, alice.id, :read)
+      refute Access.has_permission?(store_name, documents.id, alice.id, :write)
     end
 
-    test "group management", %{policy: policy, alice: alice, admins: admins} do
-      # Alice joins admins group
-      {:ok, membership} = Actor.join_group(policy.id, alice.id, admins.id)
-      assert membership.source == alice.id
-      assert membership.target == admins.id
+    test "checking permissions", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{alice: alice, bob: bob},
+      scopes: %{documents: documents},
+      groups: %{admins: admins}
+    } do
+      # Add actor to group
+      Access.add_to_group(store_name, policy.id, alice.id, admins.id)
 
-      # Get groups Alice is a member of
-      {:ok, groups} = Actor.groups(alice.id)
-      assert length(groups) == 1
-      assert hd(groups).group_id == admins.id
+      # Check membership
+      assert Access.is_member?(store_name, alice.id, admins.id)
+      assert not Access.is_member?(store_name, bob.id, admins.id)
+
+      # Remove actor from group
+      Access.remove_from_group(store_name, policy.id, alice.id, admins.id)
+
+      # Check membership again
+      assert not Access.is_member?(store_name, alice.id, admins.id)
     end
 
-    test "authorization", %{policy: policy, alice: alice, documents: documents, doc1: doc1} do
-      # Grant read permission to Alice on documents
-      {:ok, _} = Access.grant_permission(policy.id, documents.id, alice.id, %{read: true})
+    test "group management", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{alice: alice},
+      groups: %{admins: admins}
+    } do
+      # Add actor to group
+      Access.add_to_group(store_name, policy.id, alice.id, admins.id)
 
-      # Check if Alice is authorized to read doc1 (which is bound to documents)
-      # Using our mock instead of the real implementation
-      assert GraphOS.Access.ActorScopeTest.MockActor.authorized?(alice.id, :read, doc1.id) == true
-      assert GraphOS.Access.ActorScopeTest.MockActor.authorized?(alice.id, :write, doc1.id) == true
+      # Verify membership
+      assert Access.is_member?(store_name, alice.id, admins.id)
+
+      # Remove actor from group
+      Access.remove_from_group(store_name, policy.id, alice.id, admins.id)
+
+      # Verify removal
+      assert not Access.is_member?(store_name, alice.id, admins.id)
+    end
+
+    test "authorization", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{alice: alice},
+      scopes: %{documents: documents},
+      test_node: test_node
+    } do
+      # Grant permission
+      # Node binding happens in setup
+      Access.grant_permission(store_name, policy.id, documents.id, alice.id, %{read: true})
+
+      # Check authorization
+      assert Access.authorize?(store_name, alice.id, :read, test_node.id)
+      refute Access.authorize?(store_name, alice.id, :write, test_node.id)
     end
   end
 
   describe "Scope entity" do
-    test "scope creation and fields", %{documents: documents} do
-      assert documents.id == "documents"
-      assert documents.data.name == "Documents"
+    test "scope creation and fields", %{policy: policy, store_name: store_name} do
+      {:ok, reports} = Access.create_scope(store_name, policy.id, %{id: "reports", name: "Reports"})
+      assert reports.id == "reports"
+      assert reports.data.name == "Reports"
+      assert reports.graph_id == policy.id
     end
 
-    test "scope permissions", %{policy: policy, alice: alice, bob: bob, documents: documents} do
-      # Grant different permissions to Alice and Bob
-      {:ok, _} = Access.grant_permission(policy.id, documents.id, alice.id, %{read: true, write: true})
-      {:ok, _} = Access.grant_permission(policy.id, documents.id, bob.id, %{read: true})
+    test "scope permissions", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{alice: alice},
+      groups: %{admins: admins},
+      scopes: %{settings: settings}
+    } do
+      # Grant permission to Alice directly
+      Access.grant_permission(store_name, policy.id, settings.id, alice.id, %{read: true})
+      # Grant permission to admins group
+      Access.grant_permission(store_name, policy.id, settings.id, admins.id, %{write: true})
 
-      # List all permissions on the documents scope
-      {:ok, permissions} = Scope.permissions(documents.id)
-
-      # Should have 2 permissions (Alice and Bob)
+      # List permissions on the scope
+      {:ok, permissions} = Access.list_scope_permissions(store_name, settings.id)
       assert length(permissions) == 2
 
-      # Check Alice's permission
+      # Find Alice's permission
       alice_perm = Enum.find(permissions, fn p -> p.target_id == alice.id end)
       assert alice_perm != nil
+      assert alice_perm.target_type == "actor"
       assert alice_perm.permissions.read == true
-      assert alice_perm.permissions.write == true
 
-      # Check Bob's permission
-      bob_perm = Enum.find(permissions, fn p -> p.target_id == bob.id end)
-      assert bob_perm != nil
-      assert bob_perm.permissions.read == true
-      assert Map.get(bob_perm.permissions, :write, nil) == nil || Map.get(bob_perm.permissions, :write, false) == false
+      # Find admins group's permission
+      admin_perm = Enum.find(permissions, fn p -> p.target_id == admins.id end)
+      assert admin_perm != nil
+      assert admin_perm.target_type == "group"
+      assert admin_perm.permissions.write == true
     end
 
-    test "granting and revoking permissions", %{policy: policy, alice: alice, documents: documents} do
-      # Grant permission through Scope module
-      {:ok, permission} = Scope.grant_to(policy.id, documents.id, alice.id, %{read: true, write: true})
-      assert permission.source == documents.id
-      assert permission.target == alice.id
-      assert permission.data.read == true
-      assert permission.data.write == true
+    test "granting and revoking permissions", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{bob: bob},
+      scopes: %{documents: documents}
+    } do
+      # Grant permission
+      {:ok, _perm} = Access.grant_permission(store_name, policy.id, documents.id, bob.id, %{read: true, write: true})
 
-      # Check if permission exists
-      assert Scope.actor_has_permission?(documents.id, alice.id, :read) == true
-      assert Scope.actor_has_permission?(documents.id, alice.id, :write) == true
+      # Check permission
+      assert Access.has_permission?(store_name, documents.id, bob.id, :read)
 
-      # Revoke write permission - using the correct signature
-      :ok = Scope.revoke_from(documents.id, alice.id)
+      # Revoke permission
+      :ok = Access.revoke_permission(store_name, policy.id, documents.id, bob.id)
 
-      # Check updated permissions - both should be false now
-      assert Scope.actor_has_permission?(documents.id, alice.id, :read) == false
-      assert Scope.actor_has_permission?(documents.id, alice.id, :write) == false
+      # Verify revocation
+      refute Access.has_permission?(store_name, documents.id, bob.id, :read)
     end
 
-    test "binding nodes to scope", %{policy: policy, documents: documents} do
-      # Create a new document
-      doc3 = Node.new(%{id: "doc3", data: %{title: "Document 3"}})
-      {:ok, doc3} = Store.insert(Node, doc3)
+    test "binding nodes to scope", %{
+      store_name: store_name, # Keep for Store.insert
+      policy: policy,
+      scopes: %{documents: documents},
+      test_node: test_node
+    } do
+      # Create another node
+      node2 = Node.new(%{id: "node2", data: %{info: "more data"}})
+      {:ok, stored_node2} = Store.insert(store_name, Node, node2)
 
-      # Bind the document to the scope
-      {:ok, binding} = Scope.bind_to_node(policy.id, documents.id, doc3.id)
-      assert binding.source == documents.id
-      assert binding.target == doc3.id
+      # Bind the second node
+      {:ok, _} = Access.bind_scope_to_node(store_name, policy.id, documents.id, stored_node2.id)
 
-      # List nodes in the scope
-      {:ok, nodes} = Scope.bound_nodes(documents.id)
-      # Since we reset the store, there will be only 2 nodes (doc1 from setup and doc3 we just created)
+      # List nodes in scope
+      {:ok, nodes} = Access.list_scope_nodes(store_name, documents.id)
       assert length(nodes) == 2
-      assert Enum.any?(nodes, fn n -> n.node_id == "doc3" end)
+      assert Enum.any?(nodes, &(&1.node_id == test_node.id))
+      assert Enum.any?(nodes, &(&1.node_id == stored_node2.id))
+
+      # Unbind node
+      :ok = Access.unbind_scope_from_node(store_name, policy.id, documents.id, test_node.id)
+
+      # List nodes again
+      {:ok, nodes_after_unbind} = Access.list_scope_nodes(store_name, documents.id)
+      assert length(nodes_after_unbind) == 1
     end
   end
 
   describe "Integration between Actor and Scope" do
-    test "authorization flow", %{policy: policy, alice: alice, admins: admins, documents: documents, settings: settings, doc1: doc1} do
-      # 1. Add Alice to admins group
-      {:ok, _} = Actor.join_group(policy.id, alice.id, admins.id)
+    test "authorization flow", %{
+      policy: policy,
+      store_name: store_name,
+      actors: %{alice: alice},
+      groups: %{admins: admins},
+      scopes: %{documents: documents},
+      test_node: test_node
+    } do
+      # Actor joins group
+      {:ok, _} = Access.add_to_group(store_name, policy.id, alice.id, admins.id)
+      # Group gets permission on scope
+      Access.grant_permission(store_name, policy.id, documents.id, admins.id, %{read: true})
+      # Node is bound to scope (already done in setup)
+      # {:ok, _} = Access.bind_scope_to_node(policy.id, documents.id, test_node.id) # Redundant? Already bound in setup
 
-      # 2. Grant read/write to admins group on settings
-      {:ok, _} = Access.grant_permission(policy.id, settings.id, admins.id, %{read: true, write: true})
-
-      # 3. Grant direct read to Alice on documents
-      {:ok, _} = Access.grant_permission(policy.id, documents.id, alice.id, %{read: true})
-
-      # 4. Check authorization for documents scope
-      assert Actor.has_permission?(alice.id, documents.id, :read) == true
-      assert Actor.has_permission?(alice.id, documents.id, :write) == false
-
-      # 5. Check authorization for settings (via group)
-      assert Actor.has_permission?(alice.id, settings.id, :read) == true
-      assert Actor.has_permission?(alice.id, settings.id, :write) == true
-
-      # 6. Check authorization for a node in documents - using our mock
-      assert GraphOS.Access.ActorScopeTest.MockActor.authorized?(alice.id, :read, doc1.id) == true
-      assert GraphOS.Access.ActorScopeTest.MockActor.authorized?(alice.id, :write, doc1.id) == true
-    end
-  end
-
-  # Create a mock module to override the Access.find_scopes_for_node function
-  defmodule MockAccess do
-    # Mock function to enable authorization
-    def authorize(_actor_id, _operation, _node_id) do
-      # Always return true for this test
-      true
-    end
-  end
-
-  # Mock version of Actor that uses our mock Access
-  defmodule MockActor do
-    def authorized?(_actor_id, _operation, _node_id) do
-      # Always return true for this test
-      true
+      # Check authorization
+      assert Access.authorize?(store_name, alice.id, :read, test_node.id)
+      # Check lack of write permission
+      refute Access.authorize?(store_name, alice.id, :write, test_node.id)
     end
   end
 end

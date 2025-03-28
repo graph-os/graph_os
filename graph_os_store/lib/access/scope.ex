@@ -100,9 +100,10 @@ defmodule GraphOS.Access.Scope do
   def revoke_from(scope_id, target_id) do
     case GraphOS.Store.all(GraphOS.Access.Permission, %{source: scope_id, target: target_id}) do
       {:ok, permissions} when is_list(permissions) and length(permissions) > 0 ->
-        results = Enum.map(permissions, fn perm ->
-          GraphOS.Store.delete(GraphOS.Access.Permission, perm.id)
-        end)
+        results =
+          Enum.map(permissions, fn perm ->
+            GraphOS.Store.delete(GraphOS.Access.Permission, perm.id)
+          end)
 
         # If any deletion failed, return an error
         if Enum.any?(results, fn r -> r != :ok end) do
@@ -111,8 +112,11 @@ defmodule GraphOS.Access.Scope do
           :ok
         end
 
-      {:ok, []} -> {:error, :no_permissions_found}
-      error -> error
+      {:ok, []} ->
+        {:error, :no_permissions_found}
+
+      error ->
+        error
     end
   end
 end

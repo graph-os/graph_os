@@ -5,6 +5,12 @@ defmodule GraphOS.Entity.Node do
   A node has a unique identifier within a graph and can have arbitrary properties.
   """
 
+  @entity GraphOS.Entity.from_module_opts(
+            entity_type: :node,
+            entity_module: __MODULE__,
+            schema_module: __MODULE__
+          )
+
   alias GraphOS.Entity.Metadata
 
   @type id :: String.t()
@@ -76,6 +82,13 @@ defmodule GraphOS.Entity.Node do
   end
 
   @doc """
+  Returns the entity configuration for the Node module.
+  This is needed by the Store adapter to identify the entity type.
+  """
+  @spec entity() :: GraphOS.Entity.t()
+  def entity, do: @entity
+
+  @doc """
   Use this module as a base for a custom node type.
 
   When used, it will define a new module that inherits from GraphOS.Entity.Node.
@@ -102,55 +115,73 @@ defmodule GraphOS.Entity.Node do
     quote do
       import GraphOS.Entity.Node, only: [schema: 0]
 
-      # Ensure entity_type is the first item in the keyword list for from_module_opts
-      opts_with_type = [entity_type: :node] ++ Keyword.delete(unquote(opts), :entity_type)
+      # Define the struct for the using module
+      defstruct [
+        :id,
+        :graph_id,
+        :type,
+        :metadata,
+        :data
+      ]
 
-      opts_with_modules = Keyword.merge(opts_with_type, [
-        entity_module: __MODULE__,
-        schema_module: GraphOS.Entity.Node
-      ])
+      # Define metadata schema
+      @metadata_schema GraphOS.Entity.Metadata.schema()
 
-      @entity GraphOS.Entity.from_module_opts(opts_with_modules)
+      # Add module information to options
+      @opts_with_modules unquote(opts)
+                        |> Keyword.put(:module, __MODULE__)
+                        |> Keyword.put(:entity_type, :node)
+                        |> Keyword.put(:entity_module, __MODULE__)
+
+      # Create entity configuration
+      @entity GraphOS.Entity.from_module_opts(@opts_with_modules)
 
       def entity, do: @entity
+      
+      # Define module type spec
+      @type t :: %__MODULE__{
+        id: GraphOS.Entity.id(),
+        graph_id: GraphOS.Entity.id() | nil,
+        type: String.t() | nil,
+        data: map(),
+        metadata: GraphOS.Entity.Metadata.t()
+      }
 
-      # Override schema only if data_schema is defined
-      if Module.defines?(__MODULE__, {:data_schema, 0}) do
+      # Always define schema function, but it can be overridden later
+      def schema, do: GraphOS.Entity.Node.schema()
+
+      # Override schema to include data_schema if defined
+      if Module.defines?(__MODULE__, {:data_schema, 0}, :def) do
         def schema do
           node_schema = GraphOS.Entity.Node.schema()
-
-          # Get the data schema fields from this module
           data_fields = data_schema()
-
-          # Update the :data field in the node schema to use our data_schema validation
+          
+          # Update fields to include data_schema
           updated_fields = Enum.map(node_schema.fields, fn field ->
             if field.name == :data do
-              # Create a new map with schema key
-              %{
-                name: :data,
-                type: :map,
-                default: %{},
-                schema: data_fields
-              }
+              Map.put(field, :schema, data_fields)
             else
               field
             end
           end)
-
+          
           %{node_schema | fields: updated_fields}
         end
-      else
-        def schema, do: GraphOS.Entity.Node.schema()
       end
 
       # Override new to set the module in metadata
       def new(attrs) do
         # Create empty metadata and let the store populate it
         metadata = Map.get(attrs, :metadata, %GraphOS.Entity.Metadata{})
-        # Pass to parent new function
+        # Pass to parent new function with metadata
         attrs_with_metadata = Map.put(attrs, :metadata, metadata)
-        GraphOS.Entity.Node.new(attrs_with_metadata)
+
+        node = GraphOS.Entity.Node.new(attrs_with_metadata)
+        struct(__MODULE__, Map.from_struct(node))
       end
+
+      # Make functions overridable
+      defoverridable [new: 1, schema: 0]
     end
   end
 end

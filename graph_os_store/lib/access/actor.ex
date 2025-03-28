@@ -56,14 +56,18 @@ defmodule GraphOS.Access.Actor do
   def groups(actor_id) do
     case GraphOS.Store.all(GraphOS.Access.Membership, %{source: actor_id}) do
       {:ok, memberships} ->
-        result = Enum.map(memberships, fn edge ->
-          %{
-            group_id: edge.target,
-            joined_at: Map.get(edge.data, :joined_at)
-          }
-        end)
+        result =
+          Enum.map(memberships, fn edge ->
+            %{
+              group_id: edge.target,
+              joined_at: Map.get(edge.data, :joined_at)
+            }
+          end)
+
         {:ok, result}
-      {:error, reason} -> {:error, reason}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

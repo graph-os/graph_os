@@ -1,8 +1,15 @@
 defmodule GraphOS.Access.Permission do
   use GraphOS.Entity.Edge,
     graph: GraphOS.Access.Policy,
-    source: [include: [GraphOS.Access.Scope]], # Only allow scopes as sources
-    target: [include: [GraphOS.Access.Actor, GraphOS.Access.Group]] # Allow actors or groups as targets
+    # Only allow scopes as sources
+    source: [include: [GraphOS.Access.Scope]],
+    # Allow actors or groups as targets
+    target: [include: [GraphOS.Access.Actor, GraphOS.Access.Group]]
+
+  @type types :: :read | :write | :execute | :destroy
+  @types [:read, :write, :execute, :destroy]
+
+  defguard is_type(type) when type in @types
 
   def data_schema do
     [

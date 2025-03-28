@@ -5,12 +5,32 @@ defmodule GraphOS.Access.Policy do
   A policy serves as a container for all the access control entities and relationships.
   """
 
-  defstruct [:id, :name, :data, :metadata]
-
-  use GraphOS.Entity.Graph, skip_struct: true
+  # Use the base entity Graph with appropriate options
+  use GraphOS.Entity.Graph
 
   alias GraphOS.Store
   alias GraphOS.Access.{Actor, Scope, Permission}
+
+  @doc """
+  Define the schema for policy data
+  """
+  def data_schema do
+    [
+      %{name: :name, type: :string, required: true},
+      %{name: :description, type: :string},
+      %{name: :actors, type: {:array, :binary}, default: []}, 
+      %{name: :groups, type: {:array, :binary}, default: []}, 
+      %{name: :scopes, type: {:array, :binary}, default: []}
+    ]
+  end
+
+  # Override schema to include data_schema
+  def schema do
+    graph_schema = GraphOS.Entity.Graph.schema()
+    data_fields = data_schema()
+    
+    %{graph_schema | fields: graph_schema.fields ++ [%{name: :data, type: :map, default: %{}, schema: data_fields}]}
+  end
 
   @doc """
   Creates a new policy with the given name.
@@ -18,7 +38,7 @@ defmodule GraphOS.Access.Policy do
   ## Examples
 
       iex> GraphOS.Access.Policy.create("main_policy")
-      {:ok, %GraphOS.Entity.Graph{name: "main_policy"}}
+      {:ok, %GraphOS.Access.Policy{name: "main_policy"}}
   """
   def create(name) do
     GraphOS.Access.create_policy(name)
@@ -30,7 +50,7 @@ defmodule GraphOS.Access.Policy do
   ## Examples
 
       iex> GraphOS.Access.Policy.list_actors("policy_id")
-      {:ok, [%GraphOS.Entity.Node{}]}
+      {:ok, [%GraphOS.Access.Actor{}]}
   """
   def list_actors(policy_id) do
     Store.all(Actor, %{graph_id: policy_id})
@@ -42,7 +62,7 @@ defmodule GraphOS.Access.Policy do
   ## Examples
 
       iex> GraphOS.Access.Policy.list_scopes("policy_id")
-      {:ok, [%GraphOS.Entity.Node{}]}
+      {:ok, [%GraphOS.Access.Scope{}]}
   """
   def list_scopes(policy_id) do
     Store.all(Scope, %{graph_id: policy_id})
@@ -54,7 +74,7 @@ defmodule GraphOS.Access.Policy do
   ## Examples
 
       iex> GraphOS.Access.Policy.list_permissions("policy_id")
-      {:ok, [%GraphOS.Entity.Edge{}]}
+      {:ok, [%GraphOS.Access.Permission{}]}
   """
   def list_permissions(policy_id) do
     Store.all(Permission, %{graph_id: policy_id})
@@ -106,23 +126,5 @@ defmodule GraphOS.Access.Policy do
   """
   def verify_permission?(scope_id, actor_id, permission) do
     GraphOS.Access.has_permission?(scope_id, actor_id, permission)
-  end
-
-  def schema do
-    fields = GraphOS.Entity.Graph.schema().fields ++
-      [
-        %{name: :metadata, type: :map, default: %{
-          description: "Access Control Policy Graph"
-        }}
-      ]
-
-    %{GraphOS.Entity.Graph.schema() | fields: fields}
-  end
-
-  def data_schema do
-    [
-      %{name: :description, type: :string, default: "Access Control Policy"},
-      %{name: :created_at, type: :datetime, default: DateTime.utc_now()}
-    ]
   end
 end
