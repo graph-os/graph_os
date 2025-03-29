@@ -22,11 +22,11 @@ defmodule GraphOS.StorePerformanceTest do
   # Tag all tests as performance to exclude them from normal test runs
   @moduletag :performance
   
-  # Size constants for various test scales - reduced sizes for faster tests
-  @tiny_graph_size 100     # For quick iteration during debugging
-  @small_graph_size 500    # For baseline algorithm tests 
-  @medium_graph_size 1000  # For moderate load tests
-  @large_graph_size 5000   # For stress tests
+  # Size constants for various test scales - increased sizes for better stress testing
+  @tiny_graph_size 500      # For quick iteration during debugging
+  @small_graph_size 2000     # For baseline algorithm tests 
+  @medium_graph_size 5000   # For moderate load tests
+  @large_graph_size 10000   # For stress tests
   
   # Adding helper function to ensure process dictionary is properly set for all tests
   def ensure_current_algorithm_store(store_name) do
@@ -542,6 +542,132 @@ defmodule GraphOS.StorePerformanceTest do
         
         IO.puts("Top 5 component sizes: #{inspect(sizes)}")
       end)
+    end
+  end
+  
+  describe "advanced performance testing with large graphs" do
+    setup do
+      store_name = "performance_test_#{:rand.uniform(10000)}"
+      {:ok, _pid} = Store.start_link(name: store_name, adapter: GraphOS.Store.Adapter.ETS)
+      store_name = ensure_current_algorithm_store(store_name)
+      {:ok, %{store_name: store_name}}
+    end
+
+    @tag timeout: 300_000 # Allow up to 5 minutes for this test
+    test "batch operations and path caching with large graph", %{store_name: store_name} do
+      # Create a large graph with batch operations
+      node_count = @medium_graph_size
+      edge_count = node_count * 5  # Higher connectivity
+      
+      IO.puts("Testing batch operations and path caching with #{node_count} nodes and #{edge_count} edges")
+      
+      # Batch create nodes
+      {batch_nodes, node_time} = measure(fn ->
+        nodes = Enum.map(1..node_count, fn i ->
+          node_type = if rem(i, 5) == 0, do: "hub", else: "regular"
+          properties = %{name: "Node #{i}", value: i, type: node_type}
+          %{id: "n#{i}", type: node_type, data: properties}
+        end)
+        
+        # Use batch insert instead of individual inserts
+        GraphOS.Store.Adapter.ETS.batch_insert(store_name, Node, nodes)
+      end)
+      
+      IO.puts("Batch created #{node_count} nodes in #{node_time}ms (#{node_time / node_count}ms per node)")
+      
+      # Batch create edges
+      {batch_edges, edge_time} = measure(fn ->
+        # Create a scale-free network structure
+        edges = for i <- 1..edge_count do
+          # For hub nodes, connect to many others
+          source = if rem(i, 7) == 0 do
+            # Connect from a hub node (every 5th node)
+            "n#{5 * :rand.uniform(div(node_count, 5))}"
+          else
+            # Connect from a random node
+            "n#{:rand.uniform(node_count)}"
+          end
+          
+          target = "n#{:rand.uniform(node_count)}"
+          
+          # Avoid self-loops
+          if source != target do
+            %{
+              id: "e#{i}",
+              source: source,
+              target: target,
+              type: "connects",
+              data: %{weight: :rand.uniform(100)}
+            }
+          end
+        end
+        |> Enum.reject(&is_nil/1)
+        
+        # Use batch insert for edges
+        GraphOS.Store.Adapter.ETS.batch_insert(store_name, Edge, edges)
+      end)
+      
+      IO.puts("Batch created #{edge_count} edges in #{edge_time}ms (#{edge_time / edge_count}ms per edge)")
+      
+      # Now test path caching with repeated path queries
+      source_node = "n#{div(node_count, 4)}"
+      target_node = "n#{div(3 * node_count, 4)}"
+      
+      # First path find without cache
+      {uncached_result, uncached_time} = measure(fn ->
+        GraphOS.Store.Algorithm.ShortestPath.execute(source_node, target_node, [store: store_name])
+      end)
+      
+      case uncached_result do
+        {:ok, path, weight} ->
+          IO.puts("Initial path find: Found path with #{length(path)} nodes and weight #{weight} in #{uncached_time}ms")
+        {:error, reason} ->
+          IO.puts("Initial path find: Error - #{inspect(reason)} in #{uncached_time}ms")
+      end
+      
+      # Find the same path again, should use cache
+      {cached_result, cached_time} = measure(fn ->
+        GraphOS.Store.Algorithm.ShortestPath.execute(source_node, target_node, [store: store_name])
+      end)
+      
+      case cached_result do
+        {:ok, path, weight} ->
+          IO.puts("Cached path find: Found path with #{length(path)} nodes and weight #{weight} in #{cached_time}ms")
+          # Verify cache improves performance
+          assert cached_time < uncached_time * 0.5, "Cached lookup should be at least twice as fast"
+          
+        {:error, reason} ->
+          IO.puts("Cached path find: Error - #{inspect(reason)} in #{cached_time}ms")
+      end
+      
+      # Run multiple paths in parallel to simulate high load
+      path_count = 100
+      {_results, parallel_time} = measure(fn ->
+        Enum.map(1..path_count, fn i ->
+          # Use different but consistent source and target nodes
+          s = "n#{rem(i * 17, node_count) + 1}"
+          t = "n#{rem(i * 23, node_count) + 1}"
+          GraphOS.Store.Algorithm.ShortestPath.execute(s, t, [store: store_name])
+        end)
+      end)
+      
+      IO.puts("Processed #{path_count} path queries in #{parallel_time}ms (#{parallel_time / path_count}ms per path)")
+      
+      # Run the same paths again, should all be cached
+      {_cached_results, cached_parallel_time} = measure(fn ->
+        Enum.map(1..path_count, fn i ->
+          s = "n#{rem(i * 17, node_count) + 1}"
+          t = "n#{rem(i * 23, node_count) + 1}"
+          GraphOS.Store.Algorithm.ShortestPath.execute(s, t, [store: store_name])
+        end)
+      end)
+      
+      IO.puts("Processed #{path_count} cached path queries in #{cached_parallel_time}ms (#{cached_parallel_time / path_count}ms per path)")
+      assert cached_parallel_time < parallel_time * 0.3, "Cached batch paths should be at least 3 times faster"
+      
+      # Get the speed improvement ratio
+      speed_ratio = parallel_time / cached_parallel_time
+      IO.puts("Path caching improved performance by #{Float.round(speed_ratio, 1)}x")
     end
   end
   

@@ -63,12 +63,42 @@ defmodule GraphOS.Store.Event do
   end
   
   @doc """
-  Creates an event for an entity creation.
+  Creates a node creation event.
+  
+  This is a helper function that sets up the correct topic and entity type.
   """
-  @spec create(entity_type :: entity_type(), entity_id :: entity_id(), data :: map(), opts :: keyword()) :: t()
-  def create(entity_type, entity_id, data, opts \\ []) do
-    topic = Keyword.get(opts, :topic, entity_type)
-    new(:create, topic, entity_type, entity_id, [data: data] ++ opts)
+  @spec create(entity_type :: entity_type(), entity_id :: entity_id(), data :: map() | nil, opts :: keyword()) :: t()
+  def create(entity_type, entity_id, data, opts \\ []) when is_map(data) do
+    # Extract the type from the data if present
+    type = Map.get(data, :type) || Map.get(data, "type")
+    
+    # Check if caller specified a topic explicitly
+    specified_topic = Keyword.get(opts, :topic)
+    
+    # Choose the most appropriate topic format
+    topic = cond do
+      # If explicitly specified, use that
+      specified_topic != nil -> 
+        specified_topic
+      
+      # For backward compatibility with tests, if called without type option
+      Keyword.get(opts, :use_simple_topic, false) -> 
+        entity_type
+        
+      # Use entity_type with type field if available
+      type != nil -> 
+        {entity_type, type}
+        
+      # Default to simple entity_type topic
+      true -> 
+        entity_type
+    end
+    
+    # Ensure type is included in metadata
+    metadata = Map.merge(Keyword.get(opts, :metadata, %{}), %{type: type})
+    
+    # Create the event with proper topic and metadata
+    new(:create, topic, entity_type, entity_id, [data: data, metadata: metadata] ++ Keyword.drop(opts, [:metadata, :topic, :use_simple_topic]))
   end
   
   @doc """

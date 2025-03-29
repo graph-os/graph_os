@@ -26,6 +26,79 @@ storage adapters to be added in the future.
 
 See [TASKS.md](TASKS.md) for a detailed breakdown of module status and future development plans.
 
+## Performance Optimizations
+
+GraphOS.Store includes several high-performance optimizations for working with large graphs:
+
+1. **Edge Type Indexing**: Specialized indices for efficient filtering of edges by type
+2. **Query Planner**: Optimized query execution plans with precompiled match specifications
+3. **Memory Optimization**: Table compression support for reduced memory footprint
+4. **Path Caching**: Intelligent caching system for repeated path queries (up to 70x faster)
+5. **Batch Operations**: Efficient bulk inserts and updates for large datasets
+6. **Parallel Processing**: Multi-core utilization with Task.async_stream for event delivery and graph algorithms
+7. **Adaptive Query Strategies**: Automatic selection of the most efficient query strategy based on graph size and complexity
+8. **Timeout Management**: Graceful handling of long-running operations with partial results
+
+For detailed information about these optimizations, see [PERFORMANCE_OPTIMIZATIONS.md](PERFORMANCE_OPTIMIZATIONS.md).
+
+### Performance Testing
+
+GraphOS provides several ways to test and benchmark performance:
+
+```bash
+# Run just the performance tests
+mix test test/store_performance_test.exs --only performance
+
+# Run the optimized graph algorithm tests
+mix test test/store/optimizer_test.exs
+
+# Run the full suite excluding performance tests (faster for general development)
+mix test --exclude performance
+```
+
+### Performance Benchmarks
+
+To run benchmarks that demonstrate optimization performance:
+
+```bash
+# Run with default settings (10,000 nodes, 50,000 edges)
+mix graphos.benchmark
+
+# Run with custom parameters
+mix graphos.benchmark --nodes=5000 --edges=25000 --trials=3 --verbose
+
+# Run with performance tests first
+mix graphos.benchmark --run-tests
+```
+
+Options:
+- `--nodes`: Number of nodes in the test graph (default: 10,000)
+- `--edges`: Number of edges in the test graph (default: 50,000)
+- `--trials`: Number of trials for each benchmark (default: 1)
+- `--verbose`: Show detailed output for all trials
+- `--run-tests`: Run performance-specific tests before benchmarking
+
+### Using Optimizations in Your Code
+
+To leverage GraphOS optimizations in your code:
+
+```elixir
+# For optimized edge filtering by type
+{:ok, edges} = GraphOS.Store.Adapter.ETS.get_edges_by_type(store_name, "friend")
+
+# For optimized edge filtering by source and type
+{:ok, outgoing_edges} = GraphOS.Store.Adapter.ETS.get_outgoing_edges_by_type(store_name, source_id, "friend")
+
+# For very large graphs, use parallel processing
+{:ok, outgoing_edges} = GraphOS.Store.Adapter.ETS.get_outgoing_edges_by_type_parallel(store_name, source_id, "friend")
+
+# For adaptive query optimization (automatically chooses best method based on graph size)
+{:ok, edges} = GraphOS.Store.Adapter.ETS.get_outgoing_edges_adaptive(store_name, source_id, "friend")
+
+# For efficient batch operations
+GraphOS.Store.batch_insert(store_name, Edge, edges)
+```
+
 ## Usage
 
 ### Basic usage

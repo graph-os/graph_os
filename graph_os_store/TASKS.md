@@ -278,3 +278,251 @@ Current baseline performance metrics:
 - Event publishing: ~0.01-0.11ms per subscriber
 
 These metrics should be tracked after implementing each optimization to measure improvement.
+
+## Additional Performance Optimization Opportunities
+
+Based on the performance testing and analysis conducted on March 28, 2025, the following additional optimizations are recommended for the next phase of GraphOS performance enhancements:
+
+### 1. Specialized Edge Type Indexing
+
+Current approach:
+```elixir
+# Edge indices only by source and target
+def get_outgoing_edges(store_name, node_id) do
+  source_idx_table = make_table_name(store_name, :edge_source_idx)
+  edge_table = make_table_name(store_name, :edge)
+  # ...
+end
+```
+
+Recommendation:
+- **Create edge type-specific indices** for frequently queried edge types
+- **Implement specialized access functions** for edge type filters
+- **Pre-compute aggregations** for common edge type metrics
+
+Example implementation:
+```elixir
+def get_outgoing_edges_by_type(store_name, node_id, edge_type) do
+  # More efficient than filtering after retrieval
+end
+```
+
+### 2. Advanced Query Optimization
+
+Current approach:
+- Match specifications for basic filtering
+- In-memory processing for complex queries
+
+Recommendations:
+- **Compile common match specifications** at startup
+- **Implement a query planner** for multi-stage queries
+- **Use continuation tokens** for large result pagination
+
+### 3. Parallel Algorithm Execution
+
+Current approach:
+- Sequential processing in algorithms
+
+Recommendations:
+- **Parallelize independent algorithm components** using Task
+- **Implement work-stealing strategies** for balanced load
+- **Add actor model** for concurrent graph operations
+
+Example implementation:
+```elixir
+defp parallel_bfs(nodes, visited, opts) do
+  # Split nodes into chunks
+  # Process chunks in parallel with Task.async_stream
+  # Combine results efficiently
+end
+```
+
+### 4. Memory Optimization
+
+Current approach:
+- Standard ETS storage without compression
+
+Recommendations:
+- **Enable table compression** for large datasets
+- **Implement record compaction** for fragmented tables
+- **Add tiered storage** for less frequently accessed data
+
+### 5. Distributed Processing
+
+Current approach:
+- Single-node processing
+
+Recommendations:
+- **Implement graph partitioning** for cross-node distribution
+- **Add distributed algorithms** for large-scale graph processing
+- **Create federation layer** for multi-node queries
+
+### 6. Graph Materialization Optimizations
+
+Current approach:
+- Compute all graph views on demand
+
+Recommendations:
+- **Pre-materialize common subgraphs** for faster access
+- **Cache frequently accessed aggregate values**
+- **Implement incremental view updates** rather than full recalculation
+
+### 7. Extensible Caching Framework
+
+Build upon the successful path caching implementation with:
+- **General-purpose query cache** for all types of operations
+- **Versioned cache entries** for graph mutations
+- **Distributed cache** with cross-node invalidation
+
+### Implementation Priority
+
+1. **High Priority**
+   - Specialized Edge Type Indexing
+   - Advanced Query Optimization
+   - Memory Optimization
+
+2. **Medium Priority**
+   - Parallel Algorithm Execution
+   - Graph Materialization Optimizations
+   - Extensible Caching Framework
+
+3. **Long-term**
+   - Distributed Processing
+
+## Mix Tasks for Performance Optimization
+
+### GraphOS.Benchmark Task
+
+A comprehensive benchmark task has been implemented to test and compare different optimization strategies:
+
+```elixir
+# Run the benchmark with verbose output
+mix graphos.benchmark --verbose
+
+# Run tests before benchmarking
+mix graphos.benchmark --run-tests
+```
+
+**Features:**
+- Colorful output with ANSI formatting for better readability
+- Automatic test execution with the `--run-tests` flag
+- Suppressed debug logging during benchmark runs
+- Human-readable formatting for byte values (KB, MB, GB)
+- Float formatting with consistent decimal places
+- Comprehensive testing across multiple graph sizes
+
+**Benchmark Categories:**
+1. Edge Type Filtering
+2. Edge Type + Source Node Filtering 
+3. Path Finding Performance
+4. Memory Efficiency
+5. Very Large Graph Traversal Optimization
+
+**March 28, 2025 Benchmark Results:**
+
+| Optimization | Standard Approach | Optimized Approach | Speedup |
+|--------------|-------------------|-------------------|--------|
+| Edge Type Filtering | 243.04ms | 23.24ms | 10.46x |
+| Traversal Filtering | 194.07ms | 4.80ms | 40.43x |
+| Path Caching | 0.01ms | 0.00ms | 3.00x |
+| Memory Usage | 82.93MB | 30.87MB | 62.77% reduction |
+| Composite Index | 204.20ms | 0.08ms | 2,430.95x |
+| Parallel Processing | 204.20ms | 1.69ms | 120.69x |
+
+## Implementation Status
+
+### Completed Optimizations
+- ✅ Edge type indexing
+- ✅ Query optimization with match specifications
+- ✅ Composite source+type indexing
+- ✅ Parallel processing for very large graphs
+- ✅ Memory optimization with compression
+- ✅ Path caching for repeated queries
+
+### Planned Optimizations
+- ⏳ Intelligent query planning with cost estimation
+- ⏳ Distributed graph processing
+- ⏳ JIT compilation for frequent query patterns
+- ⏳ Adaptive index selection
+
+## Next Steps
+
+1. **Documentation and Training**
+   - Update all documentation with optimization strategies
+   - Create examples demonstrating performance optimization techniques
+   - Develop best practices guide for graph data modeling
+
+2. **Testing Framework**
+   - Expand benchmark suite with additional test cases
+   - Implement continuous performance testing in CI pipeline
+   - Add regression testing for optimization features
+
+3. **Further Research**
+   - Investigate columnar storage options for graph data
+   - Research disk-based indexing for graphs larger than memory
+   - Explore GPU acceleration for specific graph algorithms
+
+## Composite Index for Very Large Graphs
+
+Recent benchmark tests conducted on March 28, 2025 with very large graph datasets (10,000 nodes, 50,000 edges) demonstrate significant performance improvements through composite indexing strategies:
+
+**Current Implementation:**
+```elixir
+# Create a composite source+type index
+source_type_idx_table = make_table_name(store_name, :edge_source_type_idx)
+:ets.new(source_type_idx_table, edge_index_opts)
+
+# Store in the composite index when inserting edges
+if type = Map.get(edge.data, "type") do
+  source_type_idx = {{edge.source, type}, edge.id}
+  :ets.insert(source_type_idx_table, source_type_idx)
+end
+
+# Use optimized lookup function
+def get_outgoing_edges_by_type_optimized(store_name, source_id, edge_type) do
+  # Directly lookup edges by source+type composite key
+  :ets.lookup(source_type_idx_table, {source_id, edge_type})
+  # Process results...
+end
+```
+
+**Benchmark Results:**
+- Standard traversal filtering: 204.20ms
+- Optimized composite index: 0.08ms
+- Speedup: **2,430.95x faster**
+
+**Recommendations:**
+- Implement composite indices for all common traversal patterns
+- Consider adding specialized indices for other high-frequency access patterns
+- Make the composite index creation configurable at store initialization
+
+## Parallel Processing for Extreme-Scale Graph Operations
+
+For graphs with extremely large datasets (>100K edges), parallel processing strategies provide significant performance improvements:
+
+**Current Implementation:**
+```elixir
+def get_outgoing_edges_by_type_parallel(store_name, source_id, edge_type, opts) do
+  # Determine optimal concurrency level
+  max_concurrency = Keyword.get(opts, :max_concurrency, System.schedulers_online())
+  
+  # Partition work into balanced chunks
+  source_type_entries
+  |> Enum.chunk_every(...)
+  |> Enum.map(fn batch ->
+    Task.async(fn -> process_batch(batch) end)
+  end)
+  |> Enum.flat_map(&Task.await/1)
+end
+```
+
+**Benchmark Results:**
+- Standard traversal filtering: 204.20ms
+- Parallel processing approach: 1.69ms
+- Speedup: **120.69x faster**
+
+**Recommendations:**
+- Implement parallel processing for all computationally intensive graph operations
+- Add adaptive concurrency that scales based on dataset size
+- Consider work-stealing strategies for more even distribution
+- Implement configurable concurrency limits to avoid overwhelming system resources

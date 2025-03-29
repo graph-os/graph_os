@@ -72,16 +72,24 @@ defmodule GraphOS.Store.Subscription do
   """
   @spec matches?(subscription :: t(), event :: GraphOS.Store.Event.t()) :: boolean()
   def matches?(%__MODULE__{} = subscription, %GraphOS.Store.Event{} = event) do
+    require Logger
+    
     # Check if the event type is one we're interested in
     event_type_match? = event.type in subscription.filters.events
+    Logger.debug("Event type #{inspect(event.type)} in subscription events #{inspect(subscription.filters.events)}? #{event_type_match?}")
     
     # Match topic - exact match, tuple pattern match, or wildcard
     topic_match? = topic_matches?(subscription.topic, event.topic)
+    Logger.debug("Subscription topic #{inspect(subscription.topic)} matches event topic #{inspect(event.topic)}? #{topic_match?}")
     
     # Check any additional filtering criteria
     filter_match? = filter_matches?(subscription.filters.filter, event)
+    Logger.debug("Filter match? #{filter_match?}")
     
-    event_type_match? and topic_match? and filter_match?
+    result = event_type_match? and topic_match? and filter_match?
+    Logger.debug("Final match result: #{result}")
+    
+    result
   end
   
   # Private helper functions
@@ -103,28 +111,109 @@ defmodule GraphOS.Store.Subscription do
   end
   defp validate_filters(filters), do: {:ok, filters}
   
-  defp topic_matches?(topic, topic), do: true  # Exact match
-  defp topic_matches?(:any, _), do: true  # Wildcard
-  defp topic_matches?(:node, :node), do: true
-  defp topic_matches?(:edge, :edge), do: true
+  # Topic pattern matching - define all possible combinations
+  # Simple topic matching - exact match
+  defp topic_matches?(subscription_topic, event_topic) when subscription_topic == event_topic do
+    require Logger
+    Logger.debug("Topic exact match: #{inspect(subscription_topic)} == #{inspect(event_topic)}")
+    true
+  end
   
-  # Match entity type + ID pattern
-  defp topic_matches?({entity_type, _}, {entity_type, _, _}), do: true
-  defp topic_matches?({entity_type, id}, {entity_type, id, _}), do: true
-  defp topic_matches?({entity_type, type, _}, {entity_type, type, _}), do: true
+  # General subscription to specific event
+  defp topic_matches?(:node, {:node, _id}) do
+    require Logger
+    Logger.debug("Topic match: :node subscription matches specific node event")
+    true
+  end
   
-  # No match
-  defp topic_matches?(_, _), do: false
+  defp topic_matches?(:node, {:node, _id, _metadata}) do
+    require Logger
+    Logger.debug("Topic match: :node subscription matches specific node event with metadata")
+    true
+  end
+  
+  defp topic_matches?(:edge, {:edge, _id}) do
+    require Logger
+    Logger.debug("Topic match: :edge subscription matches specific edge event")
+    true
+  end
+  
+  defp topic_matches?(:edge, {:edge, _id, _metadata}) do
+    require Logger
+    Logger.debug("Topic match: :edge subscription matches specific edge event with metadata")
+    true
+  end
+  
+  # Entity type subscriptions
+  defp topic_matches?({:node, entity_type}, {:node, _id, %{type: type}}) when entity_type == type do
+    require Logger
+    Logger.debug("Topic match: {:node, #{inspect(entity_type)}} matches {:node, _, %{type: #{inspect(type)}}}")
+    true
+  end
+  
+  defp topic_matches?({:node, entity_type}, {:node, _id}) do
+    require Logger
+    Logger.debug("Topic potential match: {:node, #{inspect(entity_type)}} with {:node, _id} - need to check entity data")
+    # This is a partial match - we'll check entity data in filter_matches?
+    true
+  end
+  
+  defp topic_matches?({:edge, edge_type}, {:edge, _id, %{type: type}}) when edge_type == type do
+    require Logger
+    Logger.debug("Topic match: {:edge, #{inspect(edge_type)}} matches {:edge, _, %{type: #{inspect(type)}}}")
+    true
+  end
+  
+  defp topic_matches?({:edge, edge_type}, {:edge, _id}) do
+    require Logger
+    Logger.debug("Topic potential match: {:edge, #{inspect(edge_type)}} with {:edge, _id} - need to check entity data")
+    # This is a partial match - we'll check entity data in filter_matches?
+    true
+  end
+  
+  # Default case - no match
+  defp topic_matches?(subscription_topic, event_topic) do
+    require Logger
+    Logger.debug("Topic mismatch: subscription topic #{inspect(subscription_topic)} doesn't match event topic #{inspect(event_topic)}")
+    false
+  end
   
   defp filter_matches?(%{} = filter, event) do
-    Enum.all?(filter, fn {key, value} ->
+    require Logger
+    
+    # Extract the data from the event - for node/edge entities, type is often in data
+    event_data = event.data || %{}
+    
+    # Check each filter condition
+    result = Enum.all?(filter, fn {key, value} ->
       case key do
-        :entity_type -> event.entity_type == value
-        :entity_id -> event.entity_id == value
-        # Add other filter criteria as needed
-        _ -> Map.get(event.metadata || %{}, key) == value
+        :entity_type -> 
+          match = event.entity_type == value
+          Logger.debug("Filter match for entity_type: #{match} (#{inspect(event.entity_type)} == #{inspect(value)})")
+          match
+        :entity_id -> 
+          match = event.entity_id == value
+          Logger.debug("Filter match for entity_id: #{match} (#{inspect(event.entity_id)} == #{inspect(value)})")
+          match
+        :type -> 
+          # Check in both metadata and data for type
+          data_type = Map.get(event_data, :type) || Map.get(event_data, "type")
+          metadata_type = event.metadata && Map.get(event.metadata, :type) || Map.get(event.metadata || %{}, "type")
+          match = data_type == value || metadata_type == value
+          Logger.debug("Filter match for type: #{match} (data_type: #{inspect(data_type)}, metadata_type: #{inspect(metadata_type)}, value: #{inspect(value)})")
+          match
+        _ -> 
+          # Check in metadata first, then data for any other key
+          metadata_value = event.metadata && Map.get(event.metadata, key)
+          data_value = Map.get(event_data, key)
+          match = metadata_value == value || data_value == value
+          Logger.debug("Filter match for #{inspect(key)}: #{match} (metadata: #{inspect(metadata_value)}, data: #{inspect(data_value)}, value: #{inspect(value)})")
+          match
       end
     end)
+    
+    Logger.debug("Overall filter match result: #{result}")
+    result
   end
   defp filter_matches?(_, _), do: true  # No filter means automatic match
 end

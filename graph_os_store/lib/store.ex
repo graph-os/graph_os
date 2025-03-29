@@ -111,7 +111,7 @@ defmodule GraphOS.Store do
   """
   @spec stop(store_ref :: term()) :: :ok | :error
   def stop(store_ref) do
-    case Registry.lookup(store_ref) do
+    case GraphOS.Store.Registry.lookup(store_ref) do
       [{pid, _}] ->
         # Unregister first
         Registry.unregister(store_ref)
@@ -309,9 +309,13 @@ defmodule GraphOS.Store do
   @spec subscribe(store_ref :: term(), topic :: Subscription.topic(), opts :: keyword()) :: 
     {:ok, Subscription.id()} | {:error, term()}
   def subscribe(store_ref, topic, opts) do
+    # Log store reference for debugging
+    Logger.debug("Store.subscribe called with store_ref: #{inspect(store_ref)}")
+    
     with {:ok, _} <- get_store_pid(store_ref) do
       # The subscriber is the current process by default
       subscriber = Keyword.get(opts, :subscriber, self())
+      # Explicitly use the store_ref to ensure we don't default to :default
       SubscriptionManager.subscribe(store_ref, subscriber, topic, opts)
     end
   end
@@ -386,7 +390,10 @@ defmodule GraphOS.Store do
   defp get_current_store_ref(explicit_ref) do
     case explicit_ref do
       # If a specific store reference was provided, use it
-      ref when ref != nil -> ref
+      ref when ref != nil -> 
+        # Log the store ref being used for debugging
+        Logger.debug("Using store reference: #{inspect(ref)}")
+        ref
       # Otherwise check process dictionary for current algorithm store context
       nil -> Process.get(:current_algorithm_store, :default)
     end
@@ -398,10 +405,34 @@ defmodule GraphOS.Store do
     # Check process dictionary for store context first
     ref = get_current_store_ref(store_ref)
     
+    # For debugging
+    Logger.debug("Looking up store PID for reference: #{inspect(ref)}")
+    
     # Try to get the store PID using the proper registry function
     case GraphOS.Store.Registry.lookup(ref) do
-      [{pid, _}] -> {:ok, pid}
-      _ -> {:error, {:store_not_found, ref}}
+      [{pid, _}] -> 
+        Logger.debug("Found store process: #{inspect(pid)}")
+        {:ok, pid}
+      [] -> 
+        # If this lookup failed, try other possible ways the store might be registered
+        case try_alternative_lookups(ref) do
+          {:ok, pid} -> {:ok, pid}
+          _ -> {:error, {:store_not_found, ref}}
+        end
+    end
+  end
+  
+  # Helper to try alternative store lookups
+  defp try_alternative_lookups(ref) do
+    cond do
+      # If ref is an atom that could be a module name
+      is_atom(ref) -> 
+        Logger.debug("Trying module-based lookup for #{inspect(ref)}")
+        case GraphOS.Store.Registry.lookup(ref) do
+          [{pid, _}] -> {:ok, pid}
+          [] -> {:error, :not_found}
+        end
+      true -> {:error, :not_found}
     end
   end
 

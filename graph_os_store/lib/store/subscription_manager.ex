@@ -130,13 +130,37 @@ defmodule GraphOS.Store.SubscriptionManager do
   
   @impl true
   def handle_cast({:publish, event}, state) do
-    # Find all matching subscriptions and deliver the event
-    :ets.tab2list(state.table)
-    |> Enum.each(fn {_id, subscription} ->
-      if Subscription.matches?(subscription, event) do
-        deliver_event(subscription, event)
-      end
+    # Log the event being published
+    Logger.debug("Publishing event: #{inspect(event.type)} for topic #{inspect(event.topic)}")
+    
+    # Find all matching subscriptions
+    all_subscriptions = :ets.tab2list(state.table)
+    Logger.debug("Found #{length(all_subscriptions)} total subscriptions")
+    
+    matching_subscriptions = all_subscriptions
+    |> Enum.filter(fn {_id, subscription} -> 
+      match_result = Subscription.matches?(subscription, event)
+      Logger.debug("Subscription #{subscription.id} for topic #{inspect(subscription.topic)} matches event? #{match_result}")
+      match_result
     end)
+    |> Enum.map(fn {_id, subscription} -> subscription end)
+    
+    Logger.debug("Found #{length(matching_subscriptions)} matching subscriptions for event")
+    
+    # Calculate max concurrency based on number of subscriptions
+    # This prevents spawning too many tasks for small numbers of subscribers
+    # but allows for maximum parallelism with larger sets
+    max_concurrency = max(4, min(System.schedulers_online() * 2, length(matching_subscriptions)))
+    
+    # Deliver events in parallel using Task.async_stream with ordered: false for better performance
+    Task.async_stream(
+      matching_subscriptions,
+      fn subscription -> deliver_event(event, subscription) end,
+      max_concurrency: max_concurrency,
+      ordered: false,
+      timeout: 5000 # 5 second timeout for event delivery
+    )
+    |> Stream.run() # Run the stream to execute all tasks
     
     {:noreply, state}
   end
@@ -155,18 +179,44 @@ defmodule GraphOS.Store.SubscriptionManager do
   end
   
   defp via_tuple(store_name) do
+    Logger.debug("Creating via_tuple for subscription manager with store: #{inspect(store_name)}")
     {:via, Registry, {GraphOS.Store.Registry, {__MODULE__, store_name}}}
   end
   
-  defp deliver_event(%Subscription{subscriber: subscriber} = _subscription, event) when is_pid(subscriber) do
-    # For process subscribers, send a message
-    send(subscriber, {:graph_os_store, event.topic, event})
-  end
-  
-  defp deliver_event(%Subscription{subscriber: subscriber, id: id} = _subscription, event) do
-    # For named subscribers (e.g., Phoenix PubSub channels), use a callback mechanism
-    # This is just a placeholder - the actual implementation would depend on your needs
-    Logger.debug("Delivering event #{inspect(event.type)} to subscriber #{inspect(subscriber)} (subscription #{id})")
-    # TODO: Implement proper callback mechanism for named subscribers
+  defp deliver_event(event, %Subscription{} = subscription) do
+    require Logger
+    
+    Logger.debug("Delivering event #{inspect(event.type)} for subscription #{subscription.id}")
+    
+    case subscription.subscriber do
+      pid when is_pid(pid) ->
+        Logger.debug("Delivering to process subscriber #{inspect(pid)}")
+        
+        # Use the original subscription topic when sending the message to the subscriber
+        # This ensures backward compatibility with tests and existing clients
+        send(pid, {:graph_os_store, subscription.topic, event})
+        
+      {module, function, args} when is_atom(module) and is_atom(function) and is_list(args) ->
+        Logger.debug("Delivering to MFA subscriber #{inspect(module)}.#{inspect(function)}")
+        apply(module, function, [event | args])
+        
+      {:via, module, name} = via_tuple when is_atom(module) ->
+        Logger.debug("Delivering to via subscriber #{inspect(via_tuple)}")
+        case Registry.lookup(module, name) do
+          [{pid, _}] -> send(pid, {:graph_os_store, subscription.topic, event})
+          _ -> Logger.warning("Via tuple subscription target not found: #{inspect(via_tuple)}")
+        end
+        
+      name when is_atom(name) ->
+        if Process.whereis(name) do
+          Logger.debug("Delivering to named process #{inspect(name)}")
+          send(Process.whereis(name), {:graph_os_store, subscription.topic, event})
+        else
+          Logger.warning("Named subscription target not found: #{inspect(name)}")
+        end
+        
+      other ->
+        Logger.error("Unknown subscriber type: #{inspect(other)}")
+    end
   end
 end
