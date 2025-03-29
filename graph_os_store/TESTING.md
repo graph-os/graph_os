@@ -2,6 +2,8 @@
 
 This document tracks the testing status of modules in the GraphOS project.
 
+For detailed development plan, see [PLAN.md](PLAN.md). For specifics about performance optimization, see [PERFORMANCE_OPTIMIZATIONS.md](PERFORMANCE_OPTIMIZATIONS.md).
+
 ## Entity Modules
 
 | Module | Test File | Testing Status | Testing Keywords |

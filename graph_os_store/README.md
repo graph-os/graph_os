@@ -1,331 +1,307 @@
 # GraphOS.Store
 
-GraphOS.Store (previously GraphOS.Graph) is the main entrypoint for storing data or state for GraphOS.Core modules.
+GraphOS.Store is the primary Elixir interface for creating, managing, and interacting with graph data within the GraphOS ecosystem. It provides a flexible API for storing and retrieving graph entities (nodes, edges) using different storage engines.
+
+## Project status
+- [PLAN.md](PLAN.md)
+- [PERFORMANCE_OPTIMIZATIONS.md](PERFORMANCE_OPTIMIZATIONS.md)
+- [TESTING.md](TESTING.md)
 
 ## Overview
 
-GraphOS.Store provides a minimal interface for storing and retrieving graph data using different storage engines.
-Currently, only an ETS-based implementation is provided, but the architecture is designed to allow for other
-storage adapters to be added in the future.
+GraphOS.Store offers a minimal yet powerful interface for graph data management. The default implementation uses ETS for high-performance in-memory storage, but the architecture allows for alternative storage adapters (e.g., persistent databases) in the future. It emphasizes schema validation, custom types, access control, and includes a suite of graph algorithms.
+
+**Key Concepts:**
+
+*   **Store:** An isolated container for graph data, managed by a GenServer process. Multiple stores can exist concurrently.
+*   **Adapter:** The underlying storage engine (e.g., `GraphOS.Store.Adapter.ETS`).
+*   **Entities:** Nodes and Edges, defined with optional schemas.
+*   **Algorithms:** Functions for graph analysis (BFS, Shortest Path, etc.).
+*   **Access Control:** Mechanisms for managing permissions (Policies, Actors, Groups).
 
 ## Features
 
-- Simple API for storing and retrieving data
-- Support for multiple stores in the same application
-- Schema-based data validation
-- Support for custom node and edge types
-- Subscription system for real-time updates
-- Access control and permission management
-- Graph algorithms for data analysis and traversal
+*   Simple API for CRUD (Create, Read, Update, Delete) operations on nodes and edges.
+*   Support for **multiple, named stores** within the same application for data isolation.
+*   Schema-based data validation for nodes and edges.
+*   Support for defining custom node and edge types with specific behaviours.
+*   Subscription system for real-time updates on graph changes.
+*   Integrated access control and permission management.
+*   Built-in graph algorithms (BFS, Shortest Path, PageRank, MST, Connected Components).
+*   Performance optimizations for large graphs (indexing, caching, concurrency).
 
-## Development Status
+## Development Status & Planning
 
-- **Tests**: 123 tests, 0 failures, 1 skipped (related to OperationGuard hooks)
-- **Coverage**: 52.4% overall test coverage (run `mix coveralls.html` for detailed report)
-- **Code Quality**: Monitored via Credo (run `mix credo` for analysis)
-
-See [TASKS.md](TASKS.md) for a detailed breakdown of module status and future development plans.
-
-## Performance Optimizations
-
-GraphOS.Store includes several high-performance optimizations for working with large graphs:
-
-1. **Edge Type Indexing**: Specialized indices for efficient filtering of edges by type
-2. **Query Planner**: Optimized query execution plans with precompiled match specifications
-3. **Memory Optimization**: Table compression support for reduced memory footprint
-4. **Path Caching**: Intelligent caching system for repeated path queries (up to 70x faster)
-5. **Batch Operations**: Efficient bulk inserts and updates for large datasets
-6. **Parallel Processing**: Multi-core utilization with Task.async_stream for event delivery and graph algorithms
-7. **Adaptive Query Strategies**: Automatic selection of the most efficient query strategy based on graph size and complexity
-8. **Timeout Management**: Graceful handling of long-running operations with partial results
-
-For detailed information about these optimizations, see [PERFORMANCE_OPTIMIZATIONS.md](PERFORMANCE_OPTIMIZATIONS.md).
-
-### Performance Testing
-
-GraphOS provides several ways to test and benchmark performance:
-
-```bash
-# Run just the performance tests
-mix test test/store_performance_test.exs --only performance
-
-# Run the optimized graph algorithm tests
-mix test test/store/optimizer_test.exs
-
-# Run the full suite excluding performance tests (faster for general development)
-mix test --exclude performance
-```
-
-### Performance Benchmarks
-
-To run benchmarks that demonstrate optimization performance:
-
-```bash
-# Run with default settings (10,000 nodes, 50,000 edges)
-mix graphos.benchmark
-
-# Run with custom parameters
-mix graphos.benchmark --nodes=5000 --edges=25000 --trials=3 --verbose
-
-# Run with performance tests first
-mix graphos.benchmark --run-tests
-```
-
-Options:
-- `--nodes`: Number of nodes in the test graph (default: 10,000)
-- `--edges`: Number of edges in the test graph (default: 50,000)
-- `--trials`: Number of trials for each benchmark (default: 1)
-- `--verbose`: Show detailed output for all trials
-- `--run-tests`: Run performance-specific tests before benchmarking
-
-### Using Optimizations in Your Code
-
-To leverage GraphOS optimizations in your code:
-
-```elixir
-# For optimized edge filtering by type
-{:ok, edges} = GraphOS.Store.Adapter.ETS.get_edges_by_type(store_name, "friend")
-
-# For optimized edge filtering by source and type
-{:ok, outgoing_edges} = GraphOS.Store.Adapter.ETS.get_outgoing_edges_by_type(store_name, source_id, "friend")
-
-# For very large graphs, use parallel processing
-{:ok, outgoing_edges} = GraphOS.Store.Adapter.ETS.get_outgoing_edges_by_type_parallel(store_name, source_id, "friend")
-
-# For adaptive query optimization (automatically chooses best method based on graph size)
-{:ok, edges} = GraphOS.Store.Adapter.ETS.get_outgoing_edges_adaptive(store_name, source_id, "friend")
-
-# For efficient batch operations
-GraphOS.Store.batch_insert(store_name, Edge, edges)
-```
-
-## Usage
-
-### Basic usage
-
-```elixir
-# Start the store
-GraphOS.Store.start()
-
-# Insert a node
-{:ok, node} = GraphOS.Store.insert(:node, %{type: "person", data: %{name: "John"}})
-
-# Insert an edge
-{:ok, edge} = GraphOS.Store.insert(:edge, %{source: node.id, target: "other_node_id", type: "knows"})
-
-# Update a node
-{:ok, updated_node} = GraphOS.Store.update(:node, %{id: node.id, data: %{name: "John Doe"}})
-
-# Get a node
-{:ok, retrieved_node} = GraphOS.Store.get(:node, node.id)
-
-# Delete a node
-:ok = GraphOS.Store.delete(:node, node.id)
-
-# Stop the store
-GraphOS.Store.stop()
-```
-
-### Using multiple stores
-
-```elixir
-# Start stores with different names
-GraphOS.Store.start(name: :store1)
-GraphOS.Store.start(name: :store2)
-
-# Use a specific store
-{:ok, node} = GraphOS.Store.insert(:node, %{type: "person"}, store: :store1)
-
-# Clean up
-GraphOS.Store.stop(:store1)
-GraphOS.Store.stop(:store2)
-```
-
-### Custom node types
-
-```elixir
-defmodule MyApp.Graph do
-  use GraphOS.Store.Graph
-end
-
-defmodule MyApp.User do
-  use GraphOS.Store.Node,
-    graph: MyApp.Graph,
-    schema: %{
-      name: :user,
-      fields: [
-        %{name: :id, type: :string, required: true},
-        %{name: :name, type: :string, required: true},
-        %{name: :email, type: :string}
-      ]
-    }
-
-  def create(name, email) do
-    GraphOS.Store.insert(__MODULE__, %{
-      name: name,
-      email: email
-    })
-  end
-
-  def set_email(user, email) do
-    GraphOS.Store.update(__MODULE__, %{id: user.id, email: email})
-  end
-end
-```
-
-### Custom edge types
-
-```elixir
-defmodule MyApp.Friendship do
-  use GraphOS.Store.Edge,
-    graph: MyApp.Graph,
-    source: MyApp.User,
-    target: MyApp.User
-
-  def create(user1, user2, strength \\ 1) do
-    GraphOS.Store.insert(__MODULE__, %{
-      source: user1.id,
-      target: user2.id,
-      data: %{strength: strength}
-    })
-  end
-end
-```
-
-### Access Control
-
-```elixir
-# Create a policy
-{:ok, policy} = GraphOS.Access.create_policy(%{name: "document_policy"})
-
-# Add an actor (user)
-{:ok, actor} = GraphOS.Access.create_actor(%{id: "user_123", type: "user"})
-
-# Grant permissions
-GraphOS.Access.grant_permission(policy.id, actor.id, "document", "read")
-GraphOS.Access.grant_permission(policy.id, actor.id, "document", "write")
-
-# Check permissions
-GraphOS.Access.has_permission?(policy.id, actor.id, "document", "read") # true
-GraphOS.Access.has_permission?(policy.id, actor.id, "document", "delete") # false
-
-# Create a group and add members
-{:ok, group} = GraphOS.Access.create_group(%{id: "editors", name: "Editors"})
-GraphOS.Access.add_to_group(group.id, actor.id)
-
-# Grant permissions to a group
-GraphOS.Access.grant_permission(policy.id, group.id, "document", "edit")
-
-# Members inherit group permissions
-GraphOS.Access.has_permission?(policy.id, actor.id, "document", "edit") # true
-```
-
-### Graph Algorithms
-
-```elixir
-# Find all paths using BFS
-{:ok, paths} = GraphOS.Store.execute(%{
-  type: :algorithm,
-  algorithm: :bfs,
-  start: start_node_id,
-  options: %{max_depth: 3, direction: :outgoing}
-})
-
-# Find shortest path
-{:ok, path} = GraphOS.Store.execute(%{
-  type: :algorithm,
-  algorithm: :shortest_path,
-  start: start_node_id,
-  target: target_node_id,
-  options: %{weight_property: :distance}
-})
-```
+*   **Tests:** See `mix test` output for current status.
+*   **Coverage:** Run `mix coveralls.html` for a detailed report.
+*   **Code Quality:** Run `mix credo` for analysis.
+*   **Roadmap & Tasks:** See [PLAN.md](PLAN.md) for the development plan and [TASKS.md](TASKS.md) for module testing status.
+*   **Performance:** See [PERFORMANCE_OPTIMIZATIONS.md](PERFORMANCE_OPTIMIZATIONS.md) for details on optimizations and benchmarks.
 
 ## Installation
 
-The package can be installed by adding `graph_os_graph` to your list of dependencies in `mix.exs`:
+Add `graph_os_store` (or the correct package name if different) to your list of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:graph_os_graph, "~> 0.1.0"}
+    {:graph_os_store, "~> 0.1.0"} # Replace with actual package name and version
   ]
 end
 ```
 
+Then, run `mix deps.get`.
+
+## Basic Usage
+
+```elixir
+# Start the default store (implicitly named :default)
+# Note: Using start_link is preferred in applications/supervisors
+{:ok, _pid} = GraphOS.Store.start_link(name: :default)
+
+# Define basic node/edge modules (or use custom ones)
+alias GraphOS.Entity.Node
+alias GraphOS.Entity.Edge
+
+# Insert a node into the default store
+{:ok, node_a} = GraphOS.Store.insert(Node, %{data: %{name: "Alice"}})
+{:ok, node_b} = GraphOS.Store.insert(Node, %{data: %{name: "Bob"}})
+
+# Insert an edge connecting the nodes
+# Note: Default store is used if `store:` option is omitted
+{:ok, edge} = GraphOS.Store.insert(Edge, %{source: node_a.id, target: node_b.id, data: %{type: "knows"}})
+
+# Get a node
+{:ok, retrieved_node} = GraphOS.Store.get(Node, node_a.id)
+IO.inspect retrieved_node
+
+# Update a node's data
+{:ok, updated_node} = GraphOS.Store.update(Node, %{id: node_a.id, data: %{name: "Alice Smith"}})
+IO.inspect updated_node
+
+# List all nodes
+{:ok, all_nodes} = GraphOS.Store.all(Node)
+IO.inspect all_nodes
+
+# Delete an edge
+:ok = GraphOS.Store.delete(Edge, edge.id)
+
+# Stop the default store
+GraphOS.Store.stop(:default)
+```
+
+## Using Multiple Named Stores
+
+You can run multiple independent stores simultaneously by giving them unique names. This is useful for separating different datasets, configurations, or for testing.
+
+**Starting Named Stores:**
+
+Use the `:name` option when starting the store. The name should be an atom.
+
+```elixir
+# Start two named stores
+{:ok, _pid1} = GraphOS.Store.start_link(name: :store_users)
+{:ok, _pid2} = GraphOS.Store.start_link(name: :store_products, adapter: GraphOS.Store.Adapter.ETS, compressed: true) # Example with options
+```
+
+**Interacting with Named Stores:**
+
+To interact with a specific named store, pass the `store:` option with the store's name to the `GraphOS.Store` functions. If the `store:` option is omitted, GraphOS.Store attempts to use the store named `:default`.
+
+```elixir
+alias GraphOS.Entity.Node
+
+# Insert a node into the :store_users store
+{:ok, user_node} = GraphOS.Store.insert(Node, %{data: %{name: "Charlie"}}, store: :store_users)
+
+# Insert a node into the :store_products store
+{:ok, product_node} = GraphOS.Store.insert(Node, %{data: %{name: "Gadget"}}, store: :store_products)
+
+# Get the user node
+{:ok, retrieved_user} = GraphOS.Store.get(Node, user_node.id, store: :store_users)
+
+# This would fail because product_node is not in :store_users
+# {:error, :not_found} = GraphOS.Store.get(Node, product_node.id, store: :store_users)
+
+# Stop the named stores
+GraphOS.Store.stop(:store_users)
+GraphOS.Store.stop(:store_products)
+```
+
+### Named Stores for Testing (Important!)
+
+Using named stores is the **recommended approach for testing**. It allows each test (or test suite) to run against an isolated, clean data store, preventing interference between tests.
+
+**Common ExUnit Pattern:**
+
+```elixir
+defmodule MyApp.GraphTest do
+  use ExUnit.Case, async: true # Run tests concurrently
+
+  alias GraphOS.Store
+  alias GraphOS.Entity.{Node, Edge}
+
+  # Setup block runs before each test
+  setup do
+    # 1. Generate a unique store name for this test
+    # Using the test module name + unique integer ensures isolation
+    store_name = :"#{__MODULE__}_#{System.unique_integer()}"
+
+    # 2. Start the store with the unique name
+    {:ok, store_pid} = Store.start_link(name: store_name)
+
+    # 3. Pass the store name to the test context
+    # Also, ensure the store is stopped after the test using `on_exit`
+    on_exit(fn -> Store.stop(store_name) end)
+
+    # Return the context for the test
+    %{store_name: store_name}
+  end
+
+  # Example test using the named store from context
+  test "inserts and retrieves a node", %{store_name: store_name} do
+    # 4. Use the store_name from context when calling Store functions
+    {:ok, inserted_node} = Store.insert(Node, %{data: %{label: "Test"}}, store: store_name)
+
+    assert inserted_node.id != nil
+
+    {:ok, retrieved_node} = Store.get(Node, inserted_node.id, store: store_name)
+    assert retrieved_node.id == inserted_node.id
+    assert retrieved_node.data.label == "Test"
+  end
+
+  test "handles edges correctly", %{store_name: store_name} do
+    {:ok, node1} = Store.insert(Node, %{}, store: store_name)
+    {:ok, node2} = Store.insert(Node, %{}, store: store_name)
+
+    {:ok, edge} = Store.insert(Edge, %{source: node1.id, target: node2.id}, store: store_name)
+    assert edge.id != nil
+
+    {:ok, retrieved_edge} = Store.get(Edge, edge.id, store: store_name)
+    assert retrieved_edge.source == node1.id
+  end
+end
+```
+
+**Key takeaways for testing:**
+
+*   **Use `setup`:** Start a uniquely named store for each test.
+*   **Pass Context:** Make the `store_name` available in the test context.
+*   **Specify `store:`:** Always use the `store: store_name` option when calling `GraphOS.Store` functions within your test.
+*   **Clean Up:** Use `on_exit` or the `setup` return tuple (`{:ok, pid: store_pid, store_name: store_name}`) to ensure the test store is stopped after the test finishes, freeing up resources and the name.
+*   **`async: true`:** Using unique stores allows tests to run concurrently safely.
+
+## Custom Node and Edge Types
+
+You can define custom modules for nodes and edges with specific schemas and helper functions.
+
+```elixir
+# Example: lib/my_app/user.ex
+defmodule MyApp.User do
+  use GraphOS.Entity.Node, # Use the Node behaviour
+    schema: %{ # Define a schema for validation
+      fields: [
+        %{name: :name, type: :string, required: true},
+        %{name: :email, type: :string, format: :email}
+      ]
+    }
+
+  # Add custom functions specific to User nodes
+  def create(name, email, opts \\ []) do
+    GraphOS.Store.insert(__MODULE__, %{name: name, email: email}, opts)
+  end
+end
+
+# Example: lib/my_app/friendship.ex
+defmodule MyApp.Friendship do
+  use GraphOS.Entity.Edge, # Use the Edge behaviour
+    source: MyApp.User, # Specify allowed source type (optional)
+    target: MyApp.User, # Specify allowed target type (optional)
+    schema: %{
+      fields: [
+        %{name: :since, type: :utc_datetime}
+      ]
+    }
+
+  def create(user1_id, user2_id, since_datetime, opts \\ []) do
+    GraphOS.Store.insert(__MODULE__, %{
+      source: user1_id,
+      target: user2_id,
+      data: %{since: since_datetime}
+    }, opts)
+  end
+end
+
+# Usage with custom types:
+# {:ok, user} = MyApp.User.create("Bob", "bob@example.com", store: :my_store)
+# {:ok, friend_edge} = MyApp.Friendship.create(user1.id, user2.id, DateTime.utc_now(), store: :my_store)
+```
+
+## Access Control
+
+GraphOS includes modules for managing access control based on policies, actors, and groups. (See `GraphOS.Access` modules and tests for details).
+
+```elixir
+# Simplified Example
+# Setup (Policies, Actors, Groups, Permissions need to be created first)
+# policy_id = ...
+# actor_id = ...
+# resource = "document:123"
+# action = :read
+
+# Check permission
+allowed? = GraphOS.Access.has_permission?(policy_id, actor_id, resource, action)
+
+if allowed? do
+  # Proceed with operation
+else
+  # Deny access
+end
+```
+
+## Graph Algorithms
+
+Use `GraphOS.Store.traverse/3` to execute graph algorithms.
+
+```elixir
+# Find shortest path using Dijkstra's
+{:ok, path_nodes, weight} = GraphOS.Store.traverse(store_name, :shortest_path, {node_a.id, node_b.id, [weight_property: "distance"]})
+
+# Find connected components
+{:ok, components} = GraphOS.Store.traverse(store_name, :connected_components)
+
+# Calculate PageRank
+{:ok, scores} = GraphOS.Store.traverse(store_name, :page_rank, [iterations: 30])
+
+# See lib/store/algorithm/README.md for more details and options.
+```
+
 ## Development
 
-### Testing
-
-Run the test suite:
+**Run Tests:**
 
 ```bash
 mix test
 ```
 
-Generate a test coverage report:
+**Check Test Coverage:**
 
 ```bash
 mix coveralls.html
 ```
 
-Run code analysis:
+**Run Code Linter:**
 
 ```bash
 mix credo
 ```
 
-## Documentation
-
-Documentation can be generated with [ExDoc](https://github.com/elixir-lang/ex_doc):
+**Generate Documentation:**
 
 ```bash
 mix docs
 ```
 
-## Transactions
+## Contributing
 
-```elixir
-# Create operations
-op1 = %{type: :insert, entity_type: :node, data: %{type: "person", data: %{name: "John"}}}
-op2 = %{type: :insert, entity_type: :node, data: %{type: "person", data: %{name: "Jane"}}}
-
-# Build a transaction
-transaction = GraphOS.Store.Transaction.new([op1, op2])
-
-# Execute the transaction
-{:ok, results} = GraphOS.Store.execute(transaction)
-```
-
-## Subscription API
-
-The subscription API allows you to subscribe to changes in the store and receive real-time notifications.
-
-```elixir
-# Subscribe to all user entities
-{:ok, sub_id} = GraphOS.Store.subscribe(MyApp.User)
-
-# Subscribe to a specific user entity
-{:ok, sub_id} = GraphOS.Store.subscribe({MyApp.User, "user123"})
-
-# Subscribe to a custom topic
-{:ok, sub_id} = GraphOS.Store.subscribe("user:login", events: [:create])
-
-# Receive notifications
-receive do
-  {:graph_os_store, topic, event} ->
-    IO.puts("Received event: #{inspect(event)}")
-end
-
-# Publish a custom event
-event = %GraphOS.Store.Event{
-  type: :custom,
-  topic: "user:login",
-  entity_type: :node,
-  entity_id: "user123",
-  metadata: %{ip_address: "192.168.1.1"}
-}
-:ok = GraphOS.Store.publish(event)
-
-# Unsubscribe when done
-:ok = GraphOS.Store.unsubscribe(sub_id)
+Please refer to the contribution guidelines (if available) and ensure code quality checks pass before submitting pull requests.
