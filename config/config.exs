@@ -16,21 +16,6 @@
 
 import Config
 
-# Configure graph_os_dev application
-config :graph_os_dev,
-  namespace: GraphOS.Dev,
-  generators: [timestamp_type: :utc_datetime]
-
-# Configures the endpoint
-config :graph_os_dev, GraphOS.DevWeb.Endpoint,
-  url: [host: "localhost"],
-  adapter: Bandit.PhoenixAdapter,
-  render_errors: [
-    formats: [html: GraphOS.DevWeb.ErrorHTML, json: GraphOS.DevWeb.ErrorJSON],
-    layout: false
-  ],
-  pubsub_server: GraphOS.Dev.PubSub,
-  live_view: [signing_salt: "zJUMk6G2"]
 
 # Configure esbuild (the version is required)
 config :esbuild,
