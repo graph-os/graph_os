@@ -12,9 +12,6 @@ defmodule GraphOS.Action do
 
   require Logger
 
-  # Default scope identifier key in args map
-  @default_scope_id_key "id" # Or "path" for file system? Needs consistency. Let's use "id" generally.
-
   @doc """
   Requests and orchestrates the execution of an action on a target node.
 
