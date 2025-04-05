@@ -115,10 +115,10 @@ defmodule GraphOS.Protocol.PlugTest do
     end
 
     test "handles JSON content type", %{conn: conn, adapter_pid: adapter_pid} do
-      # Mock the GenServer.execute function to return a predefined response
-      :meck.new(GraphOS.Adapter.GenServer, [:passthrough])
+      # Mock the TestAdapter.execute function to return a predefined response
+      :meck.new(TestAdapter, [:passthrough]) # Mock TestAdapter instead
 
-      :meck.expect(GraphOS.Adapter.GenServer, :execute, fn _adapter, _operation, _context ->
+      :meck.expect(TestAdapter, :execute, fn _adapter, _operation, _context -> # Expect on TestAdapter
         {:ok,
          %{
            id: "node-1",
@@ -142,7 +142,7 @@ defmodule GraphOS.Protocol.PlugTest do
         })
 
       # Clean up the mock after the test
-      :meck.unload(GraphOS.Adapter.GenServer)
+      :meck.unload(TestAdapter) # Unload TestAdapter
 
       # Check the response
       assert conn.status == 200
@@ -188,10 +188,10 @@ defmodule GraphOS.Protocol.PlugTest do
       # Create a new adapter for this test to avoid shared state
       {:ok, adapter_pid} = TestAdapter.start_link([])
 
-      # Mock the GenServer.execute function
-      :meck.new(GraphOS.Adapter.GenServer, [:passthrough])
+      # Mock the TestAdapter.execute function
+      :meck.new(TestAdapter, [:passthrough]) # Mock TestAdapter instead
 
-      :meck.expect(GraphOS.Adapter.GenServer, :execute, fn _adapter, _operation, _context ->
+      :meck.expect(TestAdapter, :execute, fn _adapter, _operation, _context -> # Expect on TestAdapter
         {:ok,
          %{
            id: "node-1",
@@ -216,7 +216,7 @@ defmodule GraphOS.Protocol.PlugTest do
         })
 
       # Clean up the mock after the test
-      :meck.unload(GraphOS.Adapter.GenServer)
+      :meck.unload(TestAdapter) # Unload TestAdapter
 
       # Since schema_module is nil, it should return 501 Not Implemented
       assert conn.status == 501

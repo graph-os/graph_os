@@ -79,7 +79,8 @@ defmodule TMUX.Task do
           "restart" => &handle_restart/0,
           "join" => &handle_join/0,
           "status" => &handle_status/0,
-          "help" => &handle_help/0
+          "help" => &handle_help/0,
+          "logs" => &handle_logs/0
         }
 
         # Check if tmux is available
@@ -139,6 +140,7 @@ defmodule TMUX.Task do
                   "restart" -> handle_restart()
                   "join" -> handle_join()
                   "status" -> handle_status()
+                  "logs" -> handle_logs()
                   _ -> print_warning("Unknown action: #{action}")
                 end
               end)
@@ -198,6 +200,21 @@ defmodule TMUX.Task do
             print_info("Join with: mix #{@task_name} join")
           end
           :ok
+        end
+      end
+
+
+      defp handle_logs(lines \\ 50) do
+        # Get the last `lines` lines from the tmux session
+        {output, _} = System.cmd("tmux", ["capture-pane", "-pt", @session_name, "-S", "-#{lines}"], stderr_to_stdout: true)
+        if output && output != "" do
+          print_info("\nSession logs (last #{lines} lines):")
+          output
+          |> String.split("\n")
+          |> Enum.filter(fn line -> String.trim(line) != "" end)
+          |> Enum.each(fn line -> print_info("  " <> line) end)
+        else
+          print_warning("No logs available or session not running.")
         end
       end
 

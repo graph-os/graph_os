@@ -1,34 +1,34 @@
 defmodule GraphOS.Protocol.MCPImplementation do
   @moduledoc """
-  Concrete implementation of the MCP Server behaviour for GraphOS.
+  Concrete implementation of the MCP Server for GraphOS.
   Handles MCP requests and translates them into calls to graph_os_core.
   (Initially implementing a simple 'echo' tool for testing).
   """
-  use MCP.Server # Assuming MCP.Server behaviour exists in the './mcp' SDK dependency
+  use MCP.Server,
+    name: "GraphOS Server",
+    description: "MCP server for GraphOS Protocol"
+
   require Logger
 
-  # Removed Core aliases for echo implementation
-  # alias GraphOS.Core.Context
-  # alias GraphOS.Core.SystemCommand
+  # --- Custom Handler Implementations ---
 
-  # --- MCP.Server Callbacks ---
-
+  # Override handle_initialize to add logging
   @impl true
   def handle_initialize(session_id, request_id, params) do
     Logger.info("Handling initialize", session_id: session_id, request_id: request_id)
-    # Call default implementation from MCP.Server behaviour
+    # Call the default implementation
     super(session_id, request_id, params)
   end
 
+  # Override handle_list_tools to provide the echo tool
   @impl true
-  def handle_list_tools(session_id, request_id, _params) do
-    Logger.info("Handling list_tools", session_id: session_id, request_id: request_id)
+  def handle_list_tools(_session_id, request_id, _params) do
+    Logger.info("Custom handle_list_tools implementation called", request_id: request_id)
 
+    # Define a hard-coded echo tool
     tools = [
       %{
-        name: "echo",
-        description: "Simple echo tool for testing.",
-        inputSchema: %{
+        "inputSchema" => %{ # Moved string key first
           "type" => "object",
           "properties" => %{
             "message" => %{
@@ -37,53 +37,24 @@ defmodule GraphOS.Protocol.MCPImplementation do
             }
           },
           "required" => ["message"]
-         }
-         # Removed non-standard outputSchema key
-       }
-     ]
+        },
+        name: "echo", # Keyword keys after string key
+        description: "Simple echo tool for testing."
+      }
+    ]
+    # Removed duplicated block
 
+    Logger.info("Returning #{length(tools)} tools from handle_list_tools", request_id: request_id)
     {:ok, %{tools: tools}}
   end
 
+  # Override handle_tool_call to handle the echo tool
   @impl true
-  def handle_tool_call(session_id, request_id, tool_name, arguments) do
-    Logger.info("Handling tool_call: #{tool_name}", session_id: session_id, request_id: request_id)
-
-    case tool_name do
-      "echo" ->
-        message = Map.get(arguments, "message", "No message provided")
-        # Simply return the message in the expected output format
-        {:ok, %{echo: "You sent: #{message}"}}
-
-      _ ->
-        {:error, {MCP.Server.tool_not_found(), "Tool not found: #{tool_name}", nil}}
-    end
+  def handle_tool_call(_session_id, request_id, "echo", arguments) do
+    message = arguments["message"]
+    Logger.info("Executing echo tool with message: #{message}", request_id: request_id)
+    {:ok, %{echo: "You sent: #{message}"}}
   end
 
-  # Required by MCP.Server behaviour (called from default dispatch_method)
-  defp validate_tool(tool) do
-    # Basic validation for now, just ensure it's a map with a name
-    if is_map(tool) and Map.has_key?(tool, :name) do
-      {:ok, tool}
-    else
-      {:error, "Invalid tool structure"}
-    end
-  end
-
-  # --- Helper Functions ---
-
-  # TODO: Implement proper session/actor mapping if needed later
-  # defp get_actor_id_for_session(session_id) do
-  #   Logger.warn("Using placeholder actor_id for session: #{session_id}")
-  #   "placeholder_actor" # Replace with actual logic
-  # end
-
-  # TODO: Implement proper error formatting if needed later
-  # defp format_error({:unauthorized, _}) do
-  #   {MCP.Server.internal_error(), "Authorization failed", nil} # Use a more specific code if available
-  # end
-  # defp format_error(reason) do
-  #    {MCP.Server.internal_error(), "Tool execution failed: #{inspect(reason)}", nil}
-  # end
-
+  # All other handlers will use the default implementations from MCP.Server
 end

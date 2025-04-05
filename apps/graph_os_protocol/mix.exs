@@ -23,7 +23,7 @@ defmodule GraphOS.Protocol.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
+      extra_applications: [:logger, :mcp, :plug], # Ensure :plug is loaded too
       mod: {GraphOS.Protocol.Application, []}
     ]
   end
@@ -41,7 +41,7 @@ defmodule GraphOS.Protocol.MixProject do
       {:mcp, in_umbrella: true},
 
       # Protocol-specific dependencies
-      {:plug, "~> 1.14"},
+      {:plug, "~> 1.14"}, # Removed only: [:dev, :test]
       {:plug_cowboy, "~> 2.6"},
       {:jason, "~> 1.4"},
       {:boundary, "~> 0.10", runtime: false},
@@ -49,7 +49,9 @@ defmodule GraphOS.Protocol.MixProject do
       # Development and testing
       {:dialyxir, "~> 1.3", only: [:dev], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:meck, "~> 0.9", only: :test}
+      {:meck, "~> 0.9", only: :test},
+      {:protobuf, "~> 0.10", only: :test}, # Added for mock_proto.ex
+      {:mint, "~> 1.5"} # Added for client simulation test (removed only: :test)
     ]
   end
 

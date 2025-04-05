@@ -67,46 +67,52 @@ defmodule Mix.Tasks.Protocol.Server do
   defp start_protocol_adapters do
     Mix.shell().info("Starting protocol adapters...")
 
-    # Try to start the GRPC adapter, or reconnect to existing one
-    adapter_name = :"GraphOS.Protocol.GRPCAdapter_#{System.system_time(:millisecond)}"
-    
-    # Import system info schema
-    system_info_schema = GraphOS.Core.SystemInfo.Schema
-    
-    grpc_result = try do
-      case GraphOS.Protocol.GRPC.start_link(
-        name: adapter_name,
-        schema_module: system_info_schema,
-        plugs: [
-          # Default auth plug is automatically included unless explicitly disabled
-        ]
-      ) do
-        {:ok, pid} ->
-          Mix.shell().info("✅ GRPC adapter started (#{inspect pid}) with name #{inspect adapter_name}")
-        {:error, {:already_started, pid}} ->
-          Mix.shell().info("✅ GRPC adapter already running (#{inspect pid})")
-        {:error, reason} ->
-          Mix.shell().error("❌ Failed to start GRPC adapter: #{inspect reason}")
-          {:error, reason}
-      end
-    rescue
-      e -> 
-        Mix.shell().error("❌ Exception while starting GRPC adapter: #{inspect e}")
-        {:error, e}
-    end
+    # # Try to start the GRPC adapter, or reconnect to existing one
+    # # TODO: Re-enable GRPC when a valid schema/service module exists
+    # adapter_name_grpc = :"GraphOS.Protocol.GRPCAdapter_#{System.system_time(:millisecond)}"
+    #
+    # # Import system info schema - THIS MODULE DOES NOT EXIST
+    # # system_info_schema = GraphOS.Core.SystemInfo.Schema
+    #
+    # # TODO: Determine the correct gRPC Service module corresponding to the SystemInfo schema
+    # # system_info_service = GraphOS.Core.SystemInfo.Service # Placeholder - Verify this module exists!
+    #
+    # grpc_result = try do
+    #   case GraphOS.Protocol.GRPC.start_link(
+    #     name: adapter_name_grpc,
+    #     # schema_module: system_info_schema, # Module doesn't exist
+    #     # service_module: system_info_service, # Module doesn't exist
+    #     plugs: [
+    #       # Default auth plug is automatically included unless explicitly disabled
+    #     ]
+    #   ) do
+    #     {:ok, pid} ->
+    #       Mix.shell().info("✅ GRPC adapter started (#{inspect pid}) with name #{inspect adapter_name_grpc}")
+    #     {:error, {:already_started, pid}} ->
+    #       Mix.shell().info("✅ GRPC adapter already running (#{inspect pid})")
+    #     {:error, reason} ->
+    #       Mix.shell().error("❌ Failed to start GRPC adapter: #{inspect reason}")
+    #       {:error, reason}
+    #   end
+    # rescue
+    #   e ->
+    #     Mix.shell().error("❌ Exception while starting GRPC adapter: #{inspect e}")
+    #     {:error, e}
+    # end
+    grpc_result = {:error, :grpc_disabled} # Placeholder result
 
-    # Also start JSONRPC adapter as a fallback
-    adapter_name = :"GraphOS.Protocol.JSONRPCAdapter_#{System.system_time(:millisecond)}"
-    
+    # Start JSONRPC adapter
+    adapter_name_json = :"GraphOS.Protocol.JSONRPCAdapter_#{System.system_time(:millisecond)}"
+
     jsonrpc_result = try do
       case GraphOS.Protocol.JSONRPC.start_link(
-        name: adapter_name,
+        name: adapter_name_json, # Use correct variable name
         plugs: [
           # Default auth plug is automatically included unless explicitly disabled
         ]
       ) do
         {:ok, pid} ->
-          Mix.shell().info("✅ JSONRPC adapter started (#{inspect pid}) with name #{inspect adapter_name}")
+          Mix.shell().info("✅ JSONRPC adapter started (#{inspect pid}) with name #{inspect adapter_name_json}") # Use correct variable
         {:error, {:already_started, pid}} ->
           Mix.shell().info("✅ JSONRPC adapter already running (#{inspect pid})")
         {:error, reason} ->
@@ -114,7 +120,7 @@ defmodule Mix.Tasks.Protocol.Server do
           {:error, reason}
       end
     rescue
-      e -> 
+      e ->
         Mix.shell().error("❌ Exception while starting JSONRPC adapter: #{inspect e}")
         {:error, e}
     end

@@ -1,5 +1,11 @@
 ExUnit.start()
 
+# Ensure :plug application is started for Plug.ConnTest helpers
+Application.ensure_all_started(:plug)
+
+# Configure MCP for tests to use MCP.Server as the message handler
+Application.put_env(:mcp, :message_handler_module, MCP.Server)
+
 # Mock the GraphOS.Graph.Schema.Protobuf module for testing
 defmodule GraphOS.Graph.Schema.Protobuf do
   @moduledoc false
@@ -44,6 +50,21 @@ defmodule GraphOS.Adapter.GenServer do
 
   def start_link(opts) do
     {:ok, self()}
+  end
+end
+
+# Mock for testing SSE/MCP handling
+defmodule GraphOS.Protocol.Test.MockProto do
+  @moduledoc false
+  
+  def encode(proto_struct) do
+    # Simple passthrough encoding
+    Jason.encode!(proto_struct)
+  end
+  
+  def decode(binary, _msg_type) do
+    # Simple passthrough decoding
+    Jason.decode!(binary)
   end
 end
 

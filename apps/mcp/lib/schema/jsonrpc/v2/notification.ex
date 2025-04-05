@@ -52,4 +52,15 @@ defmodule JSONRPC.V2.Notification do
       "additionalProperties" => false
     }
   end
+
+  @spec validate(message :: map()) :: {:ok, map()} | {:error, String.t()}
+  def validate(message) do
+    # TODO: Use a proper JSON Schema validator like ExJsonSchema if added as a dependency
+    # For now, perform basic checks
+    if is_map(message) and Map.get(message, "jsonrpc") == @jsonrpc_version and is_binary(Map.get(message, "method")) do
+      {:ok, message}
+    else
+      {:error, "Invalid message format"}
+    end
+  end
 end

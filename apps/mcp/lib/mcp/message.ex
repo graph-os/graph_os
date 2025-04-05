@@ -8,6 +8,33 @@ defmodule MCP.Message do
   def latest_version, do: @versions |> List.first()
   def supported_versions, do: @versions
 
+  defguard is_version(version) when version in @versions
+
+  @spec is_mcp_version?(String.t()) :: boolean()
+  def is_mcp_version?(version) when is_binary(version) do
+    version in @versions
+  end
+
+  # TODO: Ensure that we support all methods and only valid methods
+  @methods [
+    "initialize",
+    "ping",
+    "resources/list",
+    "resources/read",
+    "resources/templates/list",
+    "resources/subscribe",
+    "resources/unsubscribe",
+    "tools/list",
+    "tools/call",
+    "prompts/list",
+    "prompts/get",
+    "completion/complete",
+    "logging/setLevel",
+    "sampling/createMessage",
+    "roots/list"
+  ]
+  def supported_methods, do: @methods
+
   # Initialize Request
   defmessage "InitializeRequest", "2024-11-05", "initialize" do
     %{
@@ -44,6 +71,21 @@ defmodule MCP.Message do
     }
   end
 
+  def initialize_result(server_name, server_version, server_capabilities, %{}, instructions \\ "", meta \\ %{}) do
+    %{
+      "jsonrpc" => "2.0",
+      "protocolVersion" => latest_version(),
+      "capabilities" => server_capabilities,
+      "serverInfo" => %{
+        "name" => server_name,
+        "version" => server_version
+      },
+      "instructions" => instructions
+    }
+  end
+
+
+
   # Ping Request
   defmessage "PingRequest", "2024-11-05", "ping" do
     %{
@@ -63,6 +105,13 @@ defmodule MCP.Message do
       "properties" => %{
         "_meta" => %{"type" => "object"}
       }
+    }
+  end
+
+  def ping_result(meta \\ %{}) do
+    %{
+      "jsonrpc" => "2.0",
+      "_meta" => meta
     }
   end
 
@@ -110,6 +159,16 @@ defmodule MCP.Message do
     }
   end
 
+  @spec list_resources_result([map()], String.t(), map()) :: map()
+  def list_resources_result(resources, cursor \\ "", meta \\ %{}) do
+    %{
+      "jsonrpc" => "2.0",
+      "resources" => resources,
+      "cursor" => cursor,
+      "_meta" => meta
+    }
+  end
+
   # Read Resource Request
   defmessage "ReadResourceRequest", "2024-11-05", "resources/read" do
     %{
@@ -138,6 +197,14 @@ defmodule MCP.Message do
         "contents" => Fragments.resource_contents("2024-11-05"),
         "_meta" => %{"type" => "object"}
       }
+    }
+  end
+
+  def read_resource_result(contents, meta \\ %{}) do
+    %{
+      "jsonrpc" => "2.0",
+      "contents" => contents,
+      "_meta" => meta
     }
   end
 
@@ -247,10 +314,20 @@ defmodule MCP.Message do
           "type" => "array",
           "items" => Fragments.tool("2024-11-05")
         },
-        "cursor" => %{"type" => "string"},
+        "nextCursor" => %{"type" => "string"}, # Changed "cursor" to "nextCursor"
         "_meta" => %{"type" => "object"}
       }
     }
+  end
+
+  def list_tools_result(tools, next_cursor \\ nil, meta \\ %{}) do # Changed arg name and default
+    %{
+      "jsonrpc" => "2.0",
+      "tools" => tools,
+      "nextCursor" => next_cursor, # Changed key name
+      "_meta" => meta
+    }
+    # Note: The dispatcher already filters nil values, so sending nil here is fine.
   end
 
   # Call Tool Request
@@ -277,10 +354,33 @@ defmodule MCP.Message do
   defmessage "CallToolResult", "2024-11-05", "tools/call/result" do
     %{
       "type" => "object",
+      "required" => ["content"], # Added content as required
       "properties" => %{
-        "result" => %{},
+        "content" => %{ # Changed "result" to "content" and defined its type
+          "type" => "array",
+          "items" => %{
+            "oneOf" => [
+              Fragments.text_content("2024-11-05"),
+              Fragments.image_content("2024-11-05")
+              # Removed Fragments.audio_content and Fragments.embedded_resource
+            ]
+          }
+        },
+        "isError" => %{"type" => "boolean"}, # Added isError field
         "_meta" => %{"type" => "object"}
       }
+    }
+  end
+
+  # Note: The helper function call_tool_result is no longer used by the dispatcher.
+  # The dispatcher now constructs the struct directly. We can leave the old helper
+  # or remove it, but it's not causing the current issue.
+  # Keeping it for now to minimize changes.
+  def call_tool_result(result, meta \\ %{}) do
+    %{
+      "jsonrpc" => "2.0",
+      "result" => result, # This helper is now inconsistent with the schema above
+      "_meta" => meta
     }
   end
 
@@ -323,6 +423,15 @@ defmodule MCP.Message do
         "cursor" => %{"type" => "string"},
         "_meta" => %{"type" => "object"}
       }
+    }
+  end
+
+  def list_prompts_result(prompts, cursor \\ "", meta \\ %{}) do
+    %{
+      "jsonrpc" => "2.0",
+      "prompts" => prompts,
+      "cursor" => cursor,
+      "_meta" => meta
     }
   end
 
@@ -374,6 +483,17 @@ defmodule MCP.Message do
     }
   end
 
+  def get_prompt_result(name, messages, arguments \\ [], description \\ "", meta \\ %{}) do
+    %{
+      "jsonrpc" => "2.0",
+      "name" => name,
+      "messages" => messages,
+      "arguments" => arguments,
+      "description" => description,
+      "_meta" => meta
+    }
+  end
+
   # Complete Request
   defmessage "CompleteRequest", "2024-11-05", "completion/complete" do
     %{
@@ -398,6 +518,8 @@ defmodule MCP.Message do
     }
   end
 
+
+
   # Complete Result
   defmessage "CompleteResult", "2024-11-05", "completion/complete/result" do
     %{
@@ -407,6 +529,14 @@ defmodule MCP.Message do
         "completion" => Fragments.prompt_message("2024-11-05"),
         "_meta" => %{"type" => "object"}
       }
+    }
+  end
+
+  def complete_result(completion, meta \\ %{}) do
+    %{
+      "jsonrpc" => "2.0",
+      "completion" => completion,
+      "_meta" => meta
     }
   end
 
@@ -441,7 +571,7 @@ defmodule MCP.Message do
           "required" => ["messages"],
           "properties" => %{
             "messages" => %{
-              "type" => "array", 
+              "type" => "array",
               "items" => Fragments.prompt_message("2024-11-05")
             },
             "temperature" => %{"type" => "number"},

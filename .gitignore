@@ -24,8 +24,8 @@ erl_crash.dump
 **/.cursor/
 .cursor/*
 .mcp
-reference
 
+reference/
 
 .lexical
 .elixir_ls

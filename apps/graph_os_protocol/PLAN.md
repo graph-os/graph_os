@@ -1,8 +1,8 @@
 # GraphOS.Protocol Plan
 
-**Note on Structure (May 2025):** The project has been refactored from an Elixir umbrella structure to a standard dependency chain model (`graph_os_store` -> `graph_os_core` -> `graph_os_protocol`). This plan assumes the standalone application structure.
+**Note on Structure (April 2025):** The project is structured as an Elixir umbrella project. This plan assumes the umbrella structure while maintaining the dependency chain: `graph_os_store` -> `graph_os_core` -> `graph_os_protocol`.
 
-**Depends On:** `graph_os_core`, `tmux`, `mcp` (via path dependencies in `mix.exs`)
+**Depends On:** `graph_os_store`, `graph_os_core`, `mcp`, `tmux` (via `in_umbrella: true` dependencies in `mix.exs`)
 
 **Goal:** Define and serve the primary external communication interface (likely JSON-RPC + MCP) for AI agents, ensuring secure and controlled access to `graph_os_core` functionalities.
 

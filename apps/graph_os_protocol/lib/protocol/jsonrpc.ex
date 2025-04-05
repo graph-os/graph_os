@@ -3,7 +3,7 @@ defmodule GraphOS.Protocol.JSONRPC do
   JSON-RPC 2.0 protocol adapter for GraphOS components.
 
   This adapter provides a JSON-RPC 2.0 interface to GraphOS components. It maps
-  JSON-RPC methods to Graph operations and handles request batching, error 
+  JSON-RPC methods to Graph operations and handles request batching, error
   standardization, and other protocol-specific behaviors.
 
   ## Configuration
@@ -53,8 +53,10 @@ defmodule GraphOS.Protocol.JSONRPC do
   """
 
   use Boundary, deps: [:graph_os_core, :graph_os_graph]
-  use GraphOS.Protocol.Adapter
-  alias GraphOS.Adapter.{Context, GenServer}
+  # Removed: use GraphOS.Protocol.Adapter
+  use GenServer # Implement GenServer directly
+  alias GraphOS.Adapter.Context # Keep Context if needed
+  # Removed: alias GraphOS.Adapter.GenServer
 
   # JSON-RPC error codes
   @parse_error -32700
@@ -74,17 +76,24 @@ defmodule GraphOS.Protocol.JSONRPC do
 
     @type t :: %__MODULE__{
             graph_module: module(),
-            gen_server_adapter: pid(),
+            # Removed: gen_server_adapter: pid(),
             version: String.t(),
             method_prefix: String.t()
           }
 
     defstruct [
       :graph_module,
-      :gen_server_adapter,
+      # Removed: :gen_server_adapter,
       :version,
       :method_prefix
     ]
+  end
+
+  @doc """
+  Starts the JSONRPC adapter GenServer.
+  """
+  def start_link(opts) do
+    GenServer.start_link(__MODULE__, opts, name: Keyword.get(opts, :name))
   end
 
   @doc """
@@ -95,7 +104,7 @@ defmodule GraphOS.Protocol.JSONRPC do
     * `adapter` - The adapter module or pid
     * `request` - The JSON-RPC request (map or list of maps for batch requests)
     * `context` - Optional custom context for the request
-    
+
   ## Returns
 
     * `{:ok, response}` - Successfully processed the request
@@ -126,59 +135,56 @@ defmodule GraphOS.Protocol.JSONRPC do
     version = Keyword.get(opts, :version, "2.0")
     method_prefix = Keyword.get(opts, :method_prefix, "graph.")
 
-    # Add the authentication plug by default if not explicitly disabled
-    plugs =
-      case Keyword.get(opts, :auth, true) do
-        false ->
-          Keyword.get(opts, :plugs, [])
+    # TODO: Revisit plug handling if needed during request processing
+    # plugs =
+    #   case Keyword.get(opts, :auth, true) do
+    #     false ->
+    #       Keyword.get(opts, :plugs, [])
+    #
+    #     _ ->
+    #       auth_plug = GraphOS.Protocol.Auth.Plug
+    #       existing_plugs = Keyword.get(opts, :plugs, [])
+    #
+    #       # Only add the auth plug if it's not already included
+    #       if Enum.any?(existing_plugs, fn
+    #            ^auth_plug -> true
+    #            {^auth_plug, _} -> true
+    #            _ -> false
+    #          end) do
+    #         existing_plugs
+    #       else
+    #         [auth_plug | existing_plugs]
+    #       end
+    #   end
 
-        _ ->
-          auth_plug = GraphOS.Protocol.Auth.Plug
-          existing_plugs = Keyword.get(opts, :plugs, [])
-
-          # Only add the auth plug if it's not already included
-          if Enum.any?(existing_plugs, fn
-               ^auth_plug -> true
-               {^auth_plug, _} -> true
-               _ -> false
-             end) do
-            existing_plugs
-          else
-            [auth_plug | existing_plugs]
-          end
-      end
-
-    # Start the GenServer adapter as a child
-    gen_server_opts =
-      Keyword.merge(opts,
-        adapter: Keyword.get(opts, :gen_server_adapter, GenServer),
-        graph_module: graph_module,
-        plugs: plugs
-      )
-
-    case GenServer.start_link(gen_server_opts) do
-      {:ok, gen_server_pid} ->
-        state = %State{
-          graph_module: graph_module,
-          gen_server_adapter: gen_server_pid,
-          version: version,
-          method_prefix: method_prefix
-        }
-
-        {:ok, state}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+    # Removed internal GenServer adapter start
+    # This GenServer (GraphOS.Protocol.JSONRPC) handles requests directly.
+    state = %State{
+      graph_module: graph_module,
+      version: version,
+      method_prefix: method_prefix
+      # TODO: Store plugs if they need to be applied within handle_call/handle_cast
+    }
+    {:ok, state}
   end
 
-  @impl true
-  def handle_operation(operation, context, state) do
-    # Delegate to the GenServer adapter
-    case GenServer.execute(state.gen_server_adapter, operation, context) do
-      {:ok, result} ->
-        # Operation succeeded
-        {:reply, result, context, state}
+  # TODO: Refactor handle_operation - it's likely not needed if using handle_call/handle_cast
+  # @impl true
+  # def handle_operation(operation, context, state) do
+  #   # Delegate to the GenServer adapter
+  #   # case GenServer.execute(state.gen_server_adapter, operation, context) do
+  #   #   {:ok, result} ->
+  #   #     # Operation succeeded
+  #   #     {:reply, result, context, state}
+  #   #
+  #   #   {:error, reason} ->
+  #   #     # Operation failed
+  #   #     {:error, reason, context, state}
+  #   # end
+  #   {:error, :not_implemented} # Placeholder return
+  # end
+
+  @doc """
 
       {:error, reason} ->
         # Operation failed
@@ -196,7 +202,7 @@ defmodule GraphOS.Protocol.JSONRPC do
     * `request` - The JSON-RPC request (map or list of maps for batch requests)
     * `context` - The request context
     * `state` - The adapter state
-    
+
   ## Returns
 
     * `{:reply, response, context, state}` - Reply with result and updated context/state
@@ -319,9 +325,14 @@ defmodule GraphOS.Protocol.JSONRPC do
         # Query operation
         path = String.replace_prefix(method, "#{prefix}query.", "")
 
-        case GenServer.execute(state.gen_server_adapter, {:query, path, params}, context) do
-          {:ok, result} ->
-            {:ok, result, context, state}
+        # TODO: Dispatch to GraphOS.Conn instead of non-existent GenServer.execute
+        # Need to get conn_pid from context or state
+        # result_from_conn = GenServer.call(conn_pid, {:query, path, params})
+        result = {:error, :not_implemented} # Placeholder
+
+        case result do # Simulate handling result_from_conn
+          {:ok, result_data} ->
+            {:ok, result_data, context, state}
 
           {:error, reason} ->
             {:error, reason, context, state}
@@ -331,9 +342,14 @@ defmodule GraphOS.Protocol.JSONRPC do
         # Action operation
         path = String.replace_prefix(method, "#{prefix}action.", "")
 
-        case GenServer.execute(state.gen_server_adapter, {:action, path, params}, context) do
-          {:ok, result} ->
-            {:ok, result, context, state}
+        # TODO: Dispatch to GraphOS.Conn instead of non-existent GenServer.execute
+        # Need to get conn_pid from context or state
+        # result_from_conn = GenServer.call(conn_pid, {:action, path, params})
+        result = {:error, :not_implemented} # Placeholder
+
+        case result do # Simulate handling result_from_conn
+          {:ok, result_data} ->
+            {:ok, result_data, context, state}
 
           {:error, reason} ->
             {:error, reason, context, state}
@@ -343,8 +359,13 @@ defmodule GraphOS.Protocol.JSONRPC do
         # Subscribe to events
         case Map.fetch(params, "event") do
           {:ok, event_type} ->
-            case GenServer.subscribe(state.gen_server_adapter, event_type) do
-              :ok ->
+            # TODO: Dispatch subscribe to GraphOS.Conn
+            # Need conn_pid from context/state
+            # result_from_conn = GenServer.call(conn_pid, {:subscribe, event_type, params}) # Assuming params might contain options
+            result = {:error, :not_implemented} # Placeholder
+
+            case result do # Simulate handling result_from_conn
+              {:ok, _sub_id} -> # Assuming Conn returns subscription ID
                 {:ok, %{"subscribed" => event_type}, context, state}
 
               {:error, reason} ->
@@ -363,10 +384,17 @@ defmodule GraphOS.Protocol.JSONRPC do
       method == "#{prefix}unsubscribe" ->
         # Unsubscribe from events
         case Map.fetch(params, "event") do
-          {:ok, event_type} ->
-            case GenServer.unsubscribe(state.gen_server_adapter, event_type) do
+          # TODO: Unsubscribe likely needs a subscription ID, not just event_type
+          {:ok, _event_type_or_sub_id} ->
+            # TODO: Dispatch unsubscribe to GraphOS.Conn
+            # Need conn_pid and subscription_id
+            # result_from_conn = GenServer.call(conn_pid, {:unsubscribe, sub_id})
+            result = {:error, :not_implemented} # Placeholder
+
+            case result do # Simulate handling result_from_conn
               :ok ->
-                {:ok, %{"unsubscribed" => event_type}, context, state}
+                # TODO: Need to know what was actually unsubscribed if using event_type
+                {:ok, %{"unsubscribed" => "unknown"}, context, state}
 
               {:error, reason} ->
                 {:error, reason, context, state}
@@ -432,13 +460,13 @@ defmodule GraphOS.Protocol.JSONRPC do
     end
   end
 
+  # TODO: Review if terminate needs specific cleanup
   @impl true
-  def terminate(reason, %State{gen_server_adapter: adapter_pid}) do
-    # Terminate the GenServer adapter
-    if Process.alive?(adapter_pid) do
-      GenServer.stop(adapter_pid, reason)
-    end
-
+  def terminate(_reason, _state) do
+    # Terminate the GenServer adapter - No longer needed
+    # if Process.alive?(adapter_pid) do
+    #   GenServer.stop(adapter_pid, reason)
+    # end
     :ok
   end
 end

@@ -1,25 +1,30 @@
-defmodule GraphOS.Protocol.Router do
+ defmodule GraphOS.Protocol.Router do
   @moduledoc """
   Main Plug router for handling GraphOS protocol requests, including SSE.
   """
-  use Plug.Router # Use Plug.Router for defining routes/forwarding
-  use Plug.Builder # Use Plug.Builder for the pipeline
+  use Plug.Router
 
-  # TODO: Verify the exact option name expected by SSE.ConnectionPlug
-   @sse_plug_opts [handler_module: GraphOS.Protocol.MCPImplementation]
+  plug :match
+  plug Plug.Parsers, parsers: [:urlencoded, :json], json_decoder: Jason
+  plug :fetch_query_params # Ensure query params are parsed before forwarding
+  plug :dispatch
 
-   # Define the pipeline
-    plug Plug.Parsers, parsers: [:urlencoded, :json], # Add :json parser
-                       json_decoder: Jason # Specify Jason as the decoder
-    # plug Plug.Logger, log: :debug
-   plug SSE.ConnectionPlug, @sse_plug_opts
+  # Simple test route
+  get "/ping" do
+    send_resp(conn, 200, "pong")
+  end
 
-  # Forward all requests at the root path (or a specific path like "/mcp") to this pipeline
-  # Note: Adjust path if needed. SSE.ConnectionPlug might handle specific paths internally.
+  # Forward all /sse requests (initial connection) to the dedicated SSE/MCP Plug
+  forward "/sse", to: SSE.ConnectionPlug
+
+  # Forward /rpc/:session_id requests (subsequent messages) to the same plug
+  forward "/rpc/:session_id", to: SSE.ConnectionPlug
+
+  # Catch-all for other requests
   match _ do
     # Log any request that falls through the pipeline (wasn't handled by SSE.ConnectionPlug)
     require Logger
-    Logger.warn("Unhandled request received: #{inspect conn.method} #{inspect conn.request_path} Query: #{inspect conn.query_string}")
+    Logger.warning("Unhandled request received: #{inspect conn.method} #{inspect conn.request_path} Query: #{inspect conn.query_string}")
     # Optionally inspect headers or body if needed for debugging
     # Logger.debug("Unhandled request headers: #{inspect conn.req_headers}")
 

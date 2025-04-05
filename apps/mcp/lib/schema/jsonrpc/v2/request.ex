@@ -60,4 +60,12 @@ defmodule JSONRPC.V2.Request do
       "additionalProperties" => false
     }
   end
+
+  def validate(message) do
+    if ExJsonSchema.Validator.valid?(schema(), message) do
+      {:ok, message}
+    else
+      {:error, "Invalid message format"}
+    end
+  end
 end

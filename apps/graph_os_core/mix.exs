@@ -86,10 +86,10 @@ defmodule GraphOS.Core.MixProject do
         # Core functionality
         GraphOS.Core,
         GraphOS.Core.CodeGraph,
-        GraphOS.Core.Executable,
+        # GraphOS.Core.Executable, # Removed - Module does not exist
         GraphOS.Core.AccessControl,
         GraphOS.Core.GitIntegration,
-        GraphOS.Core.SystemInfo,
+        # GraphOS.Core.SystemInfo, # Removed - Module does not exist
         # Connection and Graph functionality
         GraphOS.Conn,
         GraphOS.ConnSupervisor,

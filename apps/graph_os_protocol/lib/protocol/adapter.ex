@@ -38,8 +38,11 @@ defmodule GraphOS.Protocol.Adapter do
     * `{:error, reason}` - Failed to start the adapter
   """
   @spec start_link(module(), keyword()) :: {:ok, pid()} | {:error, term()}
-  def start_link(adapter_module, opts) do
-    GraphAdapter.start_link(Keyword.put(opts, :adapter, adapter_module))
+  def start_link(_adapter_module, _opts) do
+    # GraphAdapter.start_link(Keyword.put(opts, :adapter, adapter_module))
+    # TODO: This delegation is incorrect as GraphAdapter doesn't exist or is inaccessible.
+    # Protocol adapters need to handle their own process starting.
+    {:error, :not_implemented}
   end
 
   @doc """
@@ -66,8 +69,11 @@ defmodule GraphOS.Protocol.Adapter do
           timeout :: non_neg_integer() | :infinity
         ) ::
           {:ok, term()} | {:error, term()}
-  def execute(adapter, operation, context \\ nil, timeout \\ 5000) do
-    GraphAdapter.execute(adapter, operation, context, timeout)
+  def execute(_adapter, _operation, _context \\ nil, _timeout \\ 5000) do
+    # GraphAdapter.execute(adapter, operation, context, timeout)
+    # TODO: This delegation is incorrect as GraphAdapter doesn't exist or is inaccessible.
+    # Protocol adapters need to handle their own execution dispatch.
+    {:error, :not_implemented}
   end
 
   @doc """
@@ -98,16 +104,15 @@ defmodule GraphOS.Protocol.Adapter do
   """
   defmacro __using__(_opts) do
     quote do
-      use GraphOS.Adapter.StoreAdapte
+      # Removed: 'use GraphOS.Adapter.GraphAdapter' as it doesn't exist / is incorrect here.
+      # Protocol adapters define their own behaviour or use standard GenServer.
 
       # Import common functionality
       import GraphOS.Protocol.Adapter, only: [execute: 3, execute: 4]
 
-      # Define start_link function
-      @spec start_link(keyword()) :: {:ok, pid()} | {:error, term()}
-      def start_link(opts) do
-        GraphOS.Protocol.Adapter.start_link(__MODULE__, opts)
-      end
+      # Removed automatic start_link definition from macro.
+      # Protocol adapters should define their own start_link if needed,
+      # likely using GenServer.start_link directly.
     end
   end
 end

@@ -13,8 +13,11 @@ defmodule MCP.Application do
     Logger.info("Starting MCP application")
 
     children = [
-      # Start the SSE connection registry as a GenServer
-      {SSE.ConnectionRegistry, []},
+      # Start the Registry for SSE connections using the correct name
+      {Registry, keys: :unique, name: SSE.ConnectionRegistry},
+
+      # Start a DynamicSupervisor for SSE Connection Handlers
+      {DynamicSupervisor, strategy: :one_for_one, name: MCP.SSE.ConnectionSupervisor},
 
       # Start Finch for HTTP requests
       {Finch, name: MCP.Finch}

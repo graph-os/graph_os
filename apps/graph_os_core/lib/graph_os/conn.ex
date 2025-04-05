@@ -5,6 +5,7 @@ defmodule GraphOS.Conn do
   """
 
   use GenServer
+  require Logger
 
   @type t :: %__MODULE__{
           id: String.t(),
@@ -99,9 +100,11 @@ defmodule GraphOS.Conn do
 
   def handle_call({:subscribe, topic, opts}, _from, state) do
     # Add self() as subscriber if not specified
-    opts = Keyword.put_new(opts, :subscriber, self())
+    subscriber = self()
+    # TODO: Determine the correct store_name for this connection
+    store_name = :default_graph_store
 
-    case GraphOS.Store.Subscription.subscribe(topic, opts) do
+    case GraphOS.Store.SubscriptionManager.subscribe(store_name, subscriber, topic, opts) do
       {:ok, subscription_id} ->
         {:reply, {:ok, subscription_id},
          %{state | subscriptions: [subscription_id | state.subscriptions]}}
@@ -112,7 +115,10 @@ defmodule GraphOS.Conn do
   end
 
   def handle_call({:unsubscribe, subscription_id}, _from, state) do
-    case GraphOS.Store.Subscription.unsubscribe(subscription_id) do
+    # TODO: Determine the correct store_name for this connection
+    store_name = :default_graph_store
+
+    case GraphOS.Store.SubscriptionManager.unsubscribe(store_name, subscription_id) do
       :ok ->
         {:reply, :ok, %{state | subscriptions: List.delete(state.subscriptions, subscription_id)}}
 
@@ -161,6 +167,12 @@ defmodule GraphOS.Conn do
 
   # Private Functions
 
+  # Alias core modules needed for dispatch
+  # TODO: Verify these modules exist and contain the expected functions
+  alias GraphOS.Core.FileSystem
+  # alias GraphOS.Core.SystemCommand # Example for other modules
+  alias GraphOS.Store.SubscriptionManager
+
   defp generate_connection_id do
     :crypto.strong_rand_bytes(16) |> Base.url_encode64(padding: false)
   end
@@ -184,9 +196,105 @@ defmodule GraphOS.Conn do
     {:ok, %{state | state: :connected}}
   end
 
-  defp handle_connected_message(_message, state) do
-    # Handle messages from connected clients
-    # This is where you'll implement your message handling logic
+  # Handles messages received when the connection state is :connected
+  # Dispatches query and action operations.
+  defp handle_connected_message({:query, path, params}, state) do
+    # Placeholder: Get actor_id from assigns (replace with real auth later)
+    actor_id = Map.get(state.assigns, :actor_id)
+
+    result =
+      if actor_id do
+        # Dispatch query based on path
+        case path do
+          "filesystem.read" ->
+            case Map.fetch(params, "path") do
+              {:ok, file_path} ->
+                # FileSystem.read(actor_id, file_path, params)
+                {:error, {:not_implemented, "FileSystem.read"}} # Placeholder result
+              :error ->
+                {:error, {:missing_param, "path"}}
+            end
+
+          "filesystem.list" ->
+             case Map.fetch(params, "path") do
+              {:ok, dir_path} ->
+                # FileSystem.list(actor_id, dir_path, params)
+                {:error, {:not_implemented, "FileSystem.list"}} # Placeholder result
+              :error ->
+                {:error, {:missing_param, "path"}}
+            end
+          # Add more query paths here...
+          _ ->
+            {:error, {:unknown_path, path}}
+        end
+      else
+        # Actor ID not found - handle unauthorized
+        {:error, :unauthorized}
+      end
+
+    # Send result back via transport if available
+    send_response({:query_result, path, result}, state)
+
+    # Return :ok to handle_cast
     {:ok, state}
+  end
+
+  defp handle_connected_message({:action, path, params}, state) do
+    # Placeholder: Get actor_id from assigns (replace with real auth later)
+    actor_id = Map.get(state.assigns, :actor_id)
+
+    result =
+      if actor_id do
+        # Dispatch action based on path
+        case path do
+          "filesystem.write" ->
+            with {:ok, file_path} <- Map.fetch(params, "path"),
+                 {:ok, content} <- Map.fetch(params, "content") do
+              # FileSystem.write(actor_id, file_path, content, params)
+              {:error, {:not_implemented, "FileSystem.write"}} # Placeholder result
+            else
+              :error -> {:error, {:missing_param, "path or content"}}
+            end
+
+          # Add more action paths here...
+          _ ->
+            {:error, {:unknown_path, path}}
+        end
+      else
+        # Actor ID not found - handle unauthorized
+        {:error, :unauthorized}
+      end
+
+    # Send result back via transport if available
+    send_response({:action_result, path, result}, state)
+
+    # Return :ok to handle_cast
+    {:ok, state}
+  end
+
+  # Fallback for unknown message formats when connected
+  defp handle_connected_message(unknown_message, state) do
+    # Log the unknown message
+    Logger.warning("Received unknown message format in GraphOS.Conn: #{inspect(unknown_message)}")
+    # Send error back? Depends on protocol requirements.
+    send_response({:error, :invalid_message_format}, state)
+    {:ok, state} # Keep the connection alive
+  end
+
+  # Helper to send response via transport if available
+  defp send_response(response_message, %{transport: transport} = state) when not is_nil(transport) do
+    # TODO: Verify this is the correct way to send messages back via transport
+    # The transport module might need a specific function or format.
+    # Assuming transport module implements send_message/2 for now.
+    case transport.send_message(response_message, state) do
+      :ok -> :ok
+      {:error, reason} -> Logger.error("Failed to send response via transport: #{inspect(reason)}")
+    end
+  rescue
+    e -> Logger.error("Error sending response via transport: #{inspect(e)}")
+  end
+  defp send_response(_response_message, %{transport: nil}) do
+    # No transport configured for this connection
+    :ok
   end
 end

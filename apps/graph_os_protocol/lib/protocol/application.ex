@@ -14,8 +14,8 @@ defmodule GraphOS.Protocol.Application do
 
     # Define the children for the main supervisor
     children = [
-      # SSE.ConnectionRegistry is started by the :mcp application dependency
-      # {SSE.ConnectionRegistry, []},
+      # SSE.ConnectionRegistry should be started by the :mcp application dependency
+      # {SSE.ConnectionRegistry, []}, # Do not start it explicitly here
       # Start Bandit, telling it to use our Router plug
       {Bandit, plug: GraphOS.Protocol.Router, port: port}
     ]

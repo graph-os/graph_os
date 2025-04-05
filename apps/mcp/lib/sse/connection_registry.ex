@@ -1,209 +1,110 @@
 defmodule SSE.ConnectionRegistry do
   @moduledoc """
-  Registry for SSE connections.
+  API wrapper for the SSE Connection Registry.
 
-  This module provides a registry for managing SSE connections and their associated
-  state data. It allows looking up connections by session ID.
+  This module provides functions to interact with the Registry process
+  started by the MCP application supervisor, which manages SSE connection state.
   """
+  require Logger
 
-  use GenServer
-
-  @registry_name __MODULE__
-
-  # Client API
+  # This is the name given to the Registry in MCP.Application
+  @registry_name SSE.ConnectionRegistry
 
   @doc """
-  Starts the connection registry.
+  Registers a connection with the given session ID and initial data.
+  The `session_id` is used as the key.
+  Initial data should include `%{handler_pid: pid, plug_pid: pid}`.
   """
-  def start_link(_) do
-    # Use start_link/3 with :ignore_already_started option
-    GenServer.start_link(__MODULE__, :ok, name: {:global, @registry_name})
-  end
-
-  @doc """
-  Gets the registry process, starting it if needed.
-  """
-  def get_registry do
-    case :global.whereis_name(@registry_name) do
-      :undefined ->
-        {:error, :not_started}
-      pid ->
-        {:ok, pid}
-    end
-  end
-
-  @doc """
-  Registers a connection with the given session ID.
-
-  ## Parameters
-
-  * `session_id` - The session ID for the connection
-  * `conn_pid` - The PID of the connection process
-  * `data` - Additional data to associate with the connection
-  """
-  def register(session_id, conn_pid, data \\ %{}) do
-    SSE.log(:debug, "Registering connection",
+  def register(session_id, initial_data \\ %{}) do
+    Logger.debug("Registering session in registry", [
+      registry: @registry_name,
       session_id: session_id,
-      pid: inspect(conn_pid)
-    )
-    with {:ok, pid} <- get_registry() do
-      GenServer.call(pid, {:register, session_id, conn_pid, data})
-    end
+      data: inspect(initial_data)
+    ])
+    # Register using session_id as the key and the data map as the value
+    # Also monitor the handler_pid from the initial_data
+    handler_pid = Map.get(initial_data, :handler_pid)
+    if handler_pid, do: Process.monitor(handler_pid)
+    Registry.register(@registry_name, session_id, initial_data)
   end
 
   @doc """
-  Unregisters a connection with the given session ID.
-
-  ## Parameters
-
-  * `session_id` - The session ID for the connection
+  Unregisters a connection by session ID.
   """
   def unregister(session_id) do
-    SSE.log(:debug, "Unregistering connection", session_id: session_id)
-    with {:ok, pid} <- get_registry() do
-      GenServer.call(pid, {:unregister, session_id})
-    end
+    Logger.debug("Unregistering session", [
+       registry: @registry_name,
+       session_id: session_id
+    ])
+    Registry.unregister(@registry_name, session_id)
   end
 
   @doc """
-  Looks up a connection by session ID.
-
-  ## Parameters
-
-  * `session_id` - The session ID to look up
-
-  ## Returns
-
-  * `{:ok, {pid, data}}` - If the connection is found
-  * `{:error, :not_found}` - If the connection is not found
+  Looks up connection data by session ID.
+  Returns `{:ok, data}` or `:error`. Note: Registry.lookup returns a list.
   """
   def lookup(session_id) do
-    with {:ok, pid} <- get_registry() do
-      GenServer.call(pid, {:lookup, session_id})
-    end
+     case Registry.lookup(@registry_name, session_id) do
+       [{_pid, data}] -> {:ok, data} # Extract data from the first match
+       [] -> {:error, :not_found}
+     end
   end
 
   @doc """
-  Updates the data for a connection.
-
-  ## Parameters
-
-  * `session_id` - The session ID for the connection
-  * `data` - The new data for the connection
+  Updates the data for a registered session ID.
+  Merges the `new_data` map with the existing data.
+  Returns `:ok` or `:error`. Note: Registry.update_value returns boolean.
   """
-  def update_data(session_id, data) do
-    SSE.log(:debug, "Updating connection data",
+  def update_data(session_id, new_data) do
+    Logger.debug("Updating session data", [
+      registry: @registry_name,
       session_id: session_id,
-      data: inspect(data, pretty: true)
-    )
-    with {:ok, pid} <- get_registry() do
-      GenServer.call(pid, {:update_data, session_id, data})
-    end
+      new_data: inspect(new_data)
+    ])
+    # Use Registry.update_value/3 to update the data map associated with the session_id key
+    # The function should return the new merged map.
+    result = Registry.update_value(@registry_name, session_id, fn existing_data ->
+      Map.merge(existing_data || %{}, new_data)
+    end)
+
+    # Convert boolean result from update_value to :ok/:error tuple for consistency
+    if result, do: :ok, else: {:error, :update_failed_or_not_found}
   end
 
   @doc """
-  Returns a list of all registered connections.
-
-  ## Returns
-
-  * `[{session_id, {pid, data}}]` - List of all registered connections
+  Returns a list of all registered session IDs.
   """
-  def list_connections do
-    with {:ok, pid} <- get_registry() do
-      GenServer.call(pid, :list_connections)
-    end
+  def list_connections() do
+    Registry.keys(@registry_name, self()) # `self()` is arbitrary for keys
   end
 
   @doc """
-  Returns a map of all active sessions.
-
-  ## Returns
-
-  * `%{session_id => {pid, data}}` - Map of all sessions
+  Returns a map of all active sessions (session_id => data).
   """
-  def list_sessions do
-    # Get the state directly from the registry
-    case get_registry() do
-      {:ok, pid} ->
-        GenServer.call(pid, :list_sessions)
-
-      _ ->
-        %{} # Return empty map if registry not available
-    end
+  def list_sessions() do
+     Registry.select(@registry_name, [{{:_, :_, :_}, [], [:"$_"]}])
+     |> Enum.into(%{}, fn {key, value} -> {key, value} end) # Key is session_id, value is data map
   end
 
-  # Server callbacks
-
-  @impl true
-  def init(:ok) do
-    Process.flag(:trap_exit, true)
-    {:ok, %{}}
+  @doc """
+  Finds a handler PID based on a value in its metadata (e.g., plug_pid).
+  WARNING: This performs a linear scan and can be slow with many connections.
+  """
+  def find_by_metadata(key, value) do
+    sessions = list_sessions() # Gets %{session_id => data}
+    Enum.find_value(sessions, fn {_session_id, data} ->
+      if Map.get(data, key) == value, do: {:ok, Map.get(data, :handler_pid)}, else: nil
+    end) || {:error, :not_found}
   end
 
-  @impl true
-  def handle_call({:register, session_id, conn_pid, data}, _from, state) do
-    Process.monitor(conn_pid)
-    new_state = Map.put(state, session_id, {conn_pid, data})
-    {:reply, :ok, new_state}
-  end
-
-  @impl true
-  def handle_call({:unregister, session_id}, _from, state) do
-    new_state = Map.delete(state, session_id)
-    {:reply, :ok, new_state}
-  end
-
-  @impl true
-  def handle_call({:lookup, session_id}, _from, state) do
-    case Map.fetch(state, session_id) do
-      {:ok, value} -> {:reply, {:ok, value}, state}
-      :error -> {:reply, {:error, :not_found}, state}
-    end
-  end
-
-  @impl true
-  def handle_call({:update_data, session_id, data}, _from, state) do
-    case Map.fetch(state, session_id) do
-      {:ok, {pid, _old_data}} ->
-        new_state = Map.put(state, session_id, {pid, data})
-        {:reply, :ok, new_state}
-
-      :error ->
-        {:reply, {:error, :not_found}, state}
-    end
-  end
-
-  @impl true
-  def handle_call(:list_connections, _from, state) do
-    connections = Enum.map(state, fn {session_id, {pid, data}} ->
-      {session_id, pid, data}
-    end)
-    {:reply, connections, state}
-  end
-
-  @impl true
-  def handle_call(:list_sessions, _from, state) do
-    {:reply, state, state}
-  end
-
-  @impl true
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
-    # Find the session ID for this PID and remove it
-    session_id = Enum.find_value(state, fn {sid, {conn_pid, _data}} ->
-      if conn_pid == pid, do: sid, else: nil
-    end)
-
-    if session_id do
-      SSE.log(:debug, "Connection process down, unregistering", session_id: session_id)
-      new_state = Map.delete(state, session_id)
-      {:noreply, new_state}
-    else
-      {:noreply, state}
-    end
-  end
-
-  @impl true
-  def terminate(_reason, _state) do
-    :ok
+  @doc """
+  Finds metadata based on a value in it (e.g., plug_pid).
+  WARNING: This performs a linear scan and can be slow with many connections.
+  """
+  def find_metadata_by(key, value) do
+     sessions = list_sessions() # Gets %{session_id => data}
+     Enum.find_value(sessions, fn {_session_id, data} ->
+       if Map.get(data, key) == value, do: {:ok, data}, else: nil
+     end) || {:error, :not_found}
   end
 end

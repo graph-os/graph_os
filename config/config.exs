@@ -8,14 +8,17 @@
 # configurations or dependencies per app, it is best to
 # move said applications out of the umbrella.
 
+import Config
+
 # This file is responsible for configuring your application
 # and its dependencies with the aid of the Config module.
+
+# Configure the MCP message handler implementation
+config :mcp,
+  message_handler_module: GraphOS.Protocol.MCPImplementation
 #
 # This configuration file is loaded before any dependency and
 # is restricted to this project.
-
-import Config
-
 
 # Configure esbuild (the version is required)
 config :esbuild,
@@ -43,8 +46,20 @@ config :tailwind,
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
   metadata: [
-    :request_id, :session_id, :params, :prompt_id, :resource_id, :tool_name, :arguments,
-    :cursor, :limit, :protocol_version, :client_capabilities, :method, :errors, :error
+    :request_id,
+    :session_id,
+    :params,
+    :prompt_id,
+    :resource_id,
+    :tool_name,
+    :arguments,
+    :cursor,
+    :limit,
+    :protocol_version,
+    :client_capabilities,
+    :method,
+    :errors,
+    :error
   ]
 
 # Use Jason for JSON parsing in Phoenix
