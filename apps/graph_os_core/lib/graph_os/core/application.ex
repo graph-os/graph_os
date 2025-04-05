@@ -7,7 +7,14 @@ defmodule GraphOS.Core.Application do
 
   @impl true
   def start(_type, _args) do
-    children = []
+    children = [
+      # Start the Action Registry Agent (for metadata)
+      {GraphOS.Action.Registry, []},
+      # Start the Action PID Store Agent (for execution_id -> pid mapping)
+      {GraphOS.Action.PidStore, []},
+      # Start the Action Runner Supervisor
+      {GraphOS.Action.Supervisor, []}
+    ]
 
     # Add CodeGraph Service if enabled
     children =

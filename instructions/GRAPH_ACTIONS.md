@@ -1,301 +1,168 @@
-# GraphOS.GraphContext.Action
+# GraphOS Action Execution System
 
-This document describes the GraphOS.GraphContext.Action system, a standardized approach for defining component actions in GraphOS.
+This document describes the `GraphOS.Action` system, the standardized approach for defining and executing operations on GraphOS graph nodes (entities).
 
 ## Overview
 
-GraphOS.GraphContext.Action provides a consistent pattern for defining reusable, declarative graph operations. Actions encapsulate business logic that operates on the graph, with standardized parameter handling, validation, and execution patterns.
+The `GraphOS.Action` system provides a centralized mechanism for handling the execution lifecycle of operations requested on graph nodes. It integrates argument validation, asynchronous execution management, authorization via `GraphOS.Access`, and standardized interaction patterns.
 
-The Action system combines the strengths of Elixir's Plug pattern with GraphOS's graph-centric architecture, creating a familiar yet powerful interface for component developers.
+Actions are initiated within the context of an authenticated `GraphOS.Conn` process, typically by calling an `execute/3` function on the module representing the target graph node type (e.g., `GraphOS.Core.FileSystem.File`). This function resolves the target node, determines the operation, and then calls the `GraphOS.Action` service to orchestrate the execution.
 
 ## Principles
 
-1. **Declarative Transactions**: Actions define graph operations declaratively
-2. **Protocol Independence**: Actions are protocol-agnostic, usable with any adapter
-3. **Standardized Interfaces**: Actions follow consistent patterns for parameters and returns
-4. **Self-Documentation**: Actions document their input/output requirements
-5. **Reusability**: Actions can be composed and shared across components
+1.  **Node-Centric Execution:** Actions are operations performed *on* specific graph nodes (entities). Execution is dispatched via an `execute/3` function within the node's module, which is responsible for resolving the target node entity.
+2.  **Centralized Orchestration:** The `GraphOS.Action` module provides a central service (`request_execution`) for handling validation, authorization (using a pre-resolved `scope_id`), and managing the asynchronous execution lifecycle via `GraphOS.Action.Runner` processes.
+3.  **Metadata-Driven:** Action capabilities (input requirements for specific operations) are defined declaratively using metadata (e.g., `@action_meta`).
+4.  **Discoverable:** Available actions/operations and their metadata can potentially be registered and queried (details TBD).
+5.  **Asynchronous by Default:** Actions are executed asynchronously. A `wait` option allows callers to synchronously await completion up to a timeout.
+6.  **Integrated Security:** Authorization (`GraphOS.Access.authorize`) is performed by `GraphOS.Action.request_execution` using the caller's `Actor` ID (from `GraphOS.Conn`) and the `scope_id` (typically the target node's ID) provided by the calling `execute/3` function.
+7.  **Protocol Agnostic:** The core execution logic is independent of the specific protocol (`GraphOS.Protocol` adapter) that initiated the request via `GraphOS.Conn`.
 
 ## Implementation
 
-### GraphOS.GraphContext.Action Module
+### Defining Actions in Node Modules
 
-The core `GraphOS.GraphContext.Action` module provides a behavior and macros for defining actions:
-
-```elixir
-defmodule GraphOS.GraphContext.Action do
-  @moduledoc """
-  Defines a behavior for reusable, declarative graph actions.
-  """
-  
-  @callback init(opts :: Keyword.t()) :: map()
-  @callback call(conn :: map(), params :: map(), opts :: map()) :: 
-    {:ok, result :: any()} | {:error, reason :: any()}
-  
-  defmacro __using__(_opts) do
-    quote do
-      import GraphOS.GraphContext.Action, only: [action: 1, action: 2]
-      @behaviour GraphOS.GraphContext.Action
-      @actions %{}
-      @before_compile GraphOS.GraphContext.Action
-      
-      @impl true
-      def init(opts), do: opts
-    end
-  end
-  
-  # Implementation details for compiling and registering actions
-end
-```
-
-### Defining Actions
-
-Component actions are defined in a dedicated module using the `action/1` or `action/2` macro:
+Actions are handled within the module representing the graph node type (e.g., `GraphOS.Core.FileSystem.File`). The primary entry point is typically an `execute/3` function which resolves the node and delegates to `GraphOS.Action`. Metadata for specific operations can be attached using `@action_meta`.
 
 ```elixir
-defmodule GraphOS.Components.SystemInfo.Actions do
-  use GraphOS.GraphContext.Action
-  
-  # Define actions with metadata
-  action :set_hostname, input: [:hostname], output: :system_info
-  action :get_system_info
-  
-  @impl true
-  def call(conn, params, %{action: :set_hostname}) do
-    # Implementation for set_hostname action
-    with {:ok, hostname} <- Map.fetch(params, "hostname") do
-      # Define transaction declaratively
-      transaction = %GraphOS.GraphContext.Transaction{
-        operations: [
-          %GraphOS.GraphContext.Operation{
-            type: :action,
-            path: "system.hostname.set",
-            params: %{hostname: hostname}
-          }
-        ]
-      }
-      
-      # Execute transaction
-      GraphOS.GraphContext.execute(transaction)
-    else
-      :error -> {:error, {:missing_param, "hostname"}}
-    end
-  end
-  
-  def call(conn, _params, %{action: :get_system_info}) do
-    # Query implementation
-    GraphOS.GraphContext.query(%{
-      path: "system.info",
-      params: %{}
-    })
-  end
-end
-```
+# Example: apps/graph_os_core/lib/graph_os/core/file_system/file.ex
+defmodule GraphOS.Core.FileSystem.File do
+  use GraphOS.Entity.Node # Make this module a graph node entity
 
-## Integration with Components
+  alias GraphOS.Conn
+  alias GraphOS.Core.FileSystem # Parent Graph module for queries
 
-Actions are integrated into the component structure:
+  require GraphOS.Action.Behaviour
+  Module.register_attribute(__MODULE__, :action_meta, accumulate: true, persist: true)
 
-```
-apps/graph_os_core/lib/graph_os/
-  components/
-    component_name/
-      schema.proto          # Protocol Buffers schema
-      schema.ex             # Schema module
-      component.ex          # Main component implementation
-      actions.ex            # Pre-defined actions
-      controller.ex         # HTTP/RPC controller
-      grpc.ex               # gRPC adapter
-      jsonrpc.ex            # JSON-RPC adapter
-      mcp.ex                # MCP adapter
-    component_name.ex       # Public API
-```
-
-The main component module delegates to the Actions module:
-
-```elixir
-defmodule GraphOS.Components.SystemInfo do
-  alias GraphOS.Components.SystemInfo.Actions
-  
-  # Delegate to Actions module
-  defdelegate set_hostname(conn, params), to: Actions
-  defdelegate get_system_info(conn, params), to: Actions
-  
-  # Registry information
-  def __graphos_component__ do
-    %{
-      name: "system_info",
-      schema_module: GraphOS.Components.SystemInfo.Schema,
-      actions_module: GraphOS.Components.SystemInfo.Actions,
-      actions: [:set_hostname, :get_system_info],
-      queries: [:system_info]
+  # --- Action Metadata ---
+  @action_meta {:read, %{
+    description: "Reads the content of this file.",
+    input_schema: %{
+      "type" => "object",
+      "properties" => %{
+        "path" => %{"type" => "string", "description" => "Absolute path (target identifier)"}
+        # No other args needed for read
+      },
+      "required" => ["path"] # Path needed if node not resolved yet
     }
-  end
-end
-```
+  }}
+  @action_meta {:write, %{
+    description: "Writes content to this file.",
+    input_schema: %{
+      "type" => "object",
+      "properties" => %{
+        "path" => %{"type" => "string", "description" => "Absolute path (target identifier)"},
+        "content" => %{"type" => "string", "description" => "Content to write"}
+      },
+      "required" => ["path", "content"]
+    }
+  }}
 
-## Protocol Adapters
-
-Actions work seamlessly with different protocol adapters:
-
-### HTTP Controllers
-
-```elixir
-defmodule GraphOS.Components.SystemInfo.Controller do
-  use Phoenix.Controller
-  
-  alias GraphOS.Components.SystemInfo.Actions
-  
-  def set_hostname(conn, params) do
-    case Actions.set_hostname(conn, params) do
-      {:ok, system_info} ->
-        conn |> put_status(200) |> json(system_info)
+  # --- Execution Entry Point ---
+  def execute(conn, payload, opts \\ []) do
+    case resolve_node_and_operation(conn, payload) do
+      {:ok, node, operation_atom, operation_args, meta} ->
+        # Node resolved, use its ID as scope_id
+        scope_id = node.id
+        # Delegate to Action Service
+        GraphOS.Action.request_execution(conn, scope_id, __MODULE__, operation_atom, operation_args, meta, opts)
       {:error, reason} ->
-        conn |> put_status(400) |> json(%{error: reason})
+        {:error, reason}
     end
   end
-end
-```
 
-### JSON-RPC Adapter
+  # --- Node Resolution Logic (Example) ---
+  defp resolve_node_and_operation(conn, {%__MODULE__{} = node, operation_atom, operation_args}) when is_atom(operation_atom) do
+     meta = get_operation_meta(operation_atom)
+     {:ok, node, operation_atom, operation_args, meta}
+  end
+  defp resolve_node_and_operation(conn, %{"path" => path, "action" => op_string} = payload) do
+     args = Map.get(payload, "args", %{})
+     with {:ok, node} <- FileSystem.get_by_path(conn, path), # Query Graph
+          {:ok, operation_atom} <- parse_operation_atom(op_string) do
+        meta = get_operation_meta(operation_atom)
+        # Ensure path is in args for do_operation
+        operation_args = Map.put_new(args, "path", path)
+        {:ok, node, operation_atom, operation_args, meta}
+     else
+       err -> err # Pass along errors like :not_found or :invalid_operation_atom
+     end
+  end
+  # ... other resolve clauses for ID, etc. ...
+  defp resolve_node_and_operation(_conn, _payload), do: {:error, :invalid_payload_format}
 
-```elixir
-defmodule GraphOS.Components.SystemInfo.JSONRPC do
-  def handle_request("system.info.set_hostname", params, context) do
-    GraphOS.Components.SystemInfo.Actions.set_hostname(context, params)
+  defp get_operation_meta(:read), do: @read_meta
+  defp get_operation_meta(:write), do: @write_meta
+  defp get_operation_meta(_), do: %{}
+
+  defp parse_operation_atom(s) when is_binary(s), do: String.to_existing_atom(s) |> (&({:ok, &1})).() rescue ArgumentError -> :error
+  defp parse_operation_atom(_), do: :error
+
+  # --- Internal Implementation Functions (called by Runner) ---
+   @doc false
+  def do_read(args) do
+    path = Map.fetch!(args, "path")
+    # Actual file reading logic with error handling
+    File.read(path)
+  end
+
+  @doc false
+  def do_write(args) do
+    path = Map.fetch!(args, "path")
+    content = Map.fetch!(args, "content")
+    # Actual file writing logic with error handling
+    File.write(path, content)
   end
 end
 ```
 
-### gRPC Adapter
+**`@action_meta` Keys (Associated with Operation Atom):**
 
-```elixir
-defmodule GraphOS.Components.SystemInfo.GRPC do
-  def handle_SetHostname(request, context) do
-    params = %{"hostname" => request.hostname}
-    
-    case GraphOS.Components.SystemInfo.Actions.set_hostname(context, params) do
-      {:ok, result} -> 
-        # Convert to protobuf response
-        SystemInfoResponse.new(
-          id: result.id,
-          hostname: result.hostname,
-          # other fields...
-        )
-      {:error, reason} ->
-        # Handle error
-    end
-  end
-end
-```
+*   `:input_schema` (Required): A map representing the JSON Schema for the `args` map passed to `handle_action/4` for this specific operation. Used for validation by `GraphOS.Action.request_execution`.
+*   `:description` (Optional): A string describing the operation's purpose.
+*   *(Optional)* `:scope_deriver`: No longer used by `GraphOS.Action`. Scope resolution happens in the node module's `execute/3` function before calling `request_execution`.
 
-## Component Registry Integration
+### Action Registration
 
-The component registry discovers and manages actions:
+Registration mechanisms (TBD) would likely focus on making the node's `execute/3` function or the specific operations it supports discoverable, potentially storing the associated `@action_meta` in the `GraphOS.Action.Registry`.
 
-```elixir
-defmodule GraphOS.Components.Registry do
-  # Get all actions for a component
-  def component_actions(component_name) do
-    with %{info: info} <- component(component_name),
-         actions_module when not is_nil(actions_module) <- Map.get(info, :actions_module) do
-      actions_module.__actions__()
-    else
-      _ -> %{}
-    end
-  end
-  
-  # Execute an action by name
-  def execute_action(component_name, action_name, conn, params) do
-    with %{info: info} <- component(component_name),
-         actions_module when not is_nil(actions_module) <- Map.get(info, :actions_module) do
-      apply(actions_module, action_name, [conn, params])
-    else
-      _ -> {:error, :action_not_found}
-    end
-  end
-end
-```
+### `GraphOS.Action` Runtime (Core Module)
 
-## Convention-based Routing
+Located within the `graph_os_core` application, this provides the central orchestration service.
 
-The Action system enables convention-based routing:
+*   **`GraphOS.Action.Supervisor`:** Manages `GraphOS.Action.Runner` processes using `DynamicSupervisor`.
+*   **`GraphOS.Action.Runner` (GenServer):** Handles the execution of a single action instance. It receives the target module, operation atom, and arguments. It calls the corresponding `do_operation` function (e.g., `TargetModule.do_read(args)`) and manages the execution state (pending, running, completed, failed) and results/errors.
+*   **`GraphOS.Action` API:**
+    *   `request_execution(conn, scope_id, target_module, operation_atom, args, meta, opts \\ [])`:
+        1.  Validates `args` against `meta[:input_schema]`.
+        2.  Authorizes `conn.actor_id` against the provided `scope_id` using `GraphOS.Access.authorize(actor_id, :execute, scope_id)`.
+        3.  If authorized, starts a `GraphOS.Action.Runner` via the `Supervisor`, passing `target_module`, `operation_atom`, and `args`.
+        4.  Handles the `opts[:wait]` logic:
+            *   If `wait > 0`, attempts to synchronously get the result from the `Runner` within the timeout using `Runner.get_status_sync/2`. Returns `{:ok, status_map}` on completion/failure within timeout, or `{:ok, execution_id}` on timeout.
+            *   If `wait <= 0`, returns `{:ok, execution_id}` immediately after starting the runner.
+        5.  Returns `{:error, reason}` if validation or authorization fails, or if the runner fails to start.
+    *   `get_status(execution_id)`: Queries the corresponding `Runner` GenServer for its current state, result, or error. Useful for polling actions that didn't complete within the `wait` timeout.
+    *   *(Potentially)* `list_actions(...)`: Queries the registry for discoverable actions/operations.
 
-```elixir
-defmodule GraphOS.Protocol.Router do
-  def route_request(path, params, conn) do
-    # Parse path like "component_name.action_name"
-    [component_name, action_name] = String.split(path, ".", parts: 2)
-    action_name = String.to_atom(action_name)
-    
-    GraphOS.Components.Registry.execute_action(
-      component_name, 
-      action_name, 
-      conn, 
-      params
-    )
-  end
-end
-```
+### Security Integration (`GraphOS.Access`)
+
+*   Execution of any action requires the caller (`conn.actor_id`) to have the standard `:execute` permission on the target resource.
+*   The target resource's scope ID (`scope_id`, typically the node ID) is determined by the node module's `execute/3` function (via graph queries) *before* calling `GraphOS.Action.request_execution`.
+*   The permission check (`GraphOS.Access.authorize(actor_id, :execute, scope_id)`) is performed by `GraphOS.Action.request_execution` using the provided `scope_id`. This `scope_id` must correspond to a manageable scope within the `GraphOS.Access` policy graph.
+*   `GraphOS.Access` global permission defaults are respected.
 
 ## Benefits
 
-1. **Minimal Token Usage**: Reduces the tokens needed to interact with GraphOS
-2. **Consistent Pattern**: Provides a familiar interface for Elixir developers
-3. **Protocol Agnostic**: Works with any communication protocol
-4. **Self-Documented**: Actions document their input/output requirements
-5. **Graph-Centric**: All state is maintained in the graph
-6. **Composable**: Actions can be combined into complex workflows
-7. **Discoverable**: Actions are registered and discoverable
-
-## Examples
-
-### Basic Action Usage
-
-```elixir
-# Direct usage
-{:ok, system_info} = GraphOS.Components.SystemInfo.set_hostname(conn, %{"hostname" => "new-host"})
-
-# Via Registry
-{:ok, system_info} = GraphOS.Components.Registry.execute_action(
-  "system_info", 
-  :set_hostname, 
-  conn, 
-  %{"hostname" => "new-host"}
-)
-```
-
-### JSON-RPC Request
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "graph.action.system_info.set_hostname",
-  "params": {
-    "hostname": "new-host"
-  }
-}
-```
-
-### GraphQL Interface (Future)
-
-```graphql
-mutation {
-  systemInfo {
-    setHostname(hostname: "new-host") {
-      id
-      hostname
-      uptime
-    }
-  }
-}
-```
+*   Clear association of actions with the graph nodes they operate on.
+*   Leverages `GraphOS.Conn` and `Actor` context for initiation and authorization.
+*   Centralized orchestration (`GraphOS.Action`) for validation, security, and async lifecycle management.
+*   Standardized metadata (`@action_meta`) for input validation and description.
+*   Flexible asynchronous execution with optional synchronous waiting (`wait` option).
+*   Integrates cleanly with `GraphOS.Access` for permission checks against target resources.
 
 ## Future Enhancements
 
-1. **Action Pipelines**: Compose multiple actions into pipelines
-2. **Middleware**: Add middleware for cross-cutting concerns
-3. **Action Validation**: Automatic parameter validation based on schemas
-4. **GraphQL Integration**: Generate GraphQL schema from actions
-5. **Documentation Generation**: Auto-generate API documentation from actions
+*   Action pipelines/workflows.
+*   Middleware for action execution.
+*   Automatic documentation generation from metadata.

@@ -23,7 +23,8 @@ defmodule GraphOS.Protocol.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger, :mcp, :plug], # Ensure :plug is loaded too
+      # Add :graph_os_core here to ensure it's loaded, especially for test compilation
+      extra_applications: [:logger, :mcp, :plug, :graph_os_core],
       mod: {GraphOS.Protocol.Application, []}
     ]
   end

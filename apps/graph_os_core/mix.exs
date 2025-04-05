@@ -42,6 +42,9 @@ defmodule GraphOS.Core.MixProject do
       {:boundary, "~> 0.9", runtime: false},
       {:gen_stage, "~> 1.2"},
       {:uuid, "~> 1.1"},
+      {:jason, "~> 1.4"}, # Added for JSON handling
+      {:ex_json_schema, "~> 0.10.0"}, # Corrected package name and version for input validation
+      {:mox, "~> 1.0", only: :test}, # Added for mocking in tests
       {:ex_doc, "~> 0.29", only: :dev, runtime: false}
     ]
   end
